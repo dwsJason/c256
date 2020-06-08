@@ -114,6 +114,7 @@ upl lda >0                  ; packed length
     plb
     rtl
 
+* Brutal Deluxe LZ4 Unpacker for the Apple IIgs
 *-------------------------------------------------------------------------------
 ASM_LZ4_Unpack   STA  LZ4_Literal_3+1   ; Uncompress a LZ4 Packed Data buffer (64 KB max)
                  SEP  #$20              ; A = Bank Src,Bank Dst
