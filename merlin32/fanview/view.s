@@ -20,7 +20,20 @@ pCLUT   = $04
 pINIT   = $08
 pFRAMES = $0C
 
+; General Work Pointer
 pData = $10
+
+; Header Info
+i16Version      = $70
+i32FileLength   = $72
+i32EOF_Address  = $76
+i32FrameCount   = $7A
+i16Width        = $7E
+i16Height       = $80
+
+
+
+
 
 ; Eventually Player will sit in the direct page
 
@@ -42,16 +55,25 @@ start   ent             ; make sure start is visible outside the file
 
         ; Setup the pointer
         lda     #FANM_Data
-        sta     pData
-        lda     #^FANM_Data
-        sta     pData+2
+        ldx     #^FANM_Data
+        jsr     fanmInit
+        bcc     :isGood
 
+        jsr     myPUTS  ; Should return with an "error" code
 
+        ldx     #PleaseLoad
+        jsr     myPUTS
+]end
+        bra     ]end
 
+:isGood
 
-
-
-
+        ldx     #SeemsGood
+        jsr     myPUTS
+end
+        bra     end
+SeemsGood asc 'Seems Good'
+        db 13,0
 
 *
 * int LZ4_Unpack(u8* pDest, u8* pPackedSource);
@@ -114,7 +136,6 @@ upl lda >0                  ; packed length
     plb
     rtl
 
-* Brutal Deluxe LZ4 Unpacker for the Apple IIgs
 *-------------------------------------------------------------------------------
 ASM_LZ4_Unpack   STA  LZ4_Literal_3+1   ; Uncompress a LZ4 Packed Data buffer (64 KB max)
                  SEP  #$20              ; A = Bank Src,Bank Dst
@@ -192,14 +213,9 @@ LZ4_GetLength_3  ADC  LZ4_GetLength_2+1
 LZ4_End          TYA                    ; A = Length of Unpack Data
                  RTS
 *-------------------------------------------------------------------------------
-
-
-
-
-
-end
-        bra     end
-
+;
+; Put DP back at zero while calling out to PUTS
+;
 myPUTS  mx %00
         phd
         lda #0
@@ -207,7 +223,7 @@ myPUTS  mx %00
         jsl PUTS
         pld
         rts
-
+;---------------------------------------------------
 ; --- Space For Stuff I don't care that it's big
 
 init    mx %00
@@ -225,6 +241,119 @@ CheckingText asc 'Checking for FANM at $010000'
 
 VersionText asc 'Foenix ANim View - Version 0.01'
         db 13,0
+
+PleaseLoad asc 'Please load a Valid FAN file, at $010000'
+        db 13,0
+
+InvalidHeader asc 'Invalid FAN Header Block'
+        db 13,0
+
+;-------------------------------------------------------------------------------
+;
+;  AX = Pointer to the compressed Anim Data File
+;
+;  This should be Bank Aligned for the player
+;  For the Chunk Finder, alignment doesn't matter
+;
+fanmInit mx %00
+        sta     pData
+        stx     pData+2
+
+        jsr     fanmParseHeader
+        bcc     :isGood
+        ldx     #InvalidHeader
+        rts
+
+:isGood
+        rts
+
+;-------------------------------------------------------------------------------
+; Direct Page Location
+; pData should be pointing at the Header
+;
+;	char 			f,a,n,m;  // 'F','A','N','M'
+;	unsigned char	version;  // 0x00 or 0x80 for Tiled
+;	short			width;	  // In pixels
+;	short			height;	  // In pixels
+;	unsigned int 	file_length;  // In bytes, including the 16 byte header
+;
+;	unsigned short	frame_count;	// 3 bytes for the frame count
+;	unsigned char   frame_count_high;
+;
+fanmParseHeader mx %00
+
+        ; Check for 'FANM'
+        lda [pData]
+        cmp #$4146      ; 'AF'
+        bne :BadHeader
+        ldy #2
+
+        lda [pData],y
+        cmp #$4D4E      ; 'MN'
+        iny
+        iny
+
+        ; Look at the File Version
+        lda [pData],y
+        iny
+        and #$ff
+        sta i16Version
+        and #$7f
+        bne :BadHeader  ; only version zero is acceptable
+
+        ; Get the width and height
+        lda [pData],y
+        sta i16Width
+        iny
+        iny
+        lda [pData],y
+        sta i16Height
+        iny
+        iny
+
+        ; Copy out FileLength
+        lda [pData],y
+        sta i32FileLength
+        iny
+        iny
+        lda [pData],y
+        sta i32FileLength+2
+        iny
+        iny
+
+        ; Compute the end of file address
+        clc
+        lda pData
+        adc i32FileLength
+        sta i32EOF_Address
+        lda pData+2
+        adc i32FileLength+2
+        sta i32EOF_Address+2
+        bcs :BadHeader          ; overflow on memory address
+
+        ; Frame Count
+        stz i32FrameCount+2
+        lda [pData],y
+        sta i32FrameCount
+        iny
+        lda [pData],y
+        sta i32FrameCount+1
+        iny
+        iny
+
+        ; c=0
+        tya
+        adc pData
+        sta pData
+        lda #0
+        adc pData+2
+        sta pData+2
+        ; c=0 mean's there's no error
+        rts
+
+:BadHeader
+        sec     ; c=1 means there's an error
+        rts
 
 
 
