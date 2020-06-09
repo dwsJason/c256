@@ -80,13 +80,60 @@ start   ent             ; make sure start is visible outside the file
         ldx     #SeemsGood
         jsr     myPUTS
 
+        ; See if we can't get our display mode setup right
+
+
 
 ;	PushLong #penguin_lz4
 ;	PushLong #$E12000       ; Graphic Color Palette 0
 ;	jsl LZ4_Unpack
 
-        jsr     fanmLoadCLUT
-;        jsr     fanmLoadINIT
+        lda     #$80
+        stal    $AF0000
+
+        lda     #$F
+        stal    $AF0000
+
+        lda     #1
+        stal    $AF0140
+        lda     #0
+        stal    $AF0142
+
+        sta     $AF0004
+        sta     $AF0008  ; zero border
+
+        lda     #640
+        stal    $AF0144
+        lda     #480
+        stal    $AF0146
+
+        lda     #0
+        stal    $B00000
+        stal    $B10000
+        stal    $B20000
+        stal    $B30000
+        stal    $B40000
+        tax  ;src
+        tay  ;dst
+        iny
+        dec  ;len
+        lda #$ffff
+        mvn     $B0,$B0
+        lda #$ffff
+        mvn     $B1,$B1
+        lda #$ffff
+        mvn     $B2,$B2
+        lda #$ffff
+        mvn     $B3,$B3
+        lda #$ffff
+        mvn     $B4,$B4
+
+        phk
+        plb
+
+        ;jsr     fanmLoadCLUT
+        ;jsr     fanmLoadINIT
+
 
 end
         bra     end
@@ -153,7 +200,9 @@ upl lda >0                  ; packed length
 
     plb
     rtl
-
+;
+; Unpacker By Brutal Deluxe
+;
 *-------------------------------------------------------------------------------
 ASM_LZ4_Unpack   STA  LZ4_Literal_3+1   ; Uncompress a LZ4 Packed Data buffer (64 KB max)
                  SEP  #$20              ; A = Bank Src,Bank Dst
@@ -276,6 +325,87 @@ MissingFrames asc 'No FRAMes Chunk found'
         db 13,0
 
 ;-------------------------------------------------------------------------------
+; pINIT
+;
+; Input:  pINIT on the DP Should point to the INITial Frame
+;
+;
+fanmLoadINIT mx %00
+
+:numBlobs = temp0
+:pSrc    = temp1
+:pDest   = temp2
+
+FrameBuffer = $B00000
+
+        lda #<FrameBuffer
+        sta :pDest
+        lda #^FrameBuffer
+        sta :pDest+2
+        
+        lda     LZ4_Limit ; preserve the CPX
+        pha
+        lda     #$C0      ; change to CPY
+        sta     LZ4_Limit
+
+        clc
+        lda pINIT
+        adc #9
+        sta :pSrc
+        lda pINIT+2
+        adc #0
+        sta :pSrc+2
+
+        ldy #8
+        lda [pINIT],y
+        and #$FF
+        sta :numBlobs
+
+]loop
+        ; For Each Blob
+        lda [:pSrc]
+        tay             ; decompress finish address
+
+        ;-- move src by 2 bytes
+        clc
+        lda :pSrc
+        adc #2
+        sta :pSrc
+        lda :pSrc+2
+        adc #0
+        sta :pSrc+2
+        ;----
+
+        ldx #0   ; Always going decompress starting at 0
+
+        sep #$20
+        lda :pSrc+2
+        xba
+        lda :pDest+2
+        rep #$30
+
+        jsr ASM_LZ4_Unpack
+
+        inc :pDest+2
+
+        cpx :pSrc
+        stx :pSrc
+        bcc :dobank
+        beq :dobank
+        bra :blobs
+
+:dobank
+        inc :pSrc+2
+:blobs
+        dec :numBlobs
+        bne ]loop
+
+        pla
+        sta     LZ4_Limit
+
+        rts
+
+;-------------------------------------------------------------------------------
 ;
 ; pCLUT
 ;
@@ -301,10 +431,33 @@ fanmLoadCLUT mx %00
         
         bpl :uncompressed
 
+        inc
+        asl
+        asl             ; colors times 4 + palette address
+        adc     #$2000  ; compute end address on target
+        tay
+
         ; LZ4 Compressed
         ; Oh no, the data has no header, want to use the
         ; I only know the uncompressed length version of the function
+        lda     pCLUT
+        adc     #10
+        tax     ; Source
 
+        lda     #$2000
+        sta     LZ4_Dst+1
+
+        lda     LZ4_Limit ; preserve the CPX
+        pha
+        lda     #$C0      ; change to CPY
+        sta     LZ4_Limit
+
+        ;lda #$SSDD ; banks
+        lda     #$01AF
+        jsr     ASM_LZ4_Unpack
+
+        pla
+        sta     LZ4_Limit
 
         rts
 
@@ -313,16 +466,16 @@ fanmLoadCLUT mx %00
         asl
         asl
         dec
-        tay
+        tay     ; length - 1
         
-        lda     pClut
+        lda     pCLUT
         adc     #10
         tax     ; Source
 
-        tya
-        ldy     #<$AF2000
+        tya     ; length
+        ldy     #<$AF2000  ; Destination
                 
-        mvn     ^$010000,^$AF2000
+        mvn     ^$010000,^$AF2000    ; src,dest
 
         phk
         plb
