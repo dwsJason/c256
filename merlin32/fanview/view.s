@@ -32,7 +32,14 @@ i16Width        = $7E
 i16Height       = $80
 
 
-
+temp0           = $e0
+temp1           = $e4
+temp2           = $e8
+temp3           = $ec
+temp4           = $f0
+temp5           = $f4
+temp6           = $f8
+temp7           = $fc
 
 
 ; Eventually Player will sit in the direct page
@@ -248,6 +255,15 @@ PleaseLoad asc 'Please load a Valid FAN file, at $010000'
 InvalidHeader asc 'Invalid FAN Header Block'
         db 13,0
 
+MissingClut asc 'No CLUT found'
+        db 13,0
+
+MissingInit asc 'No INITial Frame Data found'
+        db 13,0
+
+MissingFrames asc 'No FRAMes Chunk found'
+        db 13,0
+
 ;-------------------------------------------------------------------------------
 ;
 ;  AX = Pointer to the compressed Anim Data File
@@ -265,6 +281,127 @@ fanmInit mx %00
         rts
 
 :isGood
+        ; Now pData is supposed to be pointed at the first chunk
+        ; And data should be moved out of the header and into the DP
+        lda     #'CL'
+        ldx     #'UT'
+        jsr     FindChunk
+        sta     pCLUT
+        stx     pCLUT+2
+
+        ora     pCLUT+2
+        bne     :hasClut
+
+        ldx     #MissingClut
+        sec
+        rts
+
+:hasClut
+        lda     #'IN'
+        ldx     #'IT'
+        jsr     FindChunk
+        sta     pINIT
+        stx     pINIT+2
+
+        ora     pINIT+2
+        bne     :hasInit
+
+        ldx     #MissingInit
+        sec
+        rts
+
+:hasInit
+
+        lda     #'FR'
+        ldx     #'AM'
+        jsr     FindChunk
+        sta     pFRAMES
+        stx     pFRAMES+2
+
+        ora     pFRAMES+2
+        bne     :hasFrames
+
+        ldx     #MissingFrames
+        sec
+        rts
+
+:hasFrames
+        ; c=0 everything is good
+        clc
+        rts
+;-------------------------------------------------------------------------------
+;
+;  FindChunk
+;       Inputs:  pData            (pointer to first chunk in the file)
+;                i32EOF_Address   (first RAM address past the end of the file)
+;
+;        AX     'ABCD' - Chunk Name to Find
+;
+;  Return:  AX   - Pointer to the Chunk
+;
+FindChunk mx    %00
+
+:pWork  = temp0
+:pName  = temp1
+:EOF    = i32EOF_Address
+:size   = temp2
+
+        sta :pName
+        stx :pName+2
+
+        lda pData
+        sta :pWork
+        lda pData+2
+        sta :pWork+2
+
+;  while :pWork < :EOF
+]loop
+        lda :pWork+2
+        cmp :EOF+2
+        bcc :continue  ; blt
+        bne :nullptr   ; bgt
+        lda :pWork
+        cmp :EOF
+        bcs :nullptr   ; bge
+:continue
+        lda [:pWork]
+        cmp :pName
+        bne :nextChunk
+        ldy #2
+        lda [:pWork],y
+        cmp :pName+2
+        bne :nextChunk
+
+        ; Match found, return with the address
+        lda :pWork
+        ldx :pWork+2
+        rts
+
+:nextChunk
+        ldy #4
+        lda [:pWork],y
+        sta :size
+        iny
+        iny
+        lda [:pWork],y
+        sta :size+2
+
+        ; Move pWork to the next Chunk
+        clc
+        lda :pWork
+        adc :size
+        sta :pWork
+        lda :pWork+2
+        adc :size+2
+        sta :pWork+2
+        
+        bra ]loop
+
+:nullptr
+        ; Return nullptr
+        lda #0
+        tax
+
         rts
 
 ;-------------------------------------------------------------------------------
@@ -284,12 +421,12 @@ fanmParseHeader mx %00
 
         ; Check for 'FANM'
         lda [pData]
-        cmp #$4146      ; 'AF'
+        cmp #'FA'       ;$4146
         bne :BadHeader
         ldy #2
 
         lda [pData],y
-        cmp #$4D4E      ; 'MN'
+        cmp #'NM'       ;$4D4E 
         iny
         iny
 
