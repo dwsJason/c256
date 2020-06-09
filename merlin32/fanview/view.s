@@ -4,6 +4,8 @@
         rel     ; relocatable
         lnk     Main.l
 
+        use Util.Macs
+
         mx %00
 
 ; Kernel method
@@ -77,6 +79,15 @@ start   ent             ; make sure start is visible outside the file
 
         ldx     #SeemsGood
         jsr     myPUTS
+
+
+;	PushLong #penguin_lz4
+;	PushLong #$E12000       ; Graphic Color Palette 0
+;	jsl LZ4_Unpack
+
+        jsr     fanmLoadCLUT
+;        jsr     fanmLoadINIT
+
 end
         bra     end
 SeemsGood asc 'Seems Good'
@@ -263,6 +274,60 @@ MissingInit asc 'No INITial Frame Data found'
 
 MissingFrames asc 'No FRAMes Chunk found'
         db 13,0
+
+;-------------------------------------------------------------------------------
+;
+; pCLUT
+;
+; Input:  pClut on the DP should point to the CLUT Chunk
+;
+;  For now, whatever there is for a clut will just go
+;  to Graphic Mode Palette 0,  $AF2000
+;
+;	char		  c,l,u,t;		// 'C','L','U','T'
+;	unsigned int  chunk_length; // in bytes, including the 8 bytes header of this chunk
+;	unsigned short num_colors;  // number of colors-1, 1-16384 colors
+;                                   // %1000_0000_0000_0000, Hi-Bit set indicates
+;                                   // LZ4 compression
+;                                   // otherwise memcpy (4 * (num_colors+1))
+; 
+fanmLoadCLUT mx %00
+        
+;	PushLong #penguin_lz4
+;	PushLong #$E12000       ; Graphic Color Palette 0
+;	jsl LZ4_Unpack
+        ldy #8                  ; skip up to num_colors
+        lda [pCLUT]
+        
+        bpl :uncompressed
+
+        ; LZ4 Compressed
+        ; Oh no, the data has no header, want to use the
+        ; I only know the uncompressed length version of the function
+
+
+        rts
+
+:uncompressed
+        inc
+        asl
+        asl
+        dec
+        tay
+        
+        lda     pClut
+        adc     #10
+        tax     ; Source
+
+        tya
+        ldy     #<$AF2000
+                
+        mvn     ^$010000,^$AF2000
+
+        phk
+        plb
+
+        rts
 
 ;-------------------------------------------------------------------------------
 ;
