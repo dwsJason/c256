@@ -15,7 +15,8 @@ PUTS = $00101C         ; Print a string to the currently selected channel
 FANM_Data = $10000
 
 ;-------------------------------------------------------------------------------
-MyDP = $1F00
+; $2000-$7FFF Available in current kernel
+MyDP = $2000
 
 pHeader = $00
 pCLUT   = $04
@@ -89,44 +90,63 @@ start   ent             ; make sure start is visible outside the file
 ;	jsl LZ4_Unpack
 
         lda     #$80
+        stal    $AF0000  ; display off
+
+        lda     #$00FF
+        stal    $AF2000
+        lda     #$0000
+        stal    $AF2002
+
+        ; Clear 4 Palettes worth of colors
+        ldy     #<$AF2004  ; Destination
+        ldx     #<$AF2000
+        lda     #{1023*4}-1
+                
+        mvn     ^$AF2000,^$AF2004    ; src,dest
+
+        phk
+        plb
+
+        ; graphics + bitmap on
+        lda     #$C     ; graph + bitmap
         stal    $AF0000
 
-        lda     #$F
-        stal    $AF0000
+        ; no border
+        lda     #0
+        stal    $AF0004  ; border control
 
+        ; bitmap on
         lda     #1
         stal    $AF0140
+        ; bitmap at address 0 (0xB00000)
         lda     #0
         stal    $AF0142
-
-        sta     $AF0004
-        sta     $AF0008  ; zero border
 
         lda     #640
         stal    $AF0144
         lda     #480
         stal    $AF0146
 
-        lda     #0
+        ; Fill Frame Buffer with Color index 1
+        lda     #$0101
         stal    $B00000
         stal    $B10000
         stal    $B20000
         stal    $B30000
         stal    $B40000
-        tax  ;src
-        tay  ;dst
-        iny
-        dec  ;len
-        lda #$ffff
+        ldx     #$0000 ;src
+        ldy     #$0002 ;dst
+        lda     #$fffd
         mvn     $B0,$B0
-        lda #$ffff
-        mvn     $B1,$B1
-        lda #$ffff
-        mvn     $B2,$B2
-        lda #$ffff
-        mvn     $B3,$B3
-        lda #$ffff
-        mvn     $B4,$B4
+
+        ;lda #$ffff
+        ;mvn     $B1,$B1
+        ;lda #$ffff
+        ;mvn     $B2,$B2
+        ;lda #$ffff
+        ;mvn     $B3,$B3
+        ;lda #$ffff
+        ;mvn     $B4,$B4
 
         phk
         plb
@@ -172,7 +192,7 @@ pPackedSource equ 9
     sta upl+1
 	
 upl lda >0                  ; packed length
-	adc #16 				; 16 bytes for packed buffer header
+    adc #16 				; 16 bytes for packed buffer header
     adc pPackedSource,s 	; start of packed buffer
     tay                     ; y has the pack data stop address
 	
@@ -627,10 +647,12 @@ FindChunk mx    %00
 ; pData should be pointing at the Header
 ;
 ;	char 			f,a,n,m;  // 'F','A','N','M'
+;
+;	unsigned int 	file_length;  // In bytes, including the 16 byte header
+;
 ;	unsigned char	version;  // 0x00 or 0x80 for Tiled
 ;	short			width;	  // In pixels
 ;	short			height;	  // In pixels
-;	unsigned int 	file_length;  // In bytes, including the 16 byte header
 ;
 ;	unsigned short	frame_count;	// 3 bytes for the frame count
 ;	unsigned char   frame_count_high;
@@ -645,24 +667,6 @@ fanmParseHeader mx %00
 
         lda [pData],y
         cmp #'NM'       ;$4D4E 
-        iny
-        iny
-
-        ; Look at the File Version
-        lda [pData],y
-        iny
-        and #$ff
-        sta i16Version
-        and #$7f
-        bne :BadHeader  ; only version zero is acceptable
-
-        ; Get the width and height
-        lda [pData],y
-        sta i16Width
-        iny
-        iny
-        lda [pData],y
-        sta i16Height
         iny
         iny
 
@@ -685,6 +689,25 @@ fanmParseHeader mx %00
         adc i32FileLength+2
         sta i32EOF_Address+2
         bcs :BadHeader          ; overflow on memory address
+
+
+        ; Look at the File Version
+        lda [pData],y
+        iny
+        and #$ff
+        sta i16Version
+        and #$7f
+        bne :BadHeader  ; only version zero is acceptable
+
+        ; Get the width and height
+        lda [pData],y
+        sta i16Width
+        iny
+        iny
+        lda [pData],y
+        sta i16Height
+        iny
+        iny
 
         ; Frame Count
         stz i32FrameCount+2
