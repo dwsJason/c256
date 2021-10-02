@@ -1,0 +1,15 @@
+;
+; This ORG File tells omf2hex where in memory to load each segment
+;
+.alignment org $100
+.autopack  org $10000
+
+RESET org $FFFC
+Main  org $2100
+lzsa  org $10200
+; 02 has the MIXFIFO
+; 03 has Volume tables
+magic org $40200
+data0 org $90000
+data1 org $100000
+
