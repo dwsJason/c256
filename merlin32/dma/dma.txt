@@ -1,0 +1,54 @@
+@everyone  Sorry to Bother
+Okay, this is important message for anybody who has been using the SDMA -> VDMA
+transfer. For some reasons, the problem comes up on the U but never did on the
+FMX. Anyway, the deal is when you are doing a SDMA to VDMA, because the CPU
+takes 100% of the bandwidth, when the transfer takes place, the CPU is halted.
+The SDMA goes and fetch the data and then when all the data is fetched, the CPU
+is released. This part works fine, the part that I have been having issues on
+the U, is the fact that when the SDMA part is done, it doesn't necessarily
+means that the VDMA part is done. Since they are very much asynchronous and the
+fact that remainder of the DATA in the FIFO might linger on till the time is
+right to go write that Data and that can take a little of time before it
+happens.
+So, bottom line, that means that before you can begin a new transfer, you need
+to make sure the old one is done. So, either you poll the Status Register bit 7
+of the VDMA or you wait for an Interrupt to happen to let you know that it is
+finished.
+Like I said, I am talking about this now because I never really had any issues
+like this before... So, for the concept of having a Kosher way of doing things
+and also for the sake of compatibility with the U in the future. Always make
+sure that when you are doing a SDMA to VDMA that the Flag is reseted before
+beginning a new one. Cheers!
+
+Below and example of how it should be done:
+; Begin Transfer
+        ; Start the VDMA Controller First
+        LDA VDMA_CONTROL_REG
+        ORA #VDMA_CTRL_Start_TRF
+        STA @l VDMA_CONTROL_REG
+
+        ; Then, Start the SDMA Controller
+
+        LDA SDMA_CTRL_REG0
+        ORA #SDMA_CTRL0_Start_TRF
+        STA @l SDMA_CTRL_REG0
+        NOP ; When the transfer is started the CPU will be put on Hold (RDYn)...
+        NOP ; Before it actually gets to stop it will execute a couple more instructions
+        NOP ; From that point on, the CPU is halted (keep that in mind) No IRQ will be processed either during that time
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+
+        LDA #$00
+        STA @l SDMA_CTRL_REG0
+
+NOTFINISHED:
+        LDA @l VDMA_STATUS_REG
+        AND #$80
+        CMP #$80
+        BEQ NOTFINISHED
+       LDA #$00
+        STA @l VDMA_CONTROL_REG 
+

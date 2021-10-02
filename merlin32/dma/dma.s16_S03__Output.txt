@@ -1,0 +1,467 @@
+------+----------------------------------+-------------+----+---------+------+-----------------------+----------------------------------------------------------------------
+ Line | # File                      Line | Line Type   | MX |  Reloc  | Size | Address   Object Code |  Source Code
+------+----------------------------------+-------------+----+---------+------+-----------------------+----------------------------------------------------------------------
+    1 |  1 decompress_v2_fast.asm      1 | Comment     | 11 |         |    0 | 00/0000               | ; -----------------------------------------------------------------------------
+    2 |  1 decompress_v2_fast.asm      2 | Comment     | 11 |         |    0 | 00/0000               | ; Decompress raw LZSA2 block.
+    3 |  1 decompress_v2_fast.asm      3 | Comment     | 11 |         |    0 | 00/0000               | ; Create one with lzsa -r -f2 <original_file> <compressed_file>
+    4 |  1 decompress_v2_fast.asm      4 | Comment     | 11 |         |    0 | 00/0000               | ;
+    5 |  1 decompress_v2_fast.asm      5 | Comment     | 11 |         |    0 | 00/0000               | ; in:
+    6 |  1 decompress_v2_fast.asm      6 | Comment     | 11 |         |    0 | 00/0000               | ; * sourcePtr contains the compressed raw block address
+    7 |  1 decompress_v2_fast.asm      7 | Comment     | 11 |         |    0 | 00/0000               | ; * destPtr contains the destination buffer address
+    8 |  1 decompress_v2_fast.asm      8 | Comment     | 11 |         |    0 | 00/0000               | ;
+    9 |  1 decompress_v2_fast.asm      9 | Comment     | 11 |         |    0 | 00/0000               | ; Backward decompression is not supported
+   10 |  1 decompress_v2_fast.asm     10 | Comment     | 11 |         |    0 | 00/0000               | ; -----------------------------------------------------------------------------
+   11 |  1 decompress_v2_fast.asm     11 | Comment     | 11 |         |    0 | 00/0000               | ;
+   12 |  1 decompress_v2_fast.asm     12 | Comment     | 11 |         |    0 | 00/0000               | ;  Copyright (C) 2019-2021 Emmanuel Marty, Peter Ferrie, Ian Brumby
+   13 |  1 decompress_v2_fast.asm     13 | Comment     | 11 |         |    0 | 00/0000               | ;
+   14 |  1 decompress_v2_fast.asm     14 | Comment     | 11 |         |    0 | 00/0000               | ;  This software is provided 'as-is', without any express or implied
+   15 |  1 decompress_v2_fast.asm     15 | Comment     | 11 |         |    0 | 00/0000               | ;  warranty.  In no event will the authors be held liable for any damages
+   16 |  1 decompress_v2_fast.asm     16 | Comment     | 11 |         |    0 | 00/0000               | ;  arising from the use of this software.
+   17 |  1 decompress_v2_fast.asm     17 | Comment     | 11 |         |    0 | 00/0000               | ;
+   18 |  1 decompress_v2_fast.asm     18 | Comment     | 11 |         |    0 | 00/0000               | ;  Permission is granted to anyone to use this software for any purpose,
+   19 |  1 decompress_v2_fast.asm     19 | Comment     | 11 |         |    0 | 00/0000               | ;  including commercial applications, and to alter it and redistribute it
+   20 |  1 decompress_v2_fast.asm     20 | Comment     | 11 |         |    0 | 00/0000               | ;  freely, subject to the following restrictions:
+   21 |  1 decompress_v2_fast.asm     21 | Comment     | 11 |         |    0 | 00/0000               | ;
+   22 |  1 decompress_v2_fast.asm     22 | Comment     | 11 |         |    0 | 00/0000               | ;  1. The origin of this software must not be misrepresented; you must not
+   23 |  1 decompress_v2_fast.asm     23 | Comment     | 11 |         |    0 | 00/0000               | ;     claim that you wrote the original software. If you use this software
+   24 |  1 decompress_v2_fast.asm     24 | Comment     | 11 |         |    0 | 00/0000               | ;     in a product, an acknowledgment in the product documentation would be
+   25 |  1 decompress_v2_fast.asm     25 | Comment     | 11 |         |    0 | 00/0000               | ;     appreciated but is not required.
+   26 |  1 decompress_v2_fast.asm     26 | Comment     | 11 |         |    0 | 00/0000               | ;  2. Altered source versions must be plainly marked as such, and must not be
+   27 |  1 decompress_v2_fast.asm     27 | Comment     | 11 |         |    0 | 00/0000               | ;     misrepresented as being the original software.
+   28 |  1 decompress_v2_fast.asm     28 | Comment     | 11 |         |    0 | 00/0000               | ;  3. This notice may not be removed or altered from any source distribution.
+   29 |  1 decompress_v2_fast.asm     29 | Comment     | 11 |         |    0 | 00/0000               | ; -----------------------------------------------------------------------------
+   30 |  1 decompress_v2_fast.asm     30 | Empty       | 11 |         |    0 | 00/0000               |                                                          
+   31 |  1 decompress_v2_fast.asm     31 | Empty       | 11 |         |    0 | 00/0000               |                                                          
+   32 |  1 decompress_v2_fast.asm     32 | Empty       | 00 |         |    0 | 00/0000               | DECOMPRESS_LZSA2                                         ;start
+   33 |  1 decompress_v2_fast.asm     33 | Empty       | 00 |         |    0 | 00/0000               |                                                          
+   34 |  1 decompress_v2_fast.asm     34 | Equivalence | 00 |         |    0 | 00/0000               | MIN_MATCH_SIZE_V2             equ   2                    
+   35 |  1 decompress_v2_fast.asm     35 | Equivalence | 00 |         |    0 | 00/0000               | LITERALS_RUN_LEN_V2           equ   3                    
+   36 |  1 decompress_v2_fast.asm     36 | Equivalence | 00 |         |    0 | 00/0000               | MATCH_RUN_LEN_V2              equ   7                    
+   37 |  1 decompress_v2_fast.asm     37 | Empty       | 00 |         |    0 | 00/0000               |                                                          
+   38 |  1 decompress_v2_fast.asm     38 | Equivalence | 00 |         |    0 | 00/0000               | sourcePtr                     equ   0                    
+   39 |  1 decompress_v2_fast.asm     39 | Equivalence | 00 |         |    0 | 00/0000               | destPtr                       equ   4                    
+   40 |  1 decompress_v2_fast.asm     40 | Equivalence | 00 |         |    0 | 00/0000               | matchPtr                      equ   8                    
+   41 |  1 decompress_v2_fast.asm     41 | Equivalence | 00 |         |    0 | 00/0000               | NIBBLE                        equ   12                   
+   42 |  1 decompress_v2_fast.asm     42 | Equivalence | 00 |         |    0 | 00/0000               | SUB_OFFSET                    equ   14                   
+   43 |  1 decompress_v2_fast.asm     43 | Equivalence | 00 |         |    0 | 00/0000               | TOKEN_WORD                    equ   16                   
+   44 |  1 decompress_v2_fast.asm     44 | Empty       | 00 |         |    0 | 00/0000               |                                                          
+   45 |  1 decompress_v2_fast.asm     45 | Code        | 00 |         |    2 | 00/0000 : 64 0C       |                               stz   {12}                 
+   46 |  1 decompress_v2_fast.asm     46 | Empty       | 00 |         |    0 | 00/0002               |                                                          
+   47 |  1 decompress_v2_fast.asm     47 | Empty       | 00 |         |    0 | 00/0002               | DECODE_TOKEN                                             
+   48 |  1 decompress_v2_fast.asm     48 | Empty       | 00 |         |    0 | 00/0002               |                                                          
+   49 |  1 decompress_v2_fast.asm     49 | Code        | 00 |         |    3 | 00/0002 : A0 01 00    |                               ldy   #1                   
+   50 |  1 decompress_v2_fast.asm     50 | Code        | 00 |         |    2 | 00/0005 : A7 00       |                               lda   [{0}]                ;read token byte: XYZ|LL|MMM
+   51 |  1 decompress_v2_fast.asm     51 | Code        | 00 |         |    2 | 00/0007 : 85 10       |                               sta   {16}                 
+   52 |  1 decompress_v2_fast.asm     52 | Code        | 00 |         |    3 | 00/0009 : 29 18 00    |                               and   #%00011000           ;isolate literals count (LL)
+   53 |  1 decompress_v2_fast.asm     53 | Code        | 00 |         |    2 | 00/000C : F0 78       |                               beq   NO_LITERALS          ;skip if no literals to copy
+   54 |  1 decompress_v2_fast.asm     54 | Code        | 00 |         |    3 | 00/000E : C9 10 00    |                               cmp   #%00010000           
+   55 |  1 decompress_v2_fast.asm     55 | Code        | 00 |         |    2 | 00/0011 : F0 38       |                               beq   COPY_16BIT_LITERAL   
+   56 |  1 decompress_v2_fast.asm     56 | Code        | 00 |         |    3 | 00/0013 : C9 08 00    |                               cmp   #%00001000           
+   57 |  1 decompress_v2_fast.asm     57 | Code        | 00 |         |    2 | 00/0016 : F0 46       |                               beq   COPY_8BIT_LITERAL    
+   58 |  1 decompress_v2_fast.asm     58 | Empty       | 00 |         |    0 | 00/0018               |                                                          
+   59 |  1 decompress_v2_fast.asm     59 | Comment     | 00 |         |    0 | 00/0018               | ;--------------------------------
+   60 |  1 decompress_v2_fast.asm     60 | Code        | 00 |         |    2 | 00/0018 : A5 0C       |                               lda   {12}                 ;get extra literals length nibble
+   61 |  1 decompress_v2_fast.asm     61 | Code        | 00 |         |    2 | 00/001A : 10 08       |                               bpl   GETNIBBLE            
+   62 |  1 decompress_v2_fast.asm     62 | Code        | 00 |         |    3 | 00/001C : 29 0F 00    |                               and   #$0F                 
+   63 |  1 decompress_v2_fast.asm     63 | Code        | 00 |         |    2 | 00/001F : 85 0C       |                               sta   {12}                 
+   64 |  1 decompress_v2_fast.asm     64 | Code        | 00 |         |    1 | 00/0021 : 18          |                               clc                        
+   65 |  1 decompress_v2_fast.asm     65 | Code        | 00 |         |    2 | 00/0022 : 80 0F       |                               bra   GOTNIBBLE            
+   66 |  1 decompress_v2_fast.asm     66 | Empty       | 00 |         |    0 | 00/0024               |                                                          
+   67 |  1 decompress_v2_fast.asm     67 | Empty       | 00 |         |    0 | 00/0024               | GETNIBBLE                                                
+   68 |  1 decompress_v2_fast.asm     68 | Code        | 00 |         |    2 | 00/0024 : A5 11       |                               lda   {16}+1               
+   69 |  1 decompress_v2_fast.asm     69 | Code        | 00 |         |    1 | 00/0026 : C8          |                               iny                        
+   70 |  1 decompress_v2_fast.asm     70 | Code        | 00 |         |    3 | 00/0027 : 09 00 80    |                               ora   #$8000               
+   71 |  1 decompress_v2_fast.asm     71 | Code        | 00 |         |    2 | 00/002A : 85 0C       |                               sta   {12}                 
+   72 |  1 decompress_v2_fast.asm     72 | Code        | 00 |         |    3 | 00/002C : 29 F0 00    |                               and   #$F0                 
+   73 |  1 decompress_v2_fast.asm     73 | Code        | 00 |         |    1 | 00/002F : 4A          |                               lsr                        
+   74 |  1 decompress_v2_fast.asm     74 | Code        | 00 |         |    1 | 00/0030 : 4A          |                               lsr                        
+   75 |  1 decompress_v2_fast.asm     75 | Code        | 00 |         |    1 | 00/0031 : 4A          |                               lsr                        
+   76 |  1 decompress_v2_fast.asm     76 | Code        | 00 |         |    1 | 00/0032 : 4A          |                               lsr                        
+   77 |  1 decompress_v2_fast.asm     77 | Empty       | 00 |         |    0 | 00/0033               |                                                          
+   78 |  1 decompress_v2_fast.asm     78 | Empty       | 00 |         |    0 | 00/0033               | GOTNIBBLE                                                ;add nibble to len from token
+   79 |  1 decompress_v2_fast.asm     79 | Comment     | 00 |         |    0 | 00/0033               | ;--------------------------------
+   80 |  1 decompress_v2_fast.asm     80 | Code        | 00 |         |    3 | 00/0033 : 69 03 00    |                               adc   #{3}                 ;carry is clear
+   81 |  1 decompress_v2_fast.asm     81 | Code        | 00 |         |    3 | 00/0036 : C9 12 00    |                               cmp   #{3}+15              
+   82 |  1 decompress_v2_fast.asm     82 | Code        | 00 |         |    2 | 00/0039 : 90 38       |                               bcc   PREPARE_COPY_LITERALS_DIRECT;if less, literals count is complete
+   83 |  1 decompress_v2_fast.asm     83 | Empty       | 00 |         |    0 | 00/003B               |                                                          
+   84 |  1 decompress_v2_fast.asm     84 | Code        | 00 |         |    2 | 00/003B : B7 00       |                               lda   [{0}],y              
+   85 |  1 decompress_v2_fast.asm     85 | Code        | 00 |         |    1 | 00/003D : C8          |                               iny                        
+   86 |  1 decompress_v2_fast.asm     86 | Code        | 00 |         |    3 | 00/003E : 29 FF 00    |                               and   #$FF                 ;get extra byte of variable literals count. carry is always set.
+   87 |  1 decompress_v2_fast.asm     87 | Code        | 00 |         |    3 | 00/0041 : E9 EE 00    |                               sbc   #$EE                 ;overflow?
+   88 |  1 decompress_v2_fast.asm     88 | Code        | 00 |         |    2 | 00/0044 : B0 29       |                               bcs   PREPARE_COPY_LITERALS_LARGE;if so, literals count is large
+   89 |  1 decompress_v2_fast.asm     89 | Code        | 00 |         |    3 | 00/0046 : 29 FF 00    |                               and   #$FF                 
+   90 |  1 decompress_v2_fast.asm     90 | Code        | 00 |         |    2 | 00/0049 : 80 28       |                               bra   PREPARE_COPY_LITERALS_DIRECT
+   91 |  1 decompress_v2_fast.asm     91 | Empty       | 00 |         |    0 | 00/004B               |                                                          
+   92 |  1 decompress_v2_fast.asm     92 | Empty       | 00 |         |    0 | 00/004B               | COPY_16BIT_LITERAL                                       
+   93 |  1 decompress_v2_fast.asm     93 | Code        | 00 |         |    2 | 00/004B : B7 00       |                               lda   [{0}],y              
+   94 |  1 decompress_v2_fast.asm     94 | Code        | 00 |         |    1 | 00/004D : C8          |                               iny                        
+   95 |  1 decompress_v2_fast.asm     95 | Code        | 00 |         |    1 | 00/004E : C8          |                               iny                        
+   96 |  1 decompress_v2_fast.asm     96 | Code        | 00 |         |    2 | 00/004F : 87 04       |                               sta   [{4}]                
+   97 |  1 decompress_v2_fast.asm     97 | Code        | 00 |         |    2 | 00/0051 : A5 04       |                               lda   {4}                  
+   98 |  1 decompress_v2_fast.asm     98 | Code        | 00 |         |    3 | 00/0053 : 69 01 00    |                               adc   #2-1                 ;carry is set
+   99 |  1 decompress_v2_fast.asm     99 | Code        | 00 |         |    2 | 00/0056 : 85 04       |                               sta   {4}                  
+  100 |  1 decompress_v2_fast.asm    100 | Code        | 00 |         |    2 | 00/0058 : 90 2C       |                               bcc   NO_LITERALS          
+  101 |  1 decompress_v2_fast.asm    101 | Code        | 00 |         |    2 | 00/005A : E6 06       |                               inc   {4}+2                
+  102 |  1 decompress_v2_fast.asm    102 | Code        | 00 |         |    2 | 00/005C : 80 28       |                               bra   NO_LITERALS          
+  103 |  1 decompress_v2_fast.asm    103 | Empty       | 00 |         |    0 | 00/005E               |                                                          
+  104 |  1 decompress_v2_fast.asm    104 | Empty       | 00 |         |    0 | 00/005E               | COPY_8BIT_LITERAL                                        
+  105 |  1 decompress_v2_fast.asm    105 | Directive   | 10 |         |    0 | 00/005E               |                               mx    %10                  
+  106 |  1 decompress_v2_fast.asm    106 | Code        | 10 |         |    2 | 00/005E : E2 20       |                               sep   #$20                 
+  107 |  1 decompress_v2_fast.asm    107 | Code        | 10 |         |    2 | 00/0060 : A5 11       |                               lda   {16}+1               
+  108 |  1 decompress_v2_fast.asm    108 | Code        | 10 |         |    1 | 00/0062 : C8          |                               iny                        
+  109 |  1 decompress_v2_fast.asm    109 | Code        | 10 |         |    2 | 00/0063 : 87 04       |                               sta   [{4}]                
+  110 |  1 decompress_v2_fast.asm    110 | Code        | 00 |         |    2 | 00/0065 : C2 30       |                               rep   #$30                 
+  111 |  1 decompress_v2_fast.asm    111 | Directive   | 00 |         |    0 | 00/0067               |                               mx    %00                  
+  112 |  1 decompress_v2_fast.asm    112 | Code        | 00 |         |    2 | 00/0067 : E6 04       |                               inc   {4}                  
+  113 |  1 decompress_v2_fast.asm    113 | Code        | 00 |         |    2 | 00/0069 : D0 1B       |                               bne   NO_LITERALS          
+  114 |  1 decompress_v2_fast.asm    114 | Code        | 00 |         |    2 | 00/006B : E6 06       |                               inc   {4}+2                
+  115 |  1 decompress_v2_fast.asm    115 | Code        | 00 |         |    2 | 00/006D : 80 17       |                               bra   NO_LITERALS          
+  116 |  1 decompress_v2_fast.asm    116 | Empty       | 00 |         |    0 | 00/006F               |                                                          
+  117 |  1 decompress_v2_fast.asm    117 | Empty       | 00 |         |    0 | 00/006F               | PREPARE_COPY_LITERALS_LARGE                              
+  118 |  1 decompress_v2_fast.asm    118 | Code        | 00 |         |    2 | 00/006F : B7 00       |                               lda   [{0}],y              
+  119 |  1 decompress_v2_fast.asm    119 | Code        | 00 |         |    1 | 00/0071 : C8          |                               iny                        
+  120 |  1 decompress_v2_fast.asm    120 | Code        | 00 |         |    1 | 00/0072 : C8          |                               iny                        
+  121 |  1 decompress_v2_fast.asm    121 | Empty       | 00 |         |    0 | 00/0073               | PREPARE_COPY_LITERALS_DIRECT                             
+  122 |  1 decompress_v2_fast.asm    122 | Code        | 00 |         |    1 | 00/0073 : AA          |                               tax                        
+  123 |  1 decompress_v2_fast.asm    123 | Empty       | 00 |         |    0 | 00/0074               |                                                          
+  124 |  1 decompress_v2_fast.asm    124 | Empty       | 00 |         |    0 | 00/0074               | COPY_LITERALS                                            
+  125 |  1 decompress_v2_fast.asm    125 | Code        | 10 |         |    2 | 00/0074 : E2 20       |                               sep   #$20                 ; short m
+  126 |  1 decompress_v2_fast.asm    126 | Directive   | 10 |         |    0 | 00/0076               |                               mx    %10                  
+  127 |  1 decompress_v2_fast.asm    127 | Code        | 10 |         |    2 | 00/0076 : B7 00       |                               lda   [{0}],y              
+  128 |  1 decompress_v2_fast.asm    128 | Code        | 10 |         |    2 | 00/0078 : 87 04       |                               sta   [{4}]                
+  129 |  1 decompress_v2_fast.asm    129 | Code        | 00 |         |    2 | 00/007A : C2 30       |                               rep   #$30                 ;long	m
+  130 |  1 decompress_v2_fast.asm    130 | Directive   | 00 |         |    0 | 00/007C               |                               mx    %00                  
+  131 |  1 decompress_v2_fast.asm    131 | Code        | 00 |         |    2 | 00/007C : E6 04       |                               inc   {4}                  
+  132 |  1 decompress_v2_fast.asm    132 | Code        | 00 |         |    2 | 00/007E : D0 02       |                               bne   CL2                  
+  133 |  1 decompress_v2_fast.asm    133 | Code        | 00 |         |    2 | 00/0080 : E6 06       |                               inc   {4}+2                
+  134 |  1 decompress_v2_fast.asm    134 | Code        | 00 |         |    1 | 00/0082 : C8          | CL2                           iny                        
+  135 |  1 decompress_v2_fast.asm    135 | Code        | 00 |         |    1 | 00/0083 : CA          |                               dex                        
+  136 |  1 decompress_v2_fast.asm    136 | Code        | 00 |         |    2 | 00/0084 : D0 EE       |                               bne   COPY_LITERALS        
+  137 |  1 decompress_v2_fast.asm    137 | Empty       | 00 |         |    0 | 00/0086               |                                                          
+  138 |  1 decompress_v2_fast.asm    138 | Empty       | 00 |         |    0 | 00/0086               | NO_LITERALS                                              
+  139 |  1 decompress_v2_fast.asm    139 | Code        | 00 |         |    2 | 00/0086 : A5 0F       |                               lda   {16}-1               ;retrieve token again, but put it in the high 8 bits
+  140 |  1 decompress_v2_fast.asm    140 | Code        | 00 |         |    1 | 00/0088 : 0A          |                               asl                        
+  141 |  1 decompress_v2_fast.asm    141 | Code        | 00 |         |    2 | 00/0089 : B0 62       |                               bcs   REPMATCH_OR_LARGE_OFFSET;1YZ: rep-match or 13/16 bit offset
+  142 |  1 decompress_v2_fast.asm    142 | Empty       | 00 |         |    0 | 00/008B               |                                                          
+  143 |  1 decompress_v2_fast.asm    143 | Code        | 00 |         |    1 | 00/008B : 0A          |                               asl                        ;0YZ: 5 or 9 bit offset
+  144 |  1 decompress_v2_fast.asm    144 | Code        | 00 |         |    2 | 00/008C : B0 49       |                               bcs   OFFSET_9_BIT         
+  145 |  1 decompress_v2_fast.asm    145 | Empty       | 00 |         |    0 | 00/008E               |                                                          
+  146 |  1 decompress_v2_fast.asm    146 | Comment     | 00 |         |    0 | 00/008E               | ;--------------------------------
+  147 |  1 decompress_v2_fast.asm    147 | Code        | 00 |         |    1 | 00/008E : 0A          |                               asl                        ;00Z: 5 bit offset
+  148 |  1 decompress_v2_fast.asm    148 | Code        | 00 |         |    2 | 00/008F : 90 24       |                               bcc   OFFSET5_BIT0_SET     
+  149 |  1 decompress_v2_fast.asm    149 | Code        | 00 |         |    2 | 00/0091 : A5 0C       |                               lda   {12}                 
+  150 |  1 decompress_v2_fast.asm    150 | Code        | 00 |         |    2 | 00/0093 : 10 0C       |                               bpl   GETNIBBLE2           
+  151 |  1 decompress_v2_fast.asm    151 | Code        | 00 |         |    3 | 00/0095 : 29 0F 00    |                               and   #$0F                 
+  152 |  1 decompress_v2_fast.asm    152 | Code        | 00 |         |    2 | 00/0098 : 85 0C       |                               sta   {12}                 
+  153 |  1 decompress_v2_fast.asm    153 | Code        | 00 |         |    1 | 00/009A : 0A          |                               asl                        ;nibble -> bits 1-4; 0 -> bit 0
+  154 |  1 decompress_v2_fast.asm    154 | Code        | 00 |         |    3 | 00/009B : 09 E0 FF    |                               ora   #$FFE0               ;set offset bits 15-5 to 1
+  155 |  1 decompress_v2_fast.asm    155 | Code        | 00 |  2      |    3 | 00/009E : 4C 41 01    |                               jmp   GOT_OFFSET           ;go store low byte of match offset and prepare match
+  156 |  1 decompress_v2_fast.asm    156 | Empty       | 00 |         |    0 | 00/00A1               |                                                          
+  157 |  1 decompress_v2_fast.asm    157 | Empty       | 00 |         |    0 | 00/00A1               | GETNIBBLE2                                               
+  158 |  1 decompress_v2_fast.asm    158 | Code        | 00 |         |    2 | 00/00A1 : B7 00       |                               lda   [{0}],y              
+  159 |  1 decompress_v2_fast.asm    159 | Code        | 00 |         |    1 | 00/00A3 : C8          |                               iny                        
+  160 |  1 decompress_v2_fast.asm    160 | Code        | 00 |         |    3 | 00/00A4 : 09 00 80    |                               ora   #$8000               
+  161 |  1 decompress_v2_fast.asm    161 | Code        | 00 |         |    2 | 00/00A7 : 85 0C       |                               sta   {12}                 
+  162 |  1 decompress_v2_fast.asm    162 | Code        | 00 |         |    3 | 00/00A9 : 29 F0 00    |                               and   #$F0                 
+  163 |  1 decompress_v2_fast.asm    163 | Code        | 00 |         |    1 | 00/00AC : 4A          |                               lsr                        
+  164 |  1 decompress_v2_fast.asm    164 | Code        | 00 |         |    1 | 00/00AD : 4A          |                               lsr                        
+  165 |  1 decompress_v2_fast.asm    165 | Code        | 00 |         |    1 | 00/00AE : 4A          |                               lsr                        ;nibble -> bits 1-4; 0 -> bit 0
+  166 |  1 decompress_v2_fast.asm    166 | Code        | 00 |         |    3 | 00/00AF : 09 E0 FF    |                               ora   #$FFE0               ;set offset bits 15-5 to 1
+  167 |  1 decompress_v2_fast.asm    167 | Code        | 00 |  2      |    3 | 00/00B2 : 4C 41 01    |                               jmp   GOT_OFFSET           ;go store low byte of match offset and prepare match
+  168 |  1 decompress_v2_fast.asm    168 | Empty       | 00 |         |    0 | 00/00B5               |                                                          
+  169 |  1 decompress_v2_fast.asm    169 | Empty       | 00 |         |    0 | 00/00B5               | OFFSET5_BIT0_SET                                         
+  170 |  1 decompress_v2_fast.asm    170 | Code        | 00 |         |    2 | 00/00B5 : A5 0C       |                               lda   {12}                 
+  171 |  1 decompress_v2_fast.asm    171 | Code        | 00 |         |    2 | 00/00B7 : 10 0B       |                               bpl   GETNIBBLE3           
+  172 |  1 decompress_v2_fast.asm    172 | Code        | 00 |         |    3 | 00/00B9 : 29 0F 00    |                               and   #$0F                 
+  173 |  1 decompress_v2_fast.asm    173 | Code        | 00 |         |    2 | 00/00BC : 85 0C       |                               sta   {12}                 
+  174 |  1 decompress_v2_fast.asm    174 | Code        | 00 |         |    1 | 00/00BE : 0A          |                               asl                        ;nibble -> bits 1-4
+  175 |  1 decompress_v2_fast.asm    175 | Code        | 00 |         |    3 | 00/00BF : 09 E1 FF    |                               ora   #$FFE1               ;set offset bits 15-5 to 1, bit 0 to 1
+  176 |  1 decompress_v2_fast.asm    176 | Code        | 00 |         |    2 | 00/00C2 : 80 7D       |                               bra   GOT_OFFSET           ;go store low byte of match offset and prepare match
+  177 |  1 decompress_v2_fast.asm    177 | Empty       | 00 |         |    0 | 00/00C4               |                                                          
+  178 |  1 decompress_v2_fast.asm    178 | Empty       | 00 |         |    0 | 00/00C4               | GETNIBBLE3                                               
+  179 |  1 decompress_v2_fast.asm    179 | Code        | 00 |         |    2 | 00/00C4 : B7 00       |                               lda   [{0}],y              
+  180 |  1 decompress_v2_fast.asm    180 | Code        | 00 |         |    1 | 00/00C6 : C8          |                               iny                        
+  181 |  1 decompress_v2_fast.asm    181 | Code        | 00 |         |    3 | 00/00C7 : 09 00 80    |                               ora   #$8000               
+  182 |  1 decompress_v2_fast.asm    182 | Code        | 00 |         |    2 | 00/00CA : 85 0C       |                               sta   {12}                 
+  183 |  1 decompress_v2_fast.asm    183 | Code        | 00 |         |    3 | 00/00CC : 29 F0 00    |                               and   #$F0                 
+  184 |  1 decompress_v2_fast.asm    184 | Code        | 00 |         |    1 | 00/00CF : 4A          |                               lsr                        
+  185 |  1 decompress_v2_fast.asm    185 | Code        | 00 |         |    1 | 00/00D0 : 4A          |                               lsr                        
+  186 |  1 decompress_v2_fast.asm    186 | Code        | 00 |         |    1 | 00/00D1 : 4A          |                               lsr                        
+  187 |  1 decompress_v2_fast.asm    187 | Code        | 00 |         |    3 | 00/00D2 : 09 E1 FF    |                               ora   #$FFE1               ;set offset bits 15-5 to 1, bit 0 to 1
+  188 |  1 decompress_v2_fast.asm    188 | Code        | 00 |         |    2 | 00/00D5 : 80 6A       |                               bra   GOT_OFFSET           ;go store low byte of match offset and prepare match
+  189 |  1 decompress_v2_fast.asm    189 | Comment     | 00 |         |    0 | 00/00D7               | ;--------------------------------
+  190 |  1 decompress_v2_fast.asm    190 | Empty       | 00 |         |    0 | 00/00D7               |                                                          
+  191 |  1 decompress_v2_fast.asm    191 | Empty       | 00 |         |    0 | 00/00D7               | OFFSET_9_BIT                                             ;01Z: 9 bit offset
+  192 |  1 decompress_v2_fast.asm    192 | Code        | 00 |         |    1 | 00/00D7 : 0A          |                               asl                        ;a
+  193 |  1 decompress_v2_fast.asm    193 | Code        | 00 |         |    2 | 00/00D8 : 90 0B       |                               bcc   OFF01Z_SET_BIT8      
+  194 |  1 decompress_v2_fast.asm    194 | Code        | 00 |         |    2 | 00/00DA : B7 00       |                               lda   [{0}],y              
+  195 |  1 decompress_v2_fast.asm    195 | Code        | 00 |         |    1 | 00/00DC : C8          |                               iny                        
+  196 |  1 decompress_v2_fast.asm    196 | Code        | 00 |         |    3 | 00/00DD : 29 FF 00    |                               and   #$00FF               
+  197 |  1 decompress_v2_fast.asm    197 | Code        | 00 |         |    3 | 00/00E0 : 09 00 FE    |                               ora   #$FE00               ;set offset bits 15-9 to 1
+  198 |  1 decompress_v2_fast.asm    198 | Code        | 00 |         |    2 | 00/00E3 : 80 5C       |                               bra   GOT_OFFSET           
+  199 |  1 decompress_v2_fast.asm    199 | Empty       | 00 |         |    0 | 00/00E5               |                                                          
+  200 |  1 decompress_v2_fast.asm    200 | Empty       | 00 |         |    0 | 00/00E5               | OFF01Z_SET_BIT8                                          
+  201 |  1 decompress_v2_fast.asm    201 | Code        | 00 |         |    2 | 00/00E5 : B7 00       |                               lda   [{0}],y              
+  202 |  1 decompress_v2_fast.asm    202 | Code        | 00 |         |    1 | 00/00E7 : C8          |                               iny                        
+  203 |  1 decompress_v2_fast.asm    203 | Code        | 00 |         |    3 | 00/00E8 : 09 00 FF    |                               ora   #$FF00               ;set offset bits 15-8 to 1
+  204 |  1 decompress_v2_fast.asm    204 | Code        | 00 |         |    2 | 00/00EB : 80 54       |                               bra   GOT_OFFSET           
+  205 |  1 decompress_v2_fast.asm    205 | Comment     | 00 |         |    0 | 00/00ED               | ;--------------------------------
+  206 |  1 decompress_v2_fast.asm    206 | Empty       | 00 |         |    0 | 00/00ED               |                                                          
+  207 |  1 decompress_v2_fast.asm    207 | Empty       | 00 |         |    0 | 00/00ED               | REPMATCH_OR_LARGE_OFFSET                                 
+  208 |  1 decompress_v2_fast.asm    208 | Code        | 00 |         |    1 | 00/00ED : 0A          |                               asl                        ;a	13 bit offset?
+  209 |  1 decompress_v2_fast.asm    209 | Code        | 00 |         |    2 | 00/00EE : B0 4A       |                               bcs   REPMATCH_OR_16_BIT   ;handle rep-match or 16-bit offset if not
+  210 |  1 decompress_v2_fast.asm    210 | Empty       | 00 |         |    0 | 00/00F0               |                                                          
+  211 |  1 decompress_v2_fast.asm    211 | Comment     | 00 |         |    0 | 00/00F0               | ;--------------------------------
+  212 |  1 decompress_v2_fast.asm    212 | Code        | 00 |         |    1 | 00/00F0 : 0A          |                               asl                        ;a	10Z: 13 bit offset
+  213 |  1 decompress_v2_fast.asm    213 | Code        | 00 |         |    2 | 00/00F1 : 90 1C       |                               bcc   OFFSET13_BIT0_SET    
+  214 |  1 decompress_v2_fast.asm    214 | Code        | 00 |         |    2 | 00/00F3 : A5 0C       |                               lda   {12}                 
+  215 |  1 decompress_v2_fast.asm    215 | Code        | 00 |         |    2 | 00/00F5 : 10 08       |                               bpl   GETNIBBLE4           
+  216 |  1 decompress_v2_fast.asm    216 | Code        | 00 |         |    3 | 00/00F7 : 29 0F 00    |                               and   #$0F                 
+  217 |  1 decompress_v2_fast.asm    217 | Code        | 00 |         |    2 | 00/00FA : 85 0C       |                               sta   {12}                 
+  218 |  1 decompress_v2_fast.asm    218 | Code        | 00 |         |    1 | 00/00FC : 0A          |                               asl                        
+  219 |  1 decompress_v2_fast.asm    219 | Code        | 00 |         |    2 | 00/00FD : 80 2E       |                               bra   SET_15_13            
+  220 |  1 decompress_v2_fast.asm    220 | Empty       | 00 |         |    0 | 00/00FF               |                                                          
+  221 |  1 decompress_v2_fast.asm    221 | Empty       | 00 |         |    0 | 00/00FF               | GETNIBBLE4                                               
+  222 |  1 decompress_v2_fast.asm    222 | Code        | 00 |         |    2 | 00/00FF : B7 00       |                               lda   [{0}],y              
+  223 |  1 decompress_v2_fast.asm    223 | Code        | 00 |         |    1 | 00/0101 : C8          |                               iny                        
+  224 |  1 decompress_v2_fast.asm    224 | Code        | 00 |         |    3 | 00/0102 : 09 00 80    |                               ora   #$8000               
+  225 |  1 decompress_v2_fast.asm    225 | Code        | 00 |         |    2 | 00/0105 : 85 0C       |                               sta   {12}                 
+  226 |  1 decompress_v2_fast.asm    226 | Code        | 00 |         |    3 | 00/0107 : 29 F0 00    |                               and   #$F0                 
+  227 |  1 decompress_v2_fast.asm    227 | Code        | 00 |         |    1 | 00/010A : 4A          |                               lsr                        
+  228 |  1 decompress_v2_fast.asm    228 | Code        | 00 |         |    1 | 00/010B : 4A          |                               lsr                        
+  229 |  1 decompress_v2_fast.asm    229 | Code        | 00 |         |    1 | 00/010C : 4A          |                               lsr                        
+  230 |  1 decompress_v2_fast.asm    230 | Code        | 00 |         |    2 | 00/010D : 80 1E       |                               bra   SET_15_13            
+  231 |  1 decompress_v2_fast.asm    231 | Empty       | 00 |         |    0 | 00/010F               |                                                          
+  232 |  1 decompress_v2_fast.asm    232 | Empty       | 00 |         |    0 | 00/010F               | OFFSET13_BIT0_SET                                        
+  233 |  1 decompress_v2_fast.asm    233 | Code        | 00 |         |    2 | 00/010F : A5 0C       |                               lda   {12}                 
+  234 |  1 decompress_v2_fast.asm    234 | Code        | 00 |         |    2 | 00/0111 : 10 09       |                               bpl   GETNIBBLE5           
+  235 |  1 decompress_v2_fast.asm    235 | Code        | 00 |         |    3 | 00/0113 : 29 0F 00    |                               and   #$0F                 
+  236 |  1 decompress_v2_fast.asm    236 | Code        | 00 |         |    2 | 00/0116 : 85 0C       |                               sta   {12}                 
+  237 |  1 decompress_v2_fast.asm    237 | Code        | 00 |         |    1 | 00/0118 : 38          |                               sec                        
+  238 |  1 decompress_v2_fast.asm    238 | Code        | 00 |         |    1 | 00/0119 : 2A          |                               rol                        
+  239 |  1 decompress_v2_fast.asm    239 | Code        | 00 |         |    2 | 00/011A : 80 11       |                               bra   SET_15_13            
+  240 |  1 decompress_v2_fast.asm    240 | Empty       | 00 |         |    0 | 00/011C               |                                                          
+  241 |  1 decompress_v2_fast.asm    241 | Empty       | 00 |         |    0 | 00/011C               | GETNIBBLE5                                               
+  242 |  1 decompress_v2_fast.asm    242 | Code        | 00 |         |    2 | 00/011C : B7 00       |                               lda   [{0}],y              
+  243 |  1 decompress_v2_fast.asm    243 | Code        | 00 |         |    1 | 00/011E : C8          |                               iny                        
+  244 |  1 decompress_v2_fast.asm    244 | Code        | 00 |         |    3 | 00/011F : 09 00 80    |                               ora   #$8000               
+  245 |  1 decompress_v2_fast.asm    245 | Code        | 00 |         |    2 | 00/0122 : 85 0C       |                               sta   {12}                 
+  246 |  1 decompress_v2_fast.asm    246 | Code        | 00 |         |    3 | 00/0124 : 29 F0 00    |                               and   #$F0                 
+  247 |  1 decompress_v2_fast.asm    247 | Code        | 00 |         |    1 | 00/0127 : 4A          |                               lsr                        
+  248 |  1 decompress_v2_fast.asm    248 | Code        | 00 |         |    1 | 00/0128 : 4A          |                               lsr                        
+  249 |  1 decompress_v2_fast.asm    249 | Code        | 00 |         |    1 | 00/0129 : 4A          |                               lsr                        
+  250 |  1 decompress_v2_fast.asm    250 | Code        | 00 |         |    3 | 00/012A : 09 01 00    |                               ora   #1                   
+  251 |  1 decompress_v2_fast.asm    251 | Empty       | 00 |         |    0 | 00/012D               |                                                          
+  252 |  1 decompress_v2_fast.asm    252 | Empty       | 00 |         |    0 | 00/012D               | SET_15_13                                                
+  253 |  1 decompress_v2_fast.asm    253 | Code        | 00 |         |    3 | 00/012D : 69 DE 00    |                               adc   #$DE                 ;set bits 15-13 to 1 and subtract 2 (to subtract 512)
+  254 |  1 decompress_v2_fast.asm    254 | Code        | 00 |         |    1 | 00/0130 : EB          |                               xba                        
+  255 |  1 decompress_v2_fast.asm    255 | Code        | 10 |         |    2 | 00/0131 : E2 20       |                               sep   #$20                 ;short	m
+  256 |  1 decompress_v2_fast.asm    256 | Directive   | 10 |         |    0 | 00/0133               |                               mx    %10                  
+  257 |  1 decompress_v2_fast.asm    257 | Code        | 10 |         |    2 | 00/0133 : B7 00       |                               lda   [{0}],y              
+  258 |  1 decompress_v2_fast.asm    258 | Code        | 00 |         |    2 | 00/0135 : C2 30       |                               rep   #$30                 ;long	m
+  259 |  1 decompress_v2_fast.asm    259 | Directive   | 00 |         |    0 | 00/0137               |                               mx    %00                  
+  260 |  1 decompress_v2_fast.asm    260 | Code        | 00 |         |    1 | 00/0137 : C8          |                               iny                        
+  261 |  1 decompress_v2_fast.asm    261 | Code        | 00 |         |    2 | 00/0138 : 80 07       |                               bra   GOT_OFFSET           
+  262 |  1 decompress_v2_fast.asm    262 | Comment     | 00 |         |    0 | 00/013A               | ;--------------------------------
+  263 |  1 decompress_v2_fast.asm    263 | Empty       | 00 |         |    0 | 00/013A               |                                                          
+  264 |  1 decompress_v2_fast.asm    264 | Empty       | 00 |         |    0 | 00/013A               | REPMATCH_OR_16_BIT                                       ;rep-match or 16 bit offset
+  265 |  1 decompress_v2_fast.asm    265 | Code        | 00 |         |    2 | 00/013A : 30 0B       |                               bmi   REP_MATCH            ; XYZ=111? reuse previous offset if so (rep-match)
+  266 |  1 decompress_v2_fast.asm    266 | Empty       | 00 |         |    0 | 00/013C               |                                                          
+  267 |  1 decompress_v2_fast.asm    267 | Code        | 00 |         |    2 | 00/013C : B7 00       |                               lda   [{0}],y              ;110: handle 16 bit offset
+  268 |  1 decompress_v2_fast.asm    268 | Code        | 00 |         |    1 | 00/013E : C8          |                               iny                        
+  269 |  1 decompress_v2_fast.asm    269 | Code        | 00 |         |    1 | 00/013F : C8          |                               iny                        
+  270 |  1 decompress_v2_fast.asm    270 | Code        | 00 |         |    1 | 00/0140 : EB          |                               xba                        
+  271 |  1 decompress_v2_fast.asm    271 | Empty       | 00 |         |    0 | 00/0141               | GOT_OFFSET                                               
+  272 |  1 decompress_v2_fast.asm    272 | Code        | 00 |         |    3 | 00/0141 : 49 FF FF    |                               eor   #$FFFF               ; TODO: eliminate 2's complement
+  273 |  1 decompress_v2_fast.asm    273 | Code        | 00 |         |    1 | 00/0144 : 1A          |                               inc                        
+  274 |  1 decompress_v2_fast.asm    274 | Code        | 00 |         |    2 | 00/0145 : 85 0E       |                               sta   {14}                 
+  275 |  1 decompress_v2_fast.asm    275 | Empty       | 00 |         |    0 | 00/0147               | REP_MATCH                                                
+  276 |  1 decompress_v2_fast.asm    276 | Code        | 00 |         |    2 | 00/0147 : A5 04       |                               lda   {4}                  
+  277 |  1 decompress_v2_fast.asm    277 | Code        | 00 |         |    1 | 00/0149 : 38          |                               sec                        
+  278 |  1 decompress_v2_fast.asm    278 | Code        | 00 |         |    2 | 00/014A : E5 0E       |                               sbc   {14}                 
+  279 |  1 decompress_v2_fast.asm    279 | Code        | 00 |         |    2 | 00/014C : 85 08       |                               sta   {8}                  ;store back reference address
+  280 |  1 decompress_v2_fast.asm    280 | Code        | 00 |         |    2 | 00/014E : A5 06       |                               lda   {4}+2                
+  281 |  1 decompress_v2_fast.asm    281 | Code        | 00 |         |    3 | 00/0150 : E9 00 00    |                               sbc   #0                   
+  282 |  1 decompress_v2_fast.asm    282 | Code        | 00 |         |    2 | 00/0153 : 85 0A       |                               sta   {8}+2                
+  283 |  1 decompress_v2_fast.asm    283 | Empty       | 00 |         |    0 | 00/0155               |                                                          
+  284 |  1 decompress_v2_fast.asm    284 | Code        | 00 |         |    2 | 00/0155 : A5 10       |                               lda   {16}                 ;retrieve token again
+  285 |  1 decompress_v2_fast.asm    285 | Code        | 00 |         |    3 | 00/0157 : 29 07 00    |                               and   #%00000111           ;isolate match len (MMM)
+  286 |  1 decompress_v2_fast.asm    286 | Code        | 00 |         |    3 | 00/015A : 69 01 00    |                               adc   #{2}-1               ;carry set
+  287 |  1 decompress_v2_fast.asm    287 | Code        | 00 |         |    3 | 00/015D : C9 09 00    |                               cmp   #{2}+{7}             
+  288 |  1 decompress_v2_fast.asm    288 | Code        | 00 |         |    2 | 00/0160 : 90 2F       |                               bcc   PREPARE_COPY_MATCH   ;if less, length is directly embedded in token
+  289 |  1 decompress_v2_fast.asm    289 | Empty       | 00 |         |    0 | 00/0162               |                                                          
+  290 |  1 decompress_v2_fast.asm    290 | Comment     | 00 |         |    0 | 00/0162               | ;--------------------------------
+  291 |  1 decompress_v2_fast.asm    291 | Code        | 00 |         |    2 | 00/0162 : A5 0C       |                               lda   {12}                 ;get extra match length nibble
+  292 |  1 decompress_v2_fast.asm    292 | Code        | 00 |         |    2 | 00/0164 : 10 08       |                               bpl   GETNIBBLE6           
+  293 |  1 decompress_v2_fast.asm    293 | Code        | 00 |         |    3 | 00/0166 : 29 0F 00    |                               and   #$0F                 
+  294 |  1 decompress_v2_fast.asm    294 | Code        | 00 |         |    2 | 00/0169 : 85 0C       |                               sta   {12}                 
+  295 |  1 decompress_v2_fast.asm    295 | Code        | 00 |         |    1 | 00/016B : 18          |                               clc                        
+  296 |  1 decompress_v2_fast.asm    296 | Code        | 00 |         |    2 | 00/016C : 80 0F       |                               bra   GOT_EXTRA_MATCH_LEN  
+  297 |  1 decompress_v2_fast.asm    297 | Empty       | 00 |         |    0 | 00/016E               |                                                          
+  298 |  1 decompress_v2_fast.asm    298 | Empty       | 00 |         |    0 | 00/016E               | GETNIBBLE6                                               
+  299 |  1 decompress_v2_fast.asm    299 | Code        | 00 |         |    2 | 00/016E : B7 00       |                               lda   [{0}],y              
+  300 |  1 decompress_v2_fast.asm    300 | Code        | 00 |         |    1 | 00/0170 : C8          |                               iny                        
+  301 |  1 decompress_v2_fast.asm    301 | Code        | 00 |         |    3 | 00/0171 : 09 00 80    |                               ora   #$8000               
+  302 |  1 decompress_v2_fast.asm    302 | Code        | 00 |         |    2 | 00/0174 : 85 0C       |                               sta   {12}                 
+  303 |  1 decompress_v2_fast.asm    303 | Code        | 00 |         |    3 | 00/0176 : 29 F0 00    |                               and   #$F0                 
+  304 |  1 decompress_v2_fast.asm    304 | Code        | 00 |         |    1 | 00/0179 : 4A          |                               lsr                        
+  305 |  1 decompress_v2_fast.asm    305 | Code        | 00 |         |    1 | 00/017A : 4A          |                               lsr                        
+  306 |  1 decompress_v2_fast.asm    306 | Code        | 00 |         |    1 | 00/017B : 4A          |                               lsr                        
+  307 |  1 decompress_v2_fast.asm    307 | Code        | 00 |         |    1 | 00/017C : 4A          |                               lsr                        
+  308 |  1 decompress_v2_fast.asm    308 | Empty       | 00 |         |    0 | 00/017D               |                                                          
+  309 |  1 decompress_v2_fast.asm    309 | Empty       | 00 |         |    0 | 00/017D               | GOT_EXTRA_MATCH_LEN                                      
+  310 |  1 decompress_v2_fast.asm    310 | Comment     | 00 |         |    0 | 00/017D               | ;--------------------------------
+  311 |  1 decompress_v2_fast.asm    311 | Code        | 00 |         |    3 | 00/017D : 69 09 00    |                               adc   #{2}+{7}             
+  312 |  1 decompress_v2_fast.asm    312 | Code        | 00 |         |    3 | 00/0180 : C9 18 00    |                               cmp   #{2}+{7}+15          
+  313 |  1 decompress_v2_fast.asm    313 | Code        | 00 |         |    2 | 00/0183 : 90 0C       |                               bcc   PREPARE_COPY_MATCH   ;if less, match length is complete
+  314 |  1 decompress_v2_fast.asm    314 | Empty       | 00 |         |    0 | 00/0185               |                                                          
+  315 |  1 decompress_v2_fast.asm    315 | Code        | 00 |         |    2 | 00/0185 : B7 00       |                               lda   [{0}],y              ;get extra byte of variable match length
+  316 |  1 decompress_v2_fast.asm    316 | Code        | 00 |         |    3 | 00/0187 : 29 FF 00    |                               and   #$FF                 
+  317 |  1 decompress_v2_fast.asm    317 | Code        | 00 |         |    1 | 00/018A : C8          |                               iny                        ;carry is set
+  318 |  1 decompress_v2_fast.asm    318 | Code        | 00 |         |    3 | 00/018B : E9 E8 00    |                               sbc   #$E8                 ;overflow?
+  319 |  1 decompress_v2_fast.asm    319 | Code        | 00 |         |    3 | 00/018E : 29 FF 00    |                               and   #$FF                 
+  320 |  1 decompress_v2_fast.asm    320 | Empty       | 00 |         |    0 | 00/0191               |                                                          
+  321 |  1 decompress_v2_fast.asm    321 | Empty       | 00 |         |    0 | 00/0191               | PREPARE_COPY_MATCH                                       
+  322 |  1 decompress_v2_fast.asm    322 | Code        | 00 |         |    1 | 00/0191 : AA          |                               tax                        
+  323 |  1 decompress_v2_fast.asm    323 | Code        | 00 |         |    2 | 00/0192 : 90 08       |                               bcc   PREPARE_COPY_MATCH2  ;if not, the match length is complete
+  324 |  1 decompress_v2_fast.asm    324 | Code        | 00 |         |    2 | 00/0194 : F0 6B       |                               beq   DECOMPRESSION_DONE   ;if EOD code, bail
+  325 |  1 decompress_v2_fast.asm    325 | Empty       | 00 |         |    0 | 00/0196               |                                                          
+  326 |  1 decompress_v2_fast.asm    326 | Code        | 00 |         |    2 | 00/0196 : B7 00       |                               lda   [{0}],y              
+  327 |  1 decompress_v2_fast.asm    327 | Code        | 00 |         |    1 | 00/0198 : C8          |                               iny                        
+  328 |  1 decompress_v2_fast.asm    328 | Code        | 00 |         |    1 | 00/0199 : C8          |                               iny                        
+  329 |  1 decompress_v2_fast.asm    329 | Code        | 00 |         |    1 | 00/019A : AA          |                               tax                        
+  330 |  1 decompress_v2_fast.asm    330 | Code        | 00 |         |    1 | 00/019B : 18          |                               clc                        
+  331 |  1 decompress_v2_fast.asm    331 | Empty       | 00 |         |    0 | 00/019C               |                                                          
+  332 |  1 decompress_v2_fast.asm    332 | Empty       | 00 |         |    0 | 00/019C               | PREPARE_COPY_MATCH2                                      
+  333 |  1 decompress_v2_fast.asm    333 | Code        | 00 |         |    1 | 00/019C : 98          |                               tya                        
+  334 |  1 decompress_v2_fast.asm    334 | Code        | 00 |         |    2 | 00/019D : 65 00       |                               adc   {0}                  
+  335 |  1 decompress_v2_fast.asm    335 | Code        | 00 |         |    2 | 00/019F : 85 00       |                               sta   {0}                  
+  336 |  1 decompress_v2_fast.asm    336 | Code        | 00 |         |    2 | 00/01A1 : 90 02       |                               bcc   PREPARE_COPY_MATCH3  
+  337 |  1 decompress_v2_fast.asm    337 | Code        | 00 |         |    2 | 00/01A3 : E6 02       |                               inc   {0}+2                
+  338 |  1 decompress_v2_fast.asm    338 | Empty       | 00 |         |    0 | 00/01A5               |                                                          
+  339 |  1 decompress_v2_fast.asm    339 | Empty       | 00 |         |    0 | 00/01A5               | PREPARE_COPY_MATCH3                                      
+  340 |  1 decompress_v2_fast.asm    340 | Code        | 00 |         |    3 | 00/01A5 : A0 00 00    |                               ldy   #0                   
+  341 |  1 decompress_v2_fast.asm    341 | Code        | 00 |         |    2 | 00/01A8 : A5 0E       |                               lda   {14}                 
+  342 |  1 decompress_v2_fast.asm    342 | Code        | 00 |         |    3 | 00/01AA : C9 01 00    |                               cmp   #1                   
+  343 |  1 decompress_v2_fast.asm    343 | Code        | 00 |         |    2 | 00/01AD : F0 3A       |                               beq   SINGLE_BYTE_REPEAT   
+  344 |  1 decompress_v2_fast.asm    344 | Code        | 00 |         |    1 | 00/01AF : 8A          |                               txa                        
+  345 |  1 decompress_v2_fast.asm    345 | Code        | 00 |         |    1 | 00/01B0 : 4A          |                               lsr                        
+  346 |  1 decompress_v2_fast.asm    346 | Code        | 00 |         |    2 | 00/01B1 : B0 16       |                               bcs   COPY_MATCH_ODD       
+  347 |  1 decompress_v2_fast.asm    347 | Empty       | 00 |         |    0 | 00/01B3               |                                                          
+  348 |  1 decompress_v2_fast.asm    348 | Code        | 00 |         |    1 | 00/01B3 : AA          |                               tax                        
+  349 |  1 decompress_v2_fast.asm    349 | Empty       | 00 |         |    0 | 00/01B4               | COPY_MATCH_LOOP_EVEN                                     
+  350 |  1 decompress_v2_fast.asm    350 | Code        | 00 |         |    2 | 00/01B4 : B7 08       |                               lda   [{8}],y              ;get two bytes of backreferences
+  351 |  1 decompress_v2_fast.asm    351 | Code        | 00 |         |    2 | 00/01B6 : 97 04       |                               sta   [{4}],y              
+  352 |  1 decompress_v2_fast.asm    352 | Code        | 00 |         |    1 | 00/01B8 : C8          |                               iny                        
+  353 |  1 decompress_v2_fast.asm    353 | Code        | 00 |         |    1 | 00/01B9 : C8          |                               iny                        
+  354 |  1 decompress_v2_fast.asm    354 | Code        | 00 |         |    1 | 00/01BA : CA          |                               dex                        
+  355 |  1 decompress_v2_fast.asm    355 | Code        | 00 |         |    2 | 00/01BB : D0 F7       |                               bne   COPY_MATCH_LOOP_EVEN 
+  356 |  1 decompress_v2_fast.asm    356 | Code        | 00 |         |    1 | 00/01BD : 98          |                               tya                        
+  357 |  1 decompress_v2_fast.asm    357 | Code        | 00 |         |    2 | 00/01BE : 65 04       |                               adc   {4}                  
+  358 |  1 decompress_v2_fast.asm    358 | Code        | 00 |         |    2 | 00/01C0 : 85 04       |                               sta   {4}                  
+  359 |  1 decompress_v2_fast.asm    359 | Code        | 00 |         |    2 | 00/01C2 : 90 22       |                               bcc   DECODE_NEXT_TOKEN    
+  360 |  1 decompress_v2_fast.asm    360 | Code        | 00 |         |    2 | 00/01C4 : E6 06       |                               inc   {4}+2                
+  361 |  1 decompress_v2_fast.asm    361 | Code        | 00 |  2      |    3 | 00/01C6 : 4C 02 00    |                               jmp   DECODE_TOKEN         
+  362 |  1 decompress_v2_fast.asm    362 | Empty       | 00 |         |    0 | 00/01C9               |                                                          
+  363 |  1 decompress_v2_fast.asm    363 | Empty       | 00 |         |    0 | 00/01C9               | COPY_MATCH_ODD                                           
+  364 |  1 decompress_v2_fast.asm    364 | Code        | 00 |         |    2 | 00/01C9 : F0 0A       |                               beq   COPY_MATCH_SINGLE_BYTE
+  365 |  1 decompress_v2_fast.asm    365 | Code        | 00 |         |    1 | 00/01CB : AA          |                               tax                        
+  366 |  1 decompress_v2_fast.asm    366 | Empty       | 00 |         |    0 | 00/01CC               | COPY_MATCH_LOOP_ODD                                      
+  367 |  1 decompress_v2_fast.asm    367 | Code        | 00 |         |    2 | 00/01CC : B7 08       |                               lda   [{8}],y              ;get two bytes of backreferences
+  368 |  1 decompress_v2_fast.asm    368 | Code        | 00 |         |    2 | 00/01CE : 97 04       |                               sta   [{4}],y              
+  369 |  1 decompress_v2_fast.asm    369 | Code        | 00 |         |    1 | 00/01D0 : C8          |                               iny                        
+  370 |  1 decompress_v2_fast.asm    370 | Code        | 00 |         |    1 | 00/01D1 : C8          |                               iny                        
+  371 |  1 decompress_v2_fast.asm    371 | Code        | 00 |         |    1 | 00/01D2 : CA          |                               dex                        
+  372 |  1 decompress_v2_fast.asm    372 | Code        | 00 |         |    2 | 00/01D3 : D0 F7       |                               bne   COPY_MATCH_LOOP_ODD  
+  373 |  1 decompress_v2_fast.asm    373 | Empty       | 00 |         |    0 | 00/01D5               | COPY_MATCH_SINGLE_BYTE                                   
+  374 |  1 decompress_v2_fast.asm    374 | Code        | 10 |         |    2 | 00/01D5 : E2 21       |                               sep   #$21                 
+  375 |  1 decompress_v2_fast.asm    375 | Directive   | 10 |         |    0 | 00/01D7               |                               mx    %10                  
+  376 |  1 decompress_v2_fast.asm    376 | Code        | 10 |         |    2 | 00/01D7 : B7 08       |                               lda   [{8}],y              ;get one byte of backreference
+  377 |  1 decompress_v2_fast.asm    377 | Code        | 10 |         |    2 | 00/01D9 : 97 04       |                               sta   [{4}],y              
+  378 |  1 decompress_v2_fast.asm    378 | Code        | 00 |         |    2 | 00/01DB : C2 30       |                               rep   #$30                 
+  379 |  1 decompress_v2_fast.asm    379 | Directive   | 00 |         |    0 | 00/01DD               |                               mx    %00                  
+  380 |  1 decompress_v2_fast.asm    380 | Code        | 00 |         |    1 | 00/01DD : 98          |                               tya                        
+  381 |  1 decompress_v2_fast.asm    381 | Code        | 00 |         |    2 | 00/01DE : 65 04       |                               adc   {4}                  ;carry is set
+  382 |  1 decompress_v2_fast.asm    382 | Code        | 00 |         |    2 | 00/01E0 : 85 04       |                               sta   {4}                  
+  383 |  1 decompress_v2_fast.asm    383 | Code        | 00 |         |    2 | 00/01E2 : 90 02       |                               bcc   DECODE_NEXT_TOKEN    
+  384 |  1 decompress_v2_fast.asm    384 | Code        | 00 |         |    2 | 00/01E4 : E6 06       |                               inc   {4}+2                
+  385 |  1 decompress_v2_fast.asm    385 | Empty       | 00 |         |    0 | 00/01E6               | DECODE_NEXT_TOKEN                                        
+  386 |  1 decompress_v2_fast.asm    386 | Code        | 00 |  2      |    3 | 00/01E6 : 4C 02 00    |                               jmp   DECODE_TOKEN         
+  387 |  1 decompress_v2_fast.asm    387 | Empty       | 00 |         |    0 | 00/01E9               |                                                          
+  388 |  1 decompress_v2_fast.asm    388 | Empty       | 00 |         |    0 | 00/01E9               | SINGLE_BYTE_REPEAT                                       
+  389 |  1 decompress_v2_fast.asm    389 | Code        | 10 |         |    2 | 00/01E9 : E2 20       |                               sep   #$20                 ;short	m
+  390 |  1 decompress_v2_fast.asm    390 | Directive   | 10 |         |    0 | 00/01EB               |                               mx    %10                  
+  391 |  1 decompress_v2_fast.asm    391 | Code        | 10 |         |    2 | 00/01EB : B7 08       |                               lda   [{8}],y              ;get one byte of backreference
+  392 |  1 decompress_v2_fast.asm    392 | Empty       | 10 |         |    0 | 00/01ED               | SINGLE_BYTE_REPEAT_LOOP                                  
+  393 |  1 decompress_v2_fast.asm    393 | Code        | 10 |         |    2 | 00/01ED : 97 04       |                               sta   [{4}],y              
+  394 |  1 decompress_v2_fast.asm    394 | Code        | 10 |         |    1 | 00/01EF : C8          |                               iny                        
+  395 |  1 decompress_v2_fast.asm    395 | Code        | 10 |         |    1 | 00/01F0 : CA          |                               dex                        
+  396 |  1 decompress_v2_fast.asm    396 | Code        | 10 |         |    2 | 00/01F1 : D0 FA       |                               bne   SINGLE_BYTE_REPEAT_LOOP
+  397 |  1 decompress_v2_fast.asm    397 | Code        | 00 |         |    2 | 00/01F3 : C2 21       |                               rep   #$21                 
+  398 |  1 decompress_v2_fast.asm    398 | Directive   | 00 |         |    0 | 00/01F5               |                               mx    %00                  
+  399 |  1 decompress_v2_fast.asm    399 | Code        | 00 |         |    1 | 00/01F5 : 98          |                               tya                        
+  400 |  1 decompress_v2_fast.asm    400 | Code        | 00 |         |    2 | 00/01F6 : 65 04       |                               adc   {4}                  ;	carry is clear
+  401 |  1 decompress_v2_fast.asm    401 | Code        | 00 |         |    2 | 00/01F8 : 85 04       |                               sta   {4}                  
+  402 |  1 decompress_v2_fast.asm    402 | Code        | 00 |         |    2 | 00/01FA : 90 EA       |                               bcc   DECODE_NEXT_TOKEN    
+  403 |  1 decompress_v2_fast.asm    403 | Code        | 00 |         |    2 | 00/01FC : E6 06       |                               inc   {4}+2                
+  404 |  1 decompress_v2_fast.asm    404 | Code        | 00 |  2      |    3 | 00/01FE : 4C 02 00    |                               jmp   DECODE_TOKEN         
+  405 |  1 decompress_v2_fast.asm    405 | Empty       | 00 |         |    0 | 00/0201               |                                                          
+  406 |  1 decompress_v2_fast.asm    406 | Empty       | 00 |         |    0 | 00/0201               | DECOMPRESSION_DONE                                       
+  407 |  1 decompress_v2_fast.asm    407 | Code        | 00 |         |    1 | 00/0201 : 60          |                               rts                        
+  408 |  1 decompress_v2_fast.asm    408 | Empty       | 00 |         |    0 | 00/0202               |                                                          
+  409 |  1 decompress_v2_fast.asm    409 | Comment     | 00 |         |    0 | 00/0202               | ;	end
+  410 |  1 decompress_v2_fast.asm    410 | Empty       | 00 |         |    0 | 00/0202               |                                                          
+  411 |  1 decompress_v2_fast.asm    411 | Comment     | 00 |         |    0 | 00/0202               | ;------------------------------------------------------------------------------
+  412 |  1 decompress_v2_fast.asm    412 | Comment     | 00 |         |    0 | 00/0202               | ; Compatible with ORCA/C calling convention:
+  413 |  1 decompress_v2_fast.asm    413 | Comment     | 00 |         |    0 | 00/0202               | ;
+  414 |  1 decompress_v2_fast.asm    414 | Comment     | 00 |         |    0 | 00/0202               | ;		void decompress_lzsa(void* dest, void* src)
+  415 |  1 decompress_v2_fast.asm    415 | Comment     | 00 |         |    0 | 00/0202               | ;
+  416 |  1 decompress_v2_fast.asm    416 | Comment     | 00 |         |    0 | 00/0202               | ; pea ^source_address
+  417 |  1 decompress_v2_fast.asm    417 | Comment     | 00 |         |    0 | 00/0202               | ; pea #source_address
+  418 |  1 decompress_v2_fast.asm    418 | Comment     | 00 |         |    0 | 00/0202               | ;
+  419 |  1 decompress_v2_fast.asm    419 | Comment     | 00 |         |    0 | 00/0202               | ; pea ^destination_address
+  420 |  1 decompress_v2_fast.asm    420 | Comment     | 00 |         |    0 | 00/0202               | ; pea #destination_address
+  421 |  1 decompress_v2_fast.asm    421 | Comment     | 00 |         |    0 | 00/0202               | ;
+  422 |  1 decompress_v2_fast.asm    422 | Comment     | 00 |         |    0 | 00/0202               | ; jsl decompress_lzsa
+  423 |  1 decompress_v2_fast.asm    423 | Comment     | 00 |         |    0 | 00/0202               | ;
+  424 |  1 decompress_v2_fast.asm    424 | Comment     | 00 |         |    0 | 00/0202               | ;------------------------------------------------------------------------------
+  425 |  1 decompress_v2_fast.asm    425 | Empty       | 00 |         |    0 | 00/0202               |                                                          
+  426 |  1 decompress_v2_fast.asm    426 | Empty       | 00 |         |    0 | 00/0202               |                                                          
+  427 |  1 decompress_v2_fast.asm    427 | Global      | 00 |         |    0 | 00/0202               | decompress_lzsa               ent                        
+  428 |  1 decompress_v2_fast.asm    428 | Directive   | 00 |         |    0 | 00/0202               |                               mx    %00                  
+  429 |  1 decompress_v2_fast.asm    429 | Equivalence | 00 |         |    0 | 00/0202               | pDest                         equ   4                    
+  430 |  1 decompress_v2_fast.asm    430 | Equivalence | 00 |         |    0 | 00/0202               | pPackedSource                 equ   8                    
+  431 |  1 decompress_v2_fast.asm    431 | Empty       | 00 |         |    0 | 00/0202               |                                                          
+  432 |  1 decompress_v2_fast.asm    432 | Comment     | 00 |         |    0 | 00/0202               | 	; Setup Source Pointer
+  433 |  1 decompress_v2_fast.asm    433 | Code        | 00 |         |    2 | 00/0202 : A3 08       |                               lda   {8},s                
+  434 |  1 decompress_v2_fast.asm    434 | Code        | 00 |         |    2 | 00/0204 : 85 00       |                               sta   <{0}                 
+  435 |  1 decompress_v2_fast.asm    435 | Code        | 00 |         |    2 | 00/0206 : A3 0A       |                               lda   {8}+2,s              
+  436 |  1 decompress_v2_fast.asm    436 | Code        | 00 |         |    2 | 00/0208 : 85 02       |                               sta   <{0}+2               
+  437 |  1 decompress_v2_fast.asm    437 | Empty       | 00 |         |    0 | 00/020A               |                                                          
+  438 |  1 decompress_v2_fast.asm    438 | Comment     | 00 |         |    0 | 00/020A               | 	; Setup Dest Pointer
+  439 |  1 decompress_v2_fast.asm    439 | Code        | 00 |         |    2 | 00/020A : A3 04       |                               lda   {4},s                
+  440 |  1 decompress_v2_fast.asm    440 | Code        | 00 |         |    2 | 00/020C : 85 04       |                               sta   <{4}                 
+  441 |  1 decompress_v2_fast.asm    441 | Code        | 00 |         |    2 | 00/020E : A3 06       |                               lda   {4}+2,s              
+  442 |  1 decompress_v2_fast.asm    442 | Code        | 00 |         |    2 | 00/0210 : 85 06       |                               sta   <{4}+2               
+  443 |  1 decompress_v2_fast.asm    443 | Empty       | 00 |         |    0 | 00/0212               |                                                          
+  444 |  1 decompress_v2_fast.asm    444 | Code        | 00 |  2      |    3 | 00/0212 : 20 00 00    |                               jsr   DECOMPRESS_LZSA2     ; Call the raw data decompressor
+  445 |  1 decompress_v2_fast.asm    445 | Empty       | 00 |         |    0 | 00/0215               |                                                          
+  446 |  1 decompress_v2_fast.asm    446 | Code        | 00 |         |    2 | 00/0215 : C2 31       |                               rep   #$31                 
+  447 |  1 decompress_v2_fast.asm    447 | Directive   | 00 |         |    0 | 00/0217               |                               mx    %00                  
+  448 |  1 decompress_v2_fast.asm    448 | Empty       | 00 |         |    0 | 00/0217               |                                                          
+  449 |  1 decompress_v2_fast.asm    449 | Comment     | 00 |         |    0 | 00/0217               | 	; Copy the Return address
+  450 |  1 decompress_v2_fast.asm    450 | Code        | 00 |         |    2 | 00/0217 : A3 01       |                               lda   1,s                  
+  451 |  1 decompress_v2_fast.asm    451 | Code        | 00 |         |    2 | 00/0219 : 83 09       |                               sta   {8}+1,s              
+  452 |  1 decompress_v2_fast.asm    452 | Code        | 00 |         |    2 | 00/021B : A3 02       |                               lda   2,s                  
+  453 |  1 decompress_v2_fast.asm    453 | Code        | 00 |         |    2 | 00/021D : 83 0A       |                               sta   {8}+2,s              
+  454 |  1 decompress_v2_fast.asm    454 | Empty       | 00 |         |    0 | 00/021F               |                                                          
+  455 |  1 decompress_v2_fast.asm    455 | Code        | 00 |         |    1 | 00/021F : 3B          |                               tsc                        
+  456 |  1 decompress_v2_fast.asm    456 | Code        | 00 |         |    1 | 00/0220 : 38          |                               sec                        
+  457 |  1 decompress_v2_fast.asm    457 | Code        | 00 |         |    3 | 00/0221 : E9 F8 FF    |                               sbc   #-8                  
+  458 |  1 decompress_v2_fast.asm    458 | Code        | 00 |         |    1 | 00/0224 : 1B          |                               tcs                        
+  459 |  1 decompress_v2_fast.asm    459 | Empty       | 00 |         |    0 | 00/0225               |                                                          
+  460 |  1 decompress_v2_fast.asm    460 | Code        | 00 |         |    1 | 00/0225 : 6B          |                               rtl                        
+  461 |  1 decompress_v2_fast.asm    461 | Empty       | 00 |         |    0 | 00/0226               |                                                          
+  462 |  1 decompress_v2_fast.asm    462 | Comment     | 00 |         |    0 | 00/0226               | ;------------------------------------------------------------------------------
+  463 |  1 decompress_v2_fast.asm    463 | Empty       | 00 |         |    0 | 00/0226               |                                                          
+------+----------------------------------+-------------+----+---------+------+-----------------------+----------------------------------------------------------------------
