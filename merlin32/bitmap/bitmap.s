@@ -59,6 +59,10 @@ BM1_Y_OFFSET        = $AF010D   ; Not Implemented
 BM1_RESERVED_6      = $AF010E
 BM1_RESERVED_7      = $AF010F
 
+BACKGROUND_COLOR_B      = $AF000D ; When in Graphic Mode, if a pixel is "0" then the Background pixel is chosen
+BACKGROUND_COLOR_G      = $AF000E
+BACKGROUND_COLOR_R      = $AF000F ;
+
 
 VRAM = $B00000
 
@@ -130,20 +134,20 @@ start   ent             ; make sure start is visible outside the file
 		sta >BM1_CONTROL_REG
 
         ; Fill Frame Buffer with Color index 1
-        lda     #$0101
-        ldx     #0
-]lp
-        stal    $B00000,x
-        stal    $B10000,x
-        stal    $B20000,x
-        stal    $B30000,x
-        stal    $B40000,x
-        stal    $B50000,x
-        stal    $B60000,x
-        stal    $B70000,x
-        inx
-        inx
-        ;bne ]lp
+;        lda     #$0101
+;        ldx     #0
+;]lp
+;        stal    $B00000,x
+;        stal    $B10000,x
+;        stal    $B20000,x
+;        stal    $B30000,x
+;        stal    $B40000,x
+;        stal    $B50000,x
+;        stal    $B60000,x
+;        stal    $B70000,x
+;        inx
+;        inx
+;        bne ]lp
 ;
 ; Extract CLUT data from the title image
 ;
@@ -165,6 +169,16 @@ start   ent             ; make sure start is visible outside the file
 
 		phk
 		plb
+
+        ; Set Background Color
+		sep #$30
+        lda	|pal_buffer
+        sta >BACKGROUND_COLOR_B ; back
+        lda |pal_buffer+1
+        sta  >BACKGROUND_COLOR_G ; back
+        lda |pal_buffer+2
+        sta  >BACKGROUND_COLOR_R ; back
+		rep #$30
 
 
 ;

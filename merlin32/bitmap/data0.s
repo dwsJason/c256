@@ -10,6 +10,10 @@
 
 title_pic ent             ; make sure start is visible outside the file
 	putbin data\dmania.256
+
+bird_pic ent
+	putbin data\Phoenix-Bird-Wallpaper-16.256
+
 ;	putbin data\gold_mask.256
 
 
