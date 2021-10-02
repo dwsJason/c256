@@ -667,6 +667,7 @@ fanmParseHeader mx %00
 
         lda [pData],y
         cmp #'NM'       ;$4D4E 
+        bne :BadHeader
         iny
         iny
 
