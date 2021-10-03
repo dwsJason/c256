@@ -551,7 +551,7 @@ VIDEO_MODE = $0254
 		lda #15
 		sta |TL0_WINDOW_X_POS_L
 		lda #12
-		sta |TL1_WINDOW_Y_POS_L
+		sta |TL0_WINDOW_Y_POS_L
 		; Map 1 Position
 		lda #16
 		sta |TL1_WINDOW_X_POS_L
@@ -572,7 +572,7 @@ VIDEO_MODE = $0254
 ;-----------------------------------------------
 
 		rep #$30
-
+		do 1
 		; Clear Tile Catalog 0
 		pea #VICKY_DISPLAY_BUFFER0
 		pea #^VICKY_DISPLAY_BUFFER0
@@ -583,31 +583,48 @@ VIDEO_MODE = $0254
 		jsr vmemset0
 
 		; Clear Tile Catalog 1
-		pea #VICKY_DISPLAY_BUFFER1
 		pea #^VICKY_DISPLAY_BUFFER1
+		pea #VICKY_DISPLAY_BUFFER1
 
-		pea #TILE_CLEAR_SIZE
 		pea #^TILE_CLEAR_SIZE
+		pea #TILE_CLEAR_SIZE
 
 		jsr vmemset0
 
 		; Clear Tile Map 0
-		pea #VICKY_TILEMAP0
 		pea #^VICKY_TILEMAP0
+		pea #VICKY_TILEMAP0
 
-		pea #MAP_CLEAR_SIZE
 		pea #^MAP_CLEAR_SIZE
+		pea #MAP_CLEAR_SIZE
 		
 		jsr vmemset0
 
 		; Clear Tile Map 1
-		pea #VICKY_TILEMAP1
 		pea #^VICKY_TILEMAP1
+		pea #VICKY_TILEMAP1
 
-		pea #MAP_CLEAR_SIZE
 		pea #^MAP_CLEAR_SIZE
+		pea #MAP_CLEAR_SIZE
 		
 		jsr vmemset0
+		fin
+
+		do 0
+
+		ldx #0
+		lda #0
+]clear
+		sta >VICKY_DISPLAY_BUFFER0+VRAM,x
+		sta >VICKY_DISPLAY_BUFFER1+VRAM,x
+		sta >VICKY_TILEMAP0+VRAM,x
+		sta >VICKY_TILEMAP1+VRAM,x
+		inx
+		inx
+		cpx #200*256
+		bcc ]clear
+
+		fin
 
 ;-----------------------------------------------
 ; Copy map data to VRAM
@@ -666,14 +683,15 @@ vmemset0 mx %00
 		lda ]size_bytes,s
 		sta |VDMA_SIZE_L
 		lda ]size_bytes+2,s
-		sta |VDMA_SIZE_H
-
-		; stride (seems not needed)
-		stz |VDMA_DST_STRIDE_L
-
+		sta |VDMA_SIZE_L+2
 
 		ldx #VDMA_CTRL_Enable+VDMA_CTRL_TRF_Fill+VDMA_CTRL_Start_TRF
 		stx |VDMA_CONTROL_REG  ; kick the dma
+
+		nop
+		nop
+		nop
+
 ]wait_dma
 		ldx |VDMA_STATUS_REG
 		bmi ]wait_dma
