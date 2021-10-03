@@ -9,5 +9,6 @@
 ;-------------------------------------------------------------------------------
 
 movie_data ent             ; make sure start is visible outside the file
+;	putbin data\teddybeer448.gsla
 	putbin data\steeljoe.gsla
 

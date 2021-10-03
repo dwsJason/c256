@@ -41,9 +41,8 @@
 *---  DP may be anywhere in bank 0, but make sure it's PAGE aligned
 *---- for performance reasons
 
-        dsk play.l
-
-        ext EndOfAnimFrame
+;        dsk play.l
+;        ext EndOfAnimFrame
 
 ;
 ; Defines, for the list of allocated memory banks
@@ -64,10 +63,8 @@ player  ent
         ldy #$2000               ; it's a new frame, cursor starts at beginning of SHR
 
         stz <banks_index
-*        stz <frames
 
         bra     read_opcode
-*frames dw 0
 
 extended_command
         beq :source_skip_next_bank
@@ -99,12 +96,13 @@ extended_command
 * If data is sequential in memory
 *
 *
-*        ; source data, new bank
-*        inc <read_opcode+3        ; 6
-*        inc <dictionary_offset+3  ; 6
-*        inc <srcbank+2            ; 6
-*
+		do 1
+        ; source data, new bank
+        inc <read_opcode+3        ; 6
+        inc <dictionary_offset+3  ; 6
+        inc <srcbank+2            ; 6
 
+		else
 *
 * Our Banks of Data are in the order
 * they were allocated, so this is a little
@@ -119,6 +117,7 @@ extended_command
         sta <read_opcode+3       ; data stream reader
         sta <dictionary_offset+3 ; opcode stream reader
         rep #$31
+		fin
 
         ; start of new bank
         ldx #0
@@ -134,7 +133,7 @@ stream_copy
         lsr
         bcc extended_command
 srcbank
-        mvn $01,$01
+        mvn $00,$00
 read_opcode
         ldal $000000,x
         bpl stream_copy
@@ -154,7 +153,7 @@ dictionary_offset
 
 copylen lda #$0000
         ; dictionary copy
-        mvn $01,$01
+        mvn $00,$00
 
         ldx dictionary_offset+1
         inx

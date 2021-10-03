@@ -164,6 +164,12 @@ C1BlitPixels ent
 ]dst = 4
 ]count = 8
 
+		pei ]src
+		pei ]src+2
+		pei ]dst
+		pei ]dst+2
+		pei ]count
+
 ]lines = 10
 ]chunk_size = 128*]lines
 
@@ -369,6 +375,16 @@ C1BlitPixels ent
 
 :donemommy
 
+		pla
+		sta <]count
+		pla
+		sta <]dst+2
+		pla
+		sta <]dst
+		pla
+		sta <]src+2
+		pla
+		sta <]src
 
 		plb
 		rtl
@@ -387,6 +403,8 @@ C1BlitPalettes ent
 		plb
 
 :temp = 0
+		pei :temp
+		pei :temp+2
 
 		lda #0
 ; Convert 16 color from GS format, to FMX
@@ -471,6 +489,11 @@ C1BlitPalettes ent
 		tay
 		cpx #64
 		bcc ]boop
+
+		pla
+		sta <:temp+2
+		pla
+		sta <:temp
 
 		plb
 		rtl

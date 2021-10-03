@@ -31,6 +31,10 @@
 		ext decompress_lzsa
 		ext movie_data
 
+		ext C1InitVideo
+		ext C1BlitPixels
+		ext C1BlitPalettes
+		ext player
 
         mx %00
 
@@ -79,12 +83,12 @@ temp7          = 54
 
 dpJiffy       = 128
 
+LastTick = $F8
+LoopAnimationFlag = $FA
+dpData = $FC
+
 
 ;----------------------------------------------------------------
-
-		ext C1InitVideo
-		ext C1BlitPixels
-		ext C1BlitPalettes
 
 
 start   ent             ; make sure start is visible outside the file
@@ -115,20 +119,128 @@ start   ent             ; make sure start is visible outside the file
 
 ; Copy in the demo C1
 
-		lda #$7FFF
-		ldx #rastan_c1
-		ldy #$2000
-		mvn ^rastan_c1,^$002000
+;		lda #$7FFF
+;		ldx #rastan_c1
+;		ldy #$2000
+;		mvn ^rastan_c1,^$002000
+;		phk
+;		plb
+;
+;		jsl C1BlitPalettes
+;
+;:display_loop
+;
+;		jsl C1BlitPixels
+
+;------------------------------------------------------------------------------
+; Play the animation
+;
+		; copy player to the Direct Page
+		
+		lda #127  ; player is less than 128 bytes
+		ldx #player
+		phd
+		ply
+		sty :play+1
+		sty :init+1
+		
+		mvn ^player,$00	
+
 		phk
 		plb
 
-		jsl C1BlitPalettes
+		;
+		; Must be 64K Aligned
+		;
+		lda #movie_data
+		stz <dpData
+		lda #^movie_data
+		sta <dpData+2
 
-:display_loop
+		ldx #28
+
+		; X = Low
+		; A = High
+
+:init	jsl $000000	; Fetch first frame
+
+		;C1Blit Plattes wrecks part of the dp
+		jsl C1BlitPalettes
 
 		jsl C1BlitPixels
 
-		bra :display_loop
+		lda #1
+		sta <LoopAnimationFlag
+
+		lda <dpJiffy
+		sta <LastTick
+
+:loop	stz <dpData
+		ldy #24
+		lda [dpData],y
+		clc
+		adc #28			; 20 byte header + 8 bytes skip into ANIM Block
+		tax
+
+		lda <dpData+2
+
+		; Play the animation
+		; X = Low
+		; A = High
+
+:play 	jsl $000000
+
+		lda <LoopAnimationFlag
+		bne :loop
+
+:stop 	bra :loop
+
+;
+; Called by Player at the EndOfAnimFrame, so that 
+; we can check for key presses, and throttle FPS
+;
+EndOfAnimFrame ent
+        phk
+        plb
+
+		jsl C1BlitPixels
+
+:check_key
+;        pha
+;        PushWord #$000A      ; only mousedown, or keydown
+;        PushPtr :TaskRecord  ; NOTE: using our own local record
+;        _TaskMaster
+;        pla
+;        beq :no_action
+
+;        lda :tType
+;        cmp #1
+;        beq :mousedown
+;        cmp #3
+;        beq :keydown
+
+:no_action
+        ; We still need to make sure 1 tick has elapsed
+
+		lda <dpJiffy
+
+        cmp <LastTick
+        beq :check_key
+        
+        sta <LastTick 
+
+        clc  ; keep playing the animation
+        rtl
+:mousedown
+:keydown
+:stop
+        ; Tell the Animation Play to not loop
+        stz <LoopAnimationFlag
+        ; Signal to the Anim Player, that we're done playing
+        ; Animation has been interrupted
+        sec
+        rtl
+
 
 
 ;-----------------------------------------------------------
@@ -1032,3 +1144,4 @@ pal_buffer
 
 ;------------------------------------------------------------------------------
 
+		put gsla.s
