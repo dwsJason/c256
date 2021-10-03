@@ -40,10 +40,19 @@
         knd     $1100           ; Type and Attr ($11=Static+Bank Relative,$00=Code)
         ali     none            ; Boundary Alignment
         lna     play.s16      	; Load Name ('dma.s16') 
-        sna     lzsa            ; Segment Name ('lzsa')
-
+        sna     util            ; Segment Name ('lzsa')
 
 ; Segment 4
+
+        asm     c1util.s  		; sourcefile
+        ds      0               ; extra 0's to add to the segment
+        knd     $1100           ; Type and Attr ($11=Static+Bank Relative,$00=Code)
+        ali     none            ; Boundary Alignment
+        lna     play.s16      	; Load Name ('dma.s16') 
+        sna     c1util          ; Segment Name ('lzsa')
+
+
+; Segment 5
 
         asm     data0.s         ; sourcefile
         ds      0               ; extra 0's to add to the segment
@@ -52,7 +61,7 @@
         lna     play.s16      	; Load Name ('dma.s16') 
         sna     data0           ; Segment Name ('data0')
 
-; Segment 5
+; Segment 6
 
         asm     data1.s         ; sourcefile
         ds      0               ; extra 0's to add to the segment

@@ -4,9 +4,10 @@
 .alignment org $100
 .autopack  org $10000
 
-RESET org $FFFC
-Main  org $A100
-lzsa  org $F000
-data0 org $10000
-data1 org $20000
+RESET  org $FFFC
+Main   org $A100
+c1util org $E000
+util   org $F000
+data0  org $10000
+data1  org $20000
 

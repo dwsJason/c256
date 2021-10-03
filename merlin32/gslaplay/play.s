@@ -1,5 +1,5 @@
 ;
-;  Foenix Bitmap Example in Merlin32
+; C256 FMX Bitmap Example in Merlin32
 ;
 ; $00:2000 - $00:7FFF are free for application use.
 ;
@@ -1843,15 +1843,17 @@ InstallJiffy mx %00
 
 ;------------------------------------------------------------------------------
 ; WaitVBL
-; Preserve all registers
+; Preserve all registers, and processor status
 ;
 WaitVBL
+		php
 		pha
-		stz <dpJiffy
-]lp
 		lda <dpJiffy
+]lp
+		cmp <dpJiffy
 		beq ]lp
 		pla
+		plp
 		rts
 
 ;------------------------------------------------------------------------------
