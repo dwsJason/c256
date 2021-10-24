@@ -1,0 +1,105 @@
+/*
+ *  main.rez
+ *  GS.Pacman
+ *
+ * Created by Peter Hirschberg on 8/17/21.
+ * Copyright © 2021 Peter Hirschberg. All rights reserved.
+ */
+
+
+#include "types.rez"
+#include "main.h"
+
+
+/* Version resource */
+resource rVersion (1) {
+    {
+        1,          /* Major version number in BCD */
+        5,          /* Minor version number in BCD */
+        0,          /* Bug version number in BCD */
+        release,    /* Development phase */
+        0           /* Release number */
+    },
+    verUS,
+    "GS.Pacman",
+    "Copyright \$A9 2021 Peter Hirschberg"
+};
+
+#if MESSAGE_CENTER == 1
+/* Bunde resource */
+resource rBundle (1, preload, nospecialmemory) {
+    nil,                           /* rIcon ID for application if you wish a custom icon */
+    1,
+    {
+        {
+            native + LaunchThis,
+            {0},                     /* rFinderPath ID for this document */
+            {nil},                   /* rIcon ID for large icon for document */
+            {nil},                   /* rIcon ID for small icon for document */
+            "",                      /* String to describe this type of document */
+        },
+        Filetype + AuxType,                  /* Match field bits */
+        MatchFileType {{$04}},      /* File type to match */
+        MatchAuxType {              /* Auxiliary file type to match */
+            {$00000000,$00000000}
+        },
+        empty {},
+        empty {},
+        empty {},
+        empty {},
+        empty {},
+        empty {},
+        empty {},
+        empty {},
+        empty {},
+        empty {}
+    }
+};
+#endif
+
+
+
+
+/* Tools */
+resource rToolStartup (TOOL_STARTUP) {
+#if DESKTOP_RES_MODE == 320
+    mode320,
+#else
+    mode640,
+#endif
+    {
+        3,  $0100,      /* Misc Tool */
+        4,  $0100,      /* Quickdraw */
+        5,  $0100,      /* Desk Manager */
+        6,  $0100,      /* Event Manager */
+        11, $0100,      /* Int Math */
+        14, $0300,      /* Window Manager */
+        15, $0300,      /* Menu Manager */
+        16, $0300,      /* Control Manager */
+        18, $0200,      /* QD Aux */
+        19, $0100,      /* Print Manager */
+        20, $0100,      /* LineEdit Tool */
+        21, $0100,      /* Dialog Manager */
+        22, $0100,      /* Scrap Manager */
+        23, $0100,      /* Standard File */
+        27, $0100,      /* Font Manager */
+        28, $0100,      /* List Manager */
+        30, $0100,      /* Resource Manager */
+        34, $0100       /* TextEdit */
+    }
+};
+
+read rRawSound (INTRO_SOUND) "sounds/intro.raw";
+read rRawSound (INTER_SOUND) "sounds/inter.raw";
+read rRawSound (SIREN1_SOUND) "sounds/siren1.raw";
+read rRawSound (SIREN2_SOUND) "sounds/siren2.raw";
+read rRawSound (EATDOT_SOUND) "sounds/eatdot.raw";
+read rRawSound (EXTRALIFE_SOUND) "sounds/extralife.raw";
+read rRawSound (FRUIT_SOUND) "sounds/fruit.raw";
+read rRawSound (GHOSTSCARED_SOUND) "sounds/ghostscared.raw";
+read rRawSound (EATGHOST_SOUND) "sounds/eatghost.raw";
+read rRawSound (DEATH_SOUND) "sounds/death.raw";
+
+
+
+
