@@ -2,14 +2,18 @@
 ;  Compressed Image Data
 ;
         rel     ; relocatable
-        lnk     data0.l
+        lnk     rom.l
 
         mx %00
 
 ;-------------------------------------------------------------------------------
 
-title_pic ent             ; make sure start is visible outside the file
-	putbin data\borderpanel.256
+rom_5e ent             ; 8x8 Tile ROM
+	putbin data\rom\5e
+
+rom_5f ent  	  	   ; 16x16 Sprite ROM
+    putbin data\rom\5f
+
 
 
 

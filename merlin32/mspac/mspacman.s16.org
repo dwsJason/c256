@@ -5,7 +5,7 @@
 .autopack  org $10000
 
 RESET org $FFFC
-Main  org $2000
+Main  org $2100
 lzsa  org $10000
 data0 org $20000
 

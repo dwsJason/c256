@@ -52,6 +52,15 @@
         lna     mspacman.s16    ; Load Name ('mspacman.s16') 
         sna     data0           ; Segment Name ('data0')
 
+; Segment 5
+
+        asm     rom.s           ; sourcefile
+        ds      0               ; extra 0's to add to the segment
+        knd     $0001           ; Type and Attr ($00=Static,$01=Data)
+        ali     none            ; Boundary Alignment
+        lna     mspacman.s16    ; Load Name ('mspacman.s16') 
+        sna     rom             ; Segment Name ('rom')
+
 
  
 

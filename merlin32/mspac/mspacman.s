@@ -3,6 +3,14 @@
 ;
 ; $00:2000 - $00:7FFF are free for application use.
 ;
+;
+;  224x288 Screen Resolution on the arcard machine
+;  400x300 mode on the Phoenix
+;
+;  300-288 = 12,  border 6 vertical, and 8 horizontal
+;
+;  400-16-224 = 160 (leaving 80 bitmap pixels on the left, and on the right)
+;
         rel     ; relocatable
         lnk     Main.l
 
@@ -53,7 +61,7 @@ MyDP = $100
 
 ;------------------------------------------------------------------------------
 ; Direct Page Equates
-		dum $30
+		dum $80
 lzsa_sourcePtr ds 4
 lsza_destPtr   ds 4
 lzsa_matchPtr  ds 4
@@ -79,6 +87,8 @@ i16Width       ds 2
 i16Height      ds 2
 pCLUT          ds 4
 pPIXL		   ds 4
+
+dpJiffy        ds 2    ; Jiffy Timer
 		dend
 
 
@@ -97,7 +107,20 @@ start   ent             ; make sure start is visible outside the file
         lda #MyDP
         tcd
 
-		lda #Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_Bitmap_En+Mstr_Ctrl_GAMMA_En+$300  		  	; 400x300 + Gamma + Bitmap_en
+		phk
+		plb
+
+;
+; Setup a Jiffy Timer, using Kernel Jump Table
+; Trying to be friendly, in case we can friendly exit
+;
+		jsr InstallJiffy
+
+		jsr WaitVBL
+
+;------------------------------------------------------------------------------
+
+		lda #Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_Bitmap_En+Mstr_Ctrl_GAMMA_En+$100  		  	; 800x600 + Gamma + Bitmap_en
 		sta >MASTER_CTRL_REG_L
 
 		lda #BM_Enable
@@ -112,6 +135,16 @@ start   ent             ; make sure start is visible outside the file
 		sta >BM0_X_OFFSET
 		sta >BM0_Y_OFFSET
 		sta >BM1_CONTROL_REG
+
+;------------------------------------------------------------------------------
+
+		sta >BORDER_X_SIZE
+		sta >BORDER_Y_SIZE
+
+		sta >BORDER_COLOR_B
+		sta >BORDER_COLOR_R		; Zero R, and Disable the Blinky Cursor
+
+;------------------------------------------------------------------------------
 
 ;
 ; Extract CLUT data from the title image
@@ -160,7 +193,7 @@ start   ent             ; make sure start is visible outside the file
 		jsl decompress_pixels
 
 ]count = 0
-		lup 2
+		lup 8
 ]source = pixel_buffer+{]count*$10000}
 ]dest   = VRAM+{]count*$10000}
 		lda #0
@@ -173,95 +206,19 @@ start   ent             ; make sure start is visible outside the file
 
 		phk
 		plb
-		
-		cli
 
 :stop   bra :stop
 
-
-;-------------------------------------------------------------------------------
-
-
-        ; Set Background Color
-        lda     #$00FF
-        stal    $AF0008 ; back
-        stal    $AF0005 ; border
-        lda     #$0000
-        stal    $AF000A ; back
-        stal    $AF0007 ; border       
+;------------------------------------------------------------------------------
+; Wait 1 second
+		lda #59
+]lp 	jsr WaitVBL
+		dec
+		bpl ]lp
+;------------------------------------------------------------------------------
 
 
-        ; graphics + bitmap on
-        lda     #$C     ; graph + bitmap
-        stal    $AF0000
-
-;        lda     #$00FF  ; blue
-;        lda     #$FF00  ; green
-		lda		#0
-        stal    $AF2004
-        lda     #$00FF ; red
-;        lda     #$0000
-        stal    $AF2006
-
-        ; Clear 4 Palettes worth of colors
-        ldy     #<$AF2004  ; Destination
-        ldx     #<$AF2000
-        lda     #{1023*4}-1
-        ;mvn     ^$AF2000,^$AF2004    ; src,dest
-
-        phk
-        plb
-
-        ; no border
-        lda     #0
-        stal    $AF0004  ; border control
-
-        ; bitmap on
-        lda     #1
-        stal    $AF0140
-        ; bitmap at address 0 (0xB00000)
-        lda     #0
-        stal    $AF0142
-
-        lda     #640
-        stal    $AF0144
-        lda     #480
-        stal    $AF0146
-
-        ; Fill Frame Buffer with Color index 1
-        lda     #$0101
-        ldx     #0
-]lp
-        stal    $B00000,x
-        stal    $B10000,x
-        stal    $B20000,x
-        stal    $B30000,x
-        stal    $B40000,x
-        inx
-        inx
-        bne ]lp
-
-        ;ldx     #$0000 ;src
-        ;ldy     #$0002 ;dst
-        ;da     #$fffd
-        ;vn     $B0,$B0
-
-        ;lda #$ffff
-        ;mvn     $B1,$B1
-        ;lda #$ffff
-        ;mvn     $B2,$B2
-        ;lda #$ffff
-        ;mvn     $B3,$B3
-        ;lda #$ffff
-        ;mvn     $B4,$B4
-
-        phk
-        plb
-
-
-
-end
-        bra     end
+end 	bra     end
 
 ;------------------------------------------------------------------------------
 ;
@@ -734,4 +691,63 @@ pal_buffer
 		ds 1024
 
 ;------------------------------------------------------------------------------
+
+;------------------------------------------------------------------------------
+;
+; Jiffy Timer Installer, Enabler
+; Depends on the Kernel Interrupt Handler
+;
+InstallJiffy mx %00
+
+; Fuck over the vector
+
+		sei
+
+		lda #$4C	; JMP
+		sta |VEC_INT00_SOF
+
+		lda #:JiffyTimer
+		sta |VEC_INT00_SOF+1
+
+; Enable the SOF interrupt
+
+		lda	#FNX0_INT00_SOF
+		trb |INT_MASK_REG0
+
+		cli
+		rts
+
+:JiffyTimer
+;		pha					   ; 4
+;		lda >{MyDP+dpJiffy}    ; 6
+;		inc					   ; 2
+;		sta >{MyDP+dpJiffy}    ; 6
+;		pla					   ; 5
+;		rtl
+
+		phb 				   ; 3
+		phk 				   ; 3
+		plb 				   ; 4
+		inc |{MyDP+dpJiffy}    ; 6
+		plb 				   ; 4
+		rtl
+
+
+;------------------------------------------------------------------------------
+; WaitVBL
+; Preserve all registers, and processor status
+;
+WaitVBL mx %00
+		php
+		pha
+		lda <dpJiffy
+]lp
+		cmp <dpJiffy
+		beq ]lp
+		pla
+		plp
+		rts
+
+;------------------------------------------------------------------------------
+
 
