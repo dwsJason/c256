@@ -16,8 +16,17 @@
 
         use Util.Macs
 
+; External Addresses
+
 		ext title_pic
 		ext decompress_lzsa
+
+		ext tile_rom
+		ext sprite_rom
+		ext color_rom
+		ext palette_rom
+		ext sound_rom1
+		ext sound_rom2
 
         mx %00
 
@@ -54,6 +63,22 @@ pixel_buffer = $100000	; need about 120k, put it in memory at 1.25MB mark
 VRAM = $B00000
 
 VICKY_BITMAP0 = $000000
+
+; Ms Pacman Memory Defines
+
+]VIDEO_MODE = Mstr_Ctrl_Graph_Mode_En
+]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_TileMap_En
+;]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_Sprite_En
+]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_GAMMA_En
+]VIDEO_MODE = ]VIDEO_MODE+$100                                        ; +800x600
+
+VICKY_MAP_TILES    = $000000
+VICKY_SPRITE_TILES = $010000
+VICKY_MAP0         = $020000   				; MAP Data for the TileSet
+
+TILE_CLEAR_SIZE = $010000
+MAP_CLEAR_SIZE = 64*64*2
+
 
 ;------------------------------------------------------------------------------
 ; I like having my own Direct Page
@@ -120,102 +145,14 @@ start   ent             ; make sure start is visible outside the file
 
 ;------------------------------------------------------------------------------
 
-		lda #Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_Bitmap_En+Mstr_Ctrl_GAMMA_En+$100  		  	; 800x600 + Gamma + Bitmap_en
-		sta >MASTER_CTRL_REG_L
-
-		lda #BM_Enable
-		sta >BM0_CONTROL_REG
-
-		lda	#VICKY_BITMAP0
-		sta >BM0_START_ADDY_L
-		lda #^VICKY_BITMAP0
-		sta >BM0_START_ADDY_H
-
-		lda #0
-		sta >BM0_X_OFFSET
-		sta >BM0_Y_OFFSET
-		sta >BM1_CONTROL_REG
+		jsr ShowTitlePage
 
 ;------------------------------------------------------------------------------
-
-		sta >BORDER_X_SIZE
-		sta >BORDER_Y_SIZE
-
-		sta >BORDER_COLOR_B
-		sta >BORDER_COLOR_R		; Zero R, and Disable the Blinky Cursor
-
-;------------------------------------------------------------------------------
-
 ;
-; Extract CLUT data from the title image
-;
-		; source picture
-		pea ^title_pic
-		pea title_pic
+		jsr InitMsPacVideo
 
-		; destination address
-		pea ^pal_buffer
-		pea pal_buffer
-
-		jsl decompress_clut
-
-        ; Copy over the LUT
-        ldy     #GRPH_LUT0_PTR  ; dest
-        ldx     #pal_buffer  	; src
-        lda     #1024-1			; length
-        mvn     ^pal_buffer,^GRPH_LUT0_PTR    ; src,dest
-
-		phk
-		plb
-
-        ; Set Background Color
-		sep #$30
-        lda	|pal_buffer
-        sta >BACKGROUND_COLOR_B ; back
-        lda |pal_buffer+1
-        sta  >BACKGROUND_COLOR_G ; back
-        lda |pal_buffer+2
-        sta  >BACKGROUND_COLOR_R ; back
-		rep #$30
-
-
-;
-; Extract pixels from the title image
-;
-		; source picture
-		pea ^title_pic
-		pea title_pic
-
-		; destination address
-		pea ^pixel_buffer
-		pea pixel_buffer
-
-		jsl decompress_pixels
-
-]count = 0
-		lup 8
-]source = pixel_buffer+{]count*$10000}
-]dest   = VRAM+{]count*$10000}
-		lda #0
-		tax
-		tay
-		dec
-		mvn ^]source,^]dest
-]count = ]count+1
-		--^
-
-		phk
-		plb
-
-:stop   bra :stop
-
-;------------------------------------------------------------------------------
-; Wait 1 second
-		lda #59
-]lp 	jsr WaitVBL
-		dec
-		bpl ]lp
-;------------------------------------------------------------------------------
+		; Convert the Tiles so we can see them
+		jsr TestTiles
 
 
 end 	bra     end
@@ -749,5 +686,588 @@ WaitVBL mx %00
 		rts
 
 ;------------------------------------------------------------------------------
+;
+; Decompress and Display the Title Page
+;
+ShowTitlePage mx %00
 
+		lda #Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_Bitmap_En+Mstr_Ctrl_GAMMA_En+$100  		  	; 800x600 + Gamma + Bitmap_en
+		sta >MASTER_CTRL_REG_L
+
+		lda #BM_Enable
+		sta >BM0_CONTROL_REG
+
+		lda	#VICKY_BITMAP0
+		sta >BM0_START_ADDY_L
+		lda #^VICKY_BITMAP0
+		sta >BM0_START_ADDY_H
+
+		lda #0
+		sta >BM0_X_OFFSET
+		sta >BM0_Y_OFFSET
+		sta >BM1_CONTROL_REG
+
+;------------------------------------------------------------------------------
+
+		sta >BORDER_X_SIZE
+		sta >BORDER_Y_SIZE
+
+		sta >BORDER_COLOR_B
+		sta >BORDER_COLOR_R		; Zero R, and Disable the Blinky Cursor
+
+;------------------------------------------------------------------------------
+
+;
+; Extract CLUT data from the title image
+;
+		; source picture
+		pea ^title_pic
+		pea title_pic
+
+		; destination address
+		pea ^pal_buffer
+		pea pal_buffer
+
+		jsl decompress_clut
+
+        ; Copy over the LUT
+        ldy     #GRPH_LUT0_PTR  ; dest
+        ldx     #pal_buffer  	; src
+        lda     #1024-1			; length
+        mvn     ^pal_buffer,^GRPH_LUT0_PTR    ; src,dest
+
+		phk
+		plb
+
+        ; Set Background Color
+		sep #$30
+        lda	|pal_buffer
+        sta >BACKGROUND_COLOR_B ; back
+        lda |pal_buffer+1
+        sta  >BACKGROUND_COLOR_G ; back
+        lda |pal_buffer+2
+        sta  >BACKGROUND_COLOR_R ; back
+		rep #$30
+
+
+;
+; Extract pixels from the title image
+;
+		; source picture
+		pea ^title_pic
+		pea title_pic
+
+		; destination address
+		pea ^pixel_buffer
+		pea pixel_buffer
+
+		jsl decompress_pixels
+
+]count = 0
+		lup 8
+]source = pixel_buffer+{]count*$10000}
+]dest   = VRAM+{]count*$10000}
+		lda #0
+		tax
+		tay
+		dec
+		mvn ^]source,^]dest
+]count = ]count+1
+		--^
+
+		phk
+		plb
+
+;------------------------------------------------------------------------------
+; Wait 1 second
+		lda #59
+]lp 	jsr WaitVBL
+		dec
+		bpl ]lp
+;------------------------------------------------------------------------------
+
+		rts
+
+;------------------------------------------------------------------------------
+; Configure the FMX for Ms Pacman
+;
+; 800x600 mode - Game is 448x576  (600-576 = 24)
+;
+; Border 16 horizontal, with 12 tall on the top and bottom
+;
+; Tile Map 0 - 64x64
+; Also uses Sprites
+;
+InitMsPacVideo mx %00
+
+		jsr WaitVBL
+
+		pea >MASTER_CTRL_REG_L
+		plb
+		plb
+
+		lda #]VIDEO_MODE
+		sta |MASTER_CTRL_REG_L
+
+		sep #$10
+
+;---------------------------------------------------------
+		; Initialize the border
+
+		ldx #Border_Ctrl_Enable
+		stx |BORDER_CTRL_REG			; Enable the Border
+
+		stz |BORDER_COLOR_B				; Black
+		stz |BORDER_COLOR_R
+
+		ldy #$FF		   	; Red for debug
+		sty |BORDER_COLOR_R
+
+		ldx #16
+		stx |BORDER_X_SIZE
+		ldy #12
+		sty |BORDER_Y_SIZE
+
+;---------------------------------------------------------
+
+		; Set the Background Color
+		stz |BACKGROUND_COLOR_B  	 ; Black
+		stz |BACKGROUND_COLOR_G
+
+;---------------------------------------------------------
+
+; Default the first 4 colors of LUT0
+
+		; Black
+		stz |GRPH_LUT0_PTR
+		stz |GRPH_LUT0_PTR+2
+
+		; Dark Grey
+		lda #$5050
+		sta |GRPH_LUT0_PTR+4
+		sta |GRPH_LUT0_PTR+6
+
+		; Dark Grey
+		lda #$A0A0
+		sta |GRPH_LUT0_PTR+8
+		sta |GRPH_LUT0_PTR+10
+
+		; White
+		lda #$FFFF
+		sta |GRPH_LUT0_PTR+12
+		sta |GRPH_LUT0_PTR+14
+
+;---------------------------------------------------------
+;
+;  Initialize Tile Map
+;
+
+		; While Tile planes are active
+		ldx #TILE_Enable
+		ldy #0
+		stx |TL0_CONTROL_REG  	; Tile Plane 0 Enable
+		sty |TL1_CONTROL_REG	; Tile Plane 1 Enable
+		sty |TL2_CONTROL_REG	; Tile Plane 2 Disable
+		sty |TL3_CONTROL_REG	; Tile Plane 3 Disable
+
+		; Map Data Size
+		lda #64
+		sta |TL0_TOTAL_X_SIZE_L
+		sta |TL0_TOTAL_Y_SIZE_L
+
+		; Tile Set Address
+		lda #VICKY_MAP_TILES
+		sta |TILESET0_ADDY_L
+		ldx #^VICKY_MAP_TILES
+		stx |TILESET0_ADDY_H
+
+		; Set TileMap 0 Name Data Address
+		lda #VICKY_MAP0
+		sta |TL0_START_ADDY_L
+		ldx #^VICKY_MAP0
+		stx |TL0_START_ADDY_H
+
+		; Map display position
+		stz |TL0_WINDOW_X_POS_L
+		lda #4
+		sta |TL0_WINDOW_Y_POS_L
+
+		rep #$30
+
+		; Clear Tile Catalog 0  - used for the map tiles
+		pea #^VICKY_MAP_TILES
+		pea #VICKY_MAP_TILES
+
+		pea #^TILE_CLEAR_SIZE
+		pea #TILE_CLEAR_SIZE
+
+		jsr vmemset0
+
+		; Clear Tile Catalog 1  - used for the sprites!
+		pea #^VICKY_SPRITE_TILES
+		pea #VICKY_SPRITE_TILES
+
+		pea #^TILE_CLEAR_SIZE
+		pea #TILE_CLEAR_SIZE
+
+		jsr vmemset0
+
+		; Clear Tile Map 0
+		pea #^VICKY_MAP0
+		pea #VICKY_MAP0
+
+		pea #^MAP_CLEAR_SIZE
+		pea #MAP_CLEAR_SIZE
+		
+		jsr vmemset0
+
+		rts
+
+;------------------------------------------------------------------------------
+; Convert the Tiles and Display them!
+
+TestTiles mx %00
+
+;---------------------------------------------------------
+; Copy map data to VRAM - Special Map data to see our converted tile data
+
+		ldx #0
+]lp
+		lda |:map_data,x
+		sta >VICKY_MAP0+VRAM+{64*2}+4,x
+		inx
+		inx
+		cpx #64*16*2
+		bcc ]lp
+
+;		nop
+;		nop
+;		nop
+;:stop   bra :stop
+;		nop
+;		nop
+;		nop
+
+		lda #$0303
+		sta >VRAM+VICKY_MAP_TILES
+		sta >VRAM+VICKY_MAP_TILES+2
+		sta >VRAM+VICKY_MAP_TILES+4
+		sta >VRAM+VICKY_MAP_TILES+6
+		sta >VRAM+VICKY_MAP_TILES+8
+		sta >VRAM+VICKY_MAP_TILES+10
+		sta >VRAM+VICKY_MAP_TILES+12
+		sta >VRAM+VICKY_MAP_TILES+14
+
+		sta >VRAM+VICKY_MAP_TILES+{16*1}
+		sta >VRAM+VICKY_MAP_TILES+{16*1}+14
+
+		sta >VRAM+VICKY_MAP_TILES+{16*2}
+		sta >VRAM+VICKY_MAP_TILES+{16*2}+14
+		sta >VRAM+VICKY_MAP_TILES+{16*3}
+		sta >VRAM+VICKY_MAP_TILES+{16*3}+14
+		sta >VRAM+VICKY_MAP_TILES+{16*4}
+		sta >VRAM+VICKY_MAP_TILES+{16*4}+14
+		sta >VRAM+VICKY_MAP_TILES+{16*5}
+		sta >VRAM+VICKY_MAP_TILES+{16*5}+14
+		sta >VRAM+VICKY_MAP_TILES+{16*6}
+		sta >VRAM+VICKY_MAP_TILES+{16*6}+14
+
+		sta >VRAM+VICKY_MAP_TILES+{16*7}
+		sta >VRAM+VICKY_MAP_TILES+{16*7}+14
+
+		sta >VRAM+VICKY_MAP_TILES+{16*8}
+		sta >VRAM+VICKY_MAP_TILES+{16*8}+14
+
+		sta >VRAM+VICKY_MAP_TILES+{16*9}
+		sta >VRAM+VICKY_MAP_TILES+{16*9}+14
+
+		sta >VRAM+VICKY_MAP_TILES+{16*10}
+		sta >VRAM+VICKY_MAP_TILES+{16*10}+14
+
+		sta >VRAM+VICKY_MAP_TILES+{16*11}
+		sta >VRAM+VICKY_MAP_TILES+{16*11}+14
+
+		sta >VRAM+VICKY_MAP_TILES+{16*12}
+		sta >VRAM+VICKY_MAP_TILES+{16*12}+14
+
+		sta >VRAM+VICKY_MAP_TILES+{16*13}
+		sta >VRAM+VICKY_MAP_TILES+{16*13}+14
+
+		sta >VRAM+VICKY_MAP_TILES+{16*14}
+		sta >VRAM+VICKY_MAP_TILES+{16*14}+14
+
+		sta >VRAM+VICKY_MAP_TILES+{16*15}
+		sta >VRAM+VICKY_MAP_TILES+{16*15}+14
+
+		nop
+		nop
+		nop
+;]wait	bra ]wait
+		nop
+		nop
+		nop
+
+;---------------------------------------------------------
+; Convert MsPacman Tile data into Vicky Format!
+;
+; 8x8 Tile Rom over to 16x16 Tile RAM
+;
+; decompress tile_rom, to Tile RAM
+;
+:pTile   = temp0
+:pPixels = temp1
+:temp    = temp2
+:loop_counter = temp3
+
+		; Initialize Tile Address
+		lda #VRAM+VICKY_MAP_TILES
+		sta <:pTile
+		lda #^{VRAM+VICKY_MAP_TILES}
+		sta <:pTile+2
+
+		ldx #0    ; start at offset zero in the tile ROM
+
+		lda #256
+]tile_loop
+		pha
+
+		; Pixels Address
+		clc
+		lda <:pTile
+		adc #{16*8}+14
+		sta <:pPixels
+		lda <:pTile+2
+;		adc #0  		; never going to need this
+		sta <:pPixels+2
+
+
+
+; Decode Bottom Half of a Tile
+
+		jsr :decode_half
+
+
+; Decode Top Half
+
+		clc
+		lda <:pTile
+		adc #14
+		sta <:pPixels
+
+		jsr :decode_half
+
+		clc
+		lda <:pTile				; Goto next tile
+		adc #256
+		sta <:pTile
+
+
+		pla
+		dec						; loop 256 times
+		bne ]tile_loop
+
+		rts
+
+
+
+:decode_half
+
+		lda #8
+		sta <:loop_counter
+]lp
+		lda >tile_rom,x
+		inx
+
+		jsr :decode4pixels
+
+		dec <:pPixels
+		dec <:pPixels
+
+		dec <:loop_counter
+
+		bne ]lp
+
+		rts
+
+
+:decode4pixels
+; input pPixels in :pPixels
+; A contains 4 pixels in MsPacman Arcade ROM format
+		pha
+
+		and #1
+		sta <:temp
+		lda 1,s
+		lsr
+		lsr
+		lsr
+		and #2
+		ora <:temp
+		sta <:temp
+		xba
+		ora <:temp
+
+		ldy #6*16
+		sta [:pPixels],y  ; top half of pixel #4
+		ldy #7*16 
+		sta [:pPixels],y  ; bottom half of pixel #
+
+		lda 1,s
+		lsr
+		and #1
+		sta <:temp
+		lda 1,s
+		lsr
+		lsr
+		lsr
+		lsr
+		and #2
+		ora <:temp
+		sta <:temp
+		xba
+		ora <:temp
+
+		ldy #4*16
+		sta [:pPixels],y  ; Top half pixel #3 
+		ldy #5*16
+		sta [:pPixels],y  ; Bottom half of pixel #3
+
+		lda 1,s
+		lsr
+		lsr
+		and #1
+		sta <:temp
+		lda 1,s
+		lsr
+		lsr
+		
+		lsr
+		lsr
+		lsr
+		and #2
+		ora <:temp
+		sta <:temp
+		xba
+		ora <:temp
+
+		ldy #2*16
+		sta [:pPixels],y  ; Top half of pixel #2
+		ldy #3*16
+		sta [:pPixels],y  ; Bottom Half of pixel #2
+
+		lda 1,s
+		lsr
+		lsr
+		lsr
+		and #1
+		sta <:temp
+		pla
+		lsr
+		lsr
+		lsr
+		
+		lsr
+		lsr
+		lsr
+		and #2
+		ora <:temp
+		sta <:temp
+		xba
+		ora <:temp
+
+		sta [:pPixels]		; Top half of pixel
+		ldy #16
+		sta [:pPixels],y    ; Bottom Half of pixel
+
+		rts
+
+;------------------------------------------------------------------------------
+;
+; Vicky Compatible Map data, used to tell vicky which
+; tiles to display on the layer
+;
+:map_data
+]var = 0
+	lup 16
+	dw $000+]var,$001+]var,$002+]var,$003+]var,$004+]var,$005+]var,$006+]var,$007+]var
+	dw $008+]var,$009+]var,$00A+]var,$00B+]var,$00C+]var,$00D+]var,$00E+]var,$00F+]var
+	dw 0,0,0,0,0,0,0,0
+	dw 0,0,0,0,0,0,0,0
+
+	dw 0,0,0,0,0,0,0,0
+	dw 0,0,0,0,0,0,0,0
+	dw 0,0,0,0,0,0,0,0
+	dw 0,0,0,0,0,0,0,0
+
+]var = ]var+16
+	--^
+
+
+;------------------------------------------------------------------------------
+; vmemset0
+;
+; Memset a section of VRAM to 0, using VDMA
+;
+; PushL Dest VRAM Address
+; PushL Size
+;
+vmemset0 mx %00
+
+]size_bytes = 3
+]dest_addr  = 7
+
+		; switch into the VDMA Bank
+		pea >VDMA_CONTROL_REG
+		plb
+		plb
+
+		stz |VDMA_CONTROL_REG ; Disable DMA, set Fill Byte to 00
+
+		sep #$10
+
+		; Activate VDMA Circuit
+		ldx #VDMA_CTRL_Enable+VDMA_CTRL_TRF_Fill
+		stx |VDMA_CONTROL_REG
+
+		; Setup the Destination address
+		lda ]dest_addr,s
+		sta |VDMA_DST_ADDY_L
+		lda ]dest_addr+1,s
+		sta |VDMA_DST_ADDY_L+1
+
+		; set the length
+		lda ]size_bytes,s
+		sta |VDMA_SIZE_L
+		lda ]size_bytes+2,s
+		sta |VDMA_SIZE_L+2
+
+		ldx #VDMA_CTRL_Enable+VDMA_CTRL_TRF_Fill+VDMA_CTRL_Start_TRF
+		stx |VDMA_CONTROL_REG  ; kick the dma
+
+		nop
+		nop
+		nop
+
+]wait_dma
+		ldx |VDMA_STATUS_REG
+		bmi ]wait_dma
+
+		ldx #0  			   ; done
+		stx |VDMA_CONTROL_REG
+
+		rep #$31    ; mxc=000
+
+		; fix up stack
+		lda 1,s
+		sta 9,s
+
+		tsc
+		adc #8
+		tcs
+
+		phk
+		plb
+		rts
+		
+;------------------------------------------------------------------------------
 
