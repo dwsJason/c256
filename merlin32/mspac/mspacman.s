@@ -68,7 +68,7 @@ VICKY_BITMAP0 = $000000
 
 ]VIDEO_MODE = Mstr_Ctrl_Graph_Mode_En
 ]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_TileMap_En
-;]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_Sprite_En
+]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_Sprite_En
 ]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_GAMMA_En
 ]VIDEO_MODE = ]VIDEO_MODE+$100                                        ; +800x600
 
@@ -154,6 +154,8 @@ start   ent             ; make sure start is visible outside the file
 		; Convert the Tiles so we can see them
 		jsr TestTiles
 
+		; Convert the Sprites so we can see them!
+		jsr TestSprites
 
 end 	bra     end
 
@@ -892,7 +894,22 @@ InitMsPacVideo mx %00
 		lda #4
 		sta |TL0_WINDOW_Y_POS_L
 
-		rep #$30
+
+;---------------------------------------------------
+		; Quick Disable All the Sprites
+
+		rep #$31	; mxc=000
+
+		ldx #0
+		txa
+]lp
+		stz |SP00_CONTROL_REG,x
+		adc #8
+		tax
+		cpx #8*64
+		bcc ]lp
+
+;---------------------------------------------------
 
 		; Clear Tile Catalog 0  - used for the map tiles
 		pea #^VICKY_MAP_TILES
@@ -923,6 +940,311 @@ InitMsPacVideo mx %00
 
 		rts
 
+
+;------------------------------------------------------------------------------
+; Convert the Sprites and Display them!
+
+TestSprites mx %00
+
+LEFT = 400
+TOP  = 64
+
+:pSprite = temp0
+:xPos    = temp1
+:yPos    = temp1+2
+
+		pea >SP00_CONTROL_REG
+		plb
+		plb
+
+		lda #LEFT
+		sta <:xPos
+		lda #TOP
+		sta <:yPos
+
+
+		; Setup a 16x16 Sprite Tile Grid
+		;
+		; Sprite Tile 0 Address
+		; 32x32
+		lda #VICKY_SPRITE_TILES
+		sta <:pSprite
+		lda #^VICKY_SPRITE_TILES
+		sta <:pSprite+2
+
+		clc
+
+		ldx #0			; index over to the first sprite
+]lp
+		lda #SPRITE_Enable  		  ; Enable the sprite
+		sta |SP00_CONTROL_REG,x
+
+		lda <:pSprite   			  ; point at a tile in memory
+		sta |SP00_ADDY_PTR_L,x
+
+		lda <:pSprite+1
+		sta |SP00_ADDY_PTR_L+1,x
+
+		lda <:xPos
+		sta |SP00_X_POS_L,x 			  ; Set X Position
+
+		lda <:yPos
+		sta |SP00_Y_POS_L,x            ; Set Y Position
+
+		lda <:pSprite
+		adc #1024					  ; increment sprite pointer
+		sta <:pSprite
+
+		lda <:xPos  				  ; increment x position
+		adc #48
+		cmp #LEFT+{8*48}
+		bcc :skip_y
+
+		lda <:yPos  		  		  ; increment y position
+		adc #47		; c=1
+		sta <:yPos
+
+		; c=0
+
+		lda #LEFT
+:skip_y
+		sta <:xPos
+
+		txa
+		adc #8
+		tax
+		cpx #8*64
+		bcc ]lp
+
+; Sprites Initialized
+
+;---------------------------------------------------------
+; Convert MsPacman Tile data into Vicky Format!
+;
+; 16x16 Sprite Rom over to 32x32 Sprite RAM
+;
+; decompress sprite_rom, to Tile RAM
+;
+:pTile   = temp0
+:pPixels = temp1
+:temp    = temp2
+:loop_counter = temp3
+
+		; Initialize Tile Address
+		lda #VRAM+VICKY_SPRITE_TILES
+		sta <:pTile
+		lda #^{VRAM+VICKY_SPRITE_TILES}
+		sta <:pTile+2
+		sta <:pPixels+2
+
+		ldx #0    ; start at offset zero in the sprite ROM
+
+;
+; 5(0,0)  1(16,0)
+; 6(0,8)  2(16,8)
+; 7(0,16) 3(16,16)
+; 4(0,24) 0(16,24)
+
+		clc
+
+		lda #64
+]tile_loop
+		pha
+
+
+; Decode Section 0
+
+		lda <:pTile
+		adc #{32*24}+30
+		sta <:pPixels
+
+		jsr :decode_section
+
+; Decode Section 1
+
+		lda <:pTile
+		adc #30
+		sta <:pPixels
+
+		jsr :decode_section
+
+; Decode Section 2
+
+		lda <:pTile
+		adc #{32*8}+30
+		sta <:pPixels
+
+		jsr :decode_section
+
+; Decode Section 3
+
+		lda <:pTile
+		adc #{32*16}+30
+		sta <:pPixels
+
+		jsr :decode_section
+
+; Decode Section 4
+
+		lda <:pTile
+		adc #{32*24}+14
+		sta <:pPixels
+
+		jsr :decode_section
+
+; Decode Section 5
+
+		lda <:pTile
+		adc #14
+		sta <:pPixels
+
+		jsr :decode_section
+
+; Decode Section 6
+
+		lda <:pTile
+		adc #{8*32}+14
+		sta <:pPixels
+
+		jsr :decode_section
+
+; Decode Section 7
+
+		lda <:pTile
+		adc #{16*32}+14
+		sta <:pPixels
+
+		jsr :decode_section
+
+		lda <:pTile				; Goto next tile
+		adc #1024
+		sta <:pTile
+
+		pla
+		dec						; loop 64 times
+		bne ]tile_loop
+
+		phk
+		plb
+
+		rts
+
+;------------------------------------------------
+
+:decode_section
+
+		lda #8
+		sta <:loop_counter
+]lp
+		lda >sprite_rom,x
+		inx
+
+		jsr :decode4pixels
+
+		dec <:pPixels
+		dec <:pPixels
+
+		dec <:loop_counter
+
+		bne ]lp
+
+		clc
+
+		rts
+
+
+:decode4pixels
+; input pPixels in :pPixels
+; A contains 4 pixels in MsPacman Arcade ROM format
+		pha
+
+		and #1
+		sta <:temp
+		lda 1,s
+		lsr
+		lsr
+		lsr
+		and #2
+		ora <:temp
+		sta <:temp
+		xba
+		ora <:temp
+
+		ldy #6*32
+		sta [:pPixels],y  ; top half of pixel #4
+		ldy #7*32 
+		sta [:pPixels],y  ; bottom half of pixel #
+
+		lda 1,s
+		lsr
+		and #1
+		sta <:temp
+		lda 1,s
+		lsr
+		lsr
+		lsr
+		lsr
+		and #2
+		ora <:temp
+		sta <:temp
+		xba
+		ora <:temp
+
+		ldy #4*32
+		sta [:pPixels],y  ; Top half pixel #3 
+		ldy #5*32
+		sta [:pPixels],y  ; Bottom half of pixel #3
+
+		lda 1,s
+		lsr
+		lsr
+		and #1
+		sta <:temp
+		lda 1,s
+		lsr
+		lsr
+		
+		lsr
+		lsr
+		lsr
+		and #2
+		ora <:temp
+		sta <:temp
+		xba
+		ora <:temp
+
+		ldy #2*32
+		sta [:pPixels],y  ; Top half of pixel #2
+		ldy #3*32
+		sta [:pPixels],y  ; Bottom Half of pixel #2
+
+		lda 1,s
+		lsr
+		lsr
+		lsr
+		and #1
+		sta <:temp
+		pla
+		lsr
+		lsr
+		lsr
+		
+		lsr
+		lsr
+		lsr
+		and #2
+		ora <:temp
+		sta <:temp
+		xba
+		ora <:temp
+
+		sta [:pPixels]		; Top half of pixel
+		ldy #32
+		sta [:pPixels],y    ; Bottom Half of pixel
+
+		rts
+
+
 ;------------------------------------------------------------------------------
 ; Convert the Tiles and Display them!
 
@@ -940,72 +1262,15 @@ TestTiles mx %00
 		cpx #64*16*2
 		bcc ]lp
 
-;		nop
-;		nop
-;		nop
-;:stop   bra :stop
-;		nop
-;		nop
-;		nop
+; Clear out the rest of the map data with $00FF, a clear tile character
 
-		lda #$0303
-		sta >VRAM+VICKY_MAP_TILES
-		sta >VRAM+VICKY_MAP_TILES+2
-		sta >VRAM+VICKY_MAP_TILES+4
-		sta >VRAM+VICKY_MAP_TILES+6
-		sta >VRAM+VICKY_MAP_TILES+8
-		sta >VRAM+VICKY_MAP_TILES+10
-		sta >VRAM+VICKY_MAP_TILES+12
-		sta >VRAM+VICKY_MAP_TILES+14
-
-		sta >VRAM+VICKY_MAP_TILES+{16*1}
-		sta >VRAM+VICKY_MAP_TILES+{16*1}+14
-
-		sta >VRAM+VICKY_MAP_TILES+{16*2}
-		sta >VRAM+VICKY_MAP_TILES+{16*2}+14
-		sta >VRAM+VICKY_MAP_TILES+{16*3}
-		sta >VRAM+VICKY_MAP_TILES+{16*3}+14
-		sta >VRAM+VICKY_MAP_TILES+{16*4}
-		sta >VRAM+VICKY_MAP_TILES+{16*4}+14
-		sta >VRAM+VICKY_MAP_TILES+{16*5}
-		sta >VRAM+VICKY_MAP_TILES+{16*5}+14
-		sta >VRAM+VICKY_MAP_TILES+{16*6}
-		sta >VRAM+VICKY_MAP_TILES+{16*6}+14
-
-		sta >VRAM+VICKY_MAP_TILES+{16*7}
-		sta >VRAM+VICKY_MAP_TILES+{16*7}+14
-
-		sta >VRAM+VICKY_MAP_TILES+{16*8}
-		sta >VRAM+VICKY_MAP_TILES+{16*8}+14
-
-		sta >VRAM+VICKY_MAP_TILES+{16*9}
-		sta >VRAM+VICKY_MAP_TILES+{16*9}+14
-
-		sta >VRAM+VICKY_MAP_TILES+{16*10}
-		sta >VRAM+VICKY_MAP_TILES+{16*10}+14
-
-		sta >VRAM+VICKY_MAP_TILES+{16*11}
-		sta >VRAM+VICKY_MAP_TILES+{16*11}+14
-
-		sta >VRAM+VICKY_MAP_TILES+{16*12}
-		sta >VRAM+VICKY_MAP_TILES+{16*12}+14
-
-		sta >VRAM+VICKY_MAP_TILES+{16*13}
-		sta >VRAM+VICKY_MAP_TILES+{16*13}+14
-
-		sta >VRAM+VICKY_MAP_TILES+{16*14}
-		sta >VRAM+VICKY_MAP_TILES+{16*14}+14
-
-		sta >VRAM+VICKY_MAP_TILES+{16*15}
-		sta >VRAM+VICKY_MAP_TILES+{16*15}+14
-
-		nop
-		nop
-		nop
-;]wait	bra ]wait
-		nop
-		nop
-		nop
+		lda #$00FF
+]lp
+		sta >VICKY_MAP0+VRAM+{64*2}+4,x
+		inx
+		inx
+		cpx #64*64*2
+		bcc ]lp
 
 ;---------------------------------------------------------
 ; Convert MsPacman Tile data into Vicky Format!
@@ -1191,13 +1456,13 @@ TestTiles mx %00
 	lup 16
 	dw $000+]var,$001+]var,$002+]var,$003+]var,$004+]var,$005+]var,$006+]var,$007+]var
 	dw $008+]var,$009+]var,$00A+]var,$00B+]var,$00C+]var,$00D+]var,$00E+]var,$00F+]var
-	dw 0,0,0,0,0,0,0,0
-	dw 0,0,0,0,0,0,0,0
+	dw 255,255,255,255,255,255,255,255
+	dw 255,255,255,255,255,255,255,255
 
-	dw 0,0,0,0,0,0,0,0
-	dw 0,0,0,0,0,0,0,0
-	dw 0,0,0,0,0,0,0,0
-	dw 0,0,0,0,0,0,0,0
+	dw 255,255,255,255,255,255,255,255
+	dw 255,255,255,255,255,255,255,255
+	dw 255,255,255,255,255,255,255,255
+	dw 255,255,255,255,255,255,255,255
 
 ]var = ]var+16
 	--^
