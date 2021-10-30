@@ -197,6 +197,18 @@ start   ent             ; make sure start is visible outside the file
 
 ;------------------------------------------------------------------------------
 
+		; 2415 - Clear the Screen, to 0x40
+
+		lda #$4040
+		ldx #1022
+]clear
+		sta |tile_ram,x
+		dex
+		dex
+		bpl ]clear
+
+;------------------------------------------------------------------------------
+
 		jsr DrawMaze		; draw the maze pacman style
 
 		jsr BlitMap			; Copy the map data from tile_ram, to the Vicky RAM
