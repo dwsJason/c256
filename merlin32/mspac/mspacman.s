@@ -157,6 +157,50 @@ start   ent             ; make sure start is visible outside the file
 		; Convert the Sprites so we can see them!
 		jsr TestSprites
 
+		; Wait 1 second
+		lda #60
+]lp 	jsr WaitVBL
+		dec
+		bpl ]lp
+
+;------------------------------------------------------------------------------
+;
+; Clear Map data
+;
+		ldx #0
+		lda #$00FF
+]lp
+		sta >VICKY_MAP0+VRAM+{64*2}+4,x
+		inx
+		inx
+		cpx #64*64*2
+		bcc ]lp
+
+;---------------------------------------------------
+		; Quick Disable All the Sprites
+		phb
+		pea >SP00_CONTROL_REG
+		plb
+		plb
+
+		ldx #0
+		txa
+]lp
+		stz |SP00_CONTROL_REG,x
+		stz |SP00_X_POS_L,x
+		stz |SP00_Y_POS_L,x
+		adc #8
+		tax
+		cpx #8*64
+		bcc ]lp
+		plb
+
+;------------------------------------------------------------------------------
+
+		jsr DrawMaze		; draw the maze pacman style
+
+		jsr BlitMap			; Copy the map data from tile_ram, to the Vicky RAM
+
 end 	bra     end
 
 ;------------------------------------------------------------------------------
@@ -1472,6 +1516,7 @@ TestTiles mx %00
 ; vmemset0
 ;
 ; Memset a section of VRAM to 0, using VDMA
+
 ;
 ; PushL Dest VRAM Address
 ; PushL Size
@@ -1535,4 +1580,649 @@ vmemset0 mx %00
 		rts
 		
 ;------------------------------------------------------------------------------
+;
+;  Draw Maze to Screen
+;
+; 2419
+DrawMaze mx %00
+
+
+:pVRAM = temp0
+:pMap  = temp1
+:temp  = temp2
+
+		lda #tile_ram		; Point to start of the video ram shadow
+		sta <:pVRAM
+
+		jsr WallAddress		; return address to map data in the rom, into :pMap
+
+		clc
+]loop
+		lda (:pMap)
+		and #$00FF
+		beq :return
+		bit #$0080
+		bne :not_offset
+
+		adc <:pVRAM			; Add offset to screen location
+		dec
+		sta <:pVRAM
+
+		inc <:pMap
+		lda (:pMap)
+
+:not_offset
+
+		inc <:pVRAM 		; screen location
+		pei :pVRAM			; save the vram pointer
+		sep #$20
+		sta (:pVRAM)		; Store Maze to Screen
+		pha 	  			; save the tile# we're writing
+		rep #$30
+
+		; mirror the maze screen to the right hand size?
+
+		sec
+		lda <:pVRAM
+		sbc #tile_ram
+		eor #$3E0  ;%1111100000   	; adjust address for H-FLIP
+		clc
+		adc #tile_ram
+		sta <:pVRAM
+
+		sep #$20
+		pla 				; restore tile #
+		eor #1  			; flip bit in tile# to find h flip version
+		sta (:pVRAM)
+		rep #$30
+
+		pla
+		sta <:pVRAM
+
+
+
+;2430  11e083    ld      de,#83e0	; load DE with mirror position offset
+;2433  7d        ld      a,l		; load A with L
+;2434  e61f      and     #1f		; mask bits
+;2436  87        add     a,a		; A := A * 2
+;2437  2600      ld      h,#00		; H := #00
+
+;2439  6f        ld      l,a		; load L with A
+;243a  19        add     hl,de		; add offset to HL
+;243b  d1        pop     de		; restore HL into DE
+;243c  a7        and     a		; clear carry flag
+;243d  ed52      sbc     hl,de		; subtract offset
+;243f  f1        pop     af		; restore AF
+;2440  ee01      xor     #01		; flip bit 1 of maze data = calculate reflected maze tile
+;2442  77        ld      (hl),a		; store reflected tile in position
+;2443  eb        ex      de,hl		; DE <-> HL
+
+		inc <:pMap 			; next data
+		bra ]loop
+
+:return
+		rts
+
+
+
+
+
+
+;------------------------------------------------------------------------------
+;
+; select the proper maze
+;
+; 946a
+WallAddress mx %00
+
+		lda #MazeTable
+		sta <temp0
+		jsr ChooseMaze  ; A is the pointer to the maze, base on current level
+		sta <temp1
+
+		lda #tile_ram
+		sta <temp0
+
+		rts
+
+MazeTable
+		da Maze1    ; 88c1
+		da Maze2	; 8bae
+		da Maze3	; 8ea8
+		da Maze4    ; 9179
+
+
+;------------------------------------------------------------------------------
+; Used to determine which maze to draw and other things
+; load BC with a value based on the level and the value already loaded into HL.
+; This keeps the game cycling between the 3rd and 4th mazes, which appear on levels 6 through 14.
+; 94bd
+ChooseMaze mx %00
+
+		lda |level
+		cmp #13			; is level number >= 13
+		bcs	:wrap_level ; level needs clamped between 0 and 13
+:continue
+		tax
+		lda |MapOrderTable,x
+		and #$FF
+		asl
+		tay
+		lda (temp0),y
+	
+		rts
+		
+; keep level from 0-13
+:wrap_level
+		; c=1
+		sbc #13
+
+]lp		sbc #8  	 	; subtract 8 until negative
+		bcs ]lp
+
+		adc #13			; add 13 back in
+
+		bra :continue
+
+MapOrderTable
+		db 0,0			; 1st and 2nd Boards use Maze 1
+		db 1,1,1		; 3rd,4th, and 5th boards use mase 2
+		db 2,2,2,2		; 6-9 use maze 3
+		db 3,3,3,3		; 10-13 use maze 4
+
+
+; 88c1
+Maze1
+	;; Maze Table 1
+		db	$40,$FC,$D0,$D2,$D2,$D2,$D2,$D4,$FC,$DA,$02,$DC,$FC,$FC,$FC
+		db  $FC,$FC,$FC,$DA,$02,$DC,$FC,$FC,$FC,$D0,$D2,$D2,$D2,$D2,$D2,$D2
+		db  $D2,$D4,$FC,$DA,$05,$DC,$FC,$DA,$02,$DC,$FC,$FC,$FC,$FC,$FC,$FC
+		db  $DA,$02,$DC,$FC,$FC,$FC,$DA,$08,$DC,$FC,$DA,$02,$E6,$EA,$02,$E7
+		db  $D2,$EB,$02,$E7,$D2,$D2,$D2,$D2,$D2,$D2,$EB,$02,$E7,$D2,$D2,$D2
+		db  $EB,$02,$E6,$E8,$E8,$E8,$EA,$02,$DC,$FC,$DA,$02,$DE,$E4,$15,$DE
+		db  $C0,$C0,$C0,$E4,$02,$DC,$FC,$DA,$02,$DE,$E4,$02,$E6,$E8,$E8,$E8
+		db  $E8,$EA,$02,$E6,$E8,$E8,$E8,$EA,$02,$E6,$EA,$02,$E6,$EA,$02,$DE
+		db  $C0,$C0,$C0,$E4,$02,$DC,$FC,$DA,$02,$E7,$EB,$02,$E7,$E9,$E9,$E9
+		db  $F5,$E4,$02,$DE,$F3,$E9,$E9,$EB,$02,$DE,$E4,$02,$DE,$E4,$02,$E7
+		db  $E9,$E9,$E9,$EB,$02,$DC,$FC,$DA,$09,$DE,$E4,$02,$DE,$E4,$05,$DE
+		db  $E4,$02,$DE,$E4,$08,$DC,$FC,$FA,$E8,$E8,$EA,$02,$E6,$E8,$EA,$02
+		db  $DE,$E4,$02,$DE,$E4,$02,$E6,$E8,$E8,$F4,$E4,$02,$DE,$E4,$02,$E6
+		db  $E8,$E8,$E8,$EA,$02,$DC,$FC,$FB,$E9,$E9,$EB,$02,$DE,$C0,$E4,$02
+		db  $E7,$EB,$02,$E7,$EB,$02,$E7,$E9,$E9,$F5,$E4,$02,$E7,$EB,$02,$DE
+		db  $F3,$E9,$E9,$EB,$02,$DC,$FC,$DA,$05,$DE,$C0,$E4,$0B,$DE,$E4,$05
+		db  $DE,$E4,$05,$DC,$FC,$DA,$02,$E6,$EA,$02,$DE,$C0,$E4,$02,$E6,$EA
+		db  $02,$EC,$D3,$D3,$D3,$EE,$02,$DE,$E4,$02,$E6,$EA,$02,$DE,$E4,$02
+		db  $E6,$EA,$02,$DC,$FC,$DA,$02,$DE,$E4,$02,$E7,$E9,$EB,$02,$DE,$E4
+		db  $02,$DC,$FC,$FC,$FC,$DA,$02,$E7,$EB,$02,$DE,$E4,$02,$E7,$EB,$02
+		db  $DE,$E4,$02,$DC,$FC,$DA,$02,$DE,$E4,$06,$DE,$E4,$02,$F0,$FC,$FC
+		db  $FC,$DA,$05,$DE,$E4,$05,$DE,$E4,$02,$DC,$FC,$DA,$02,$DE,$E4,$02
+		db  $E6,$E8,$E8,$E8,$F4,$E4,$02,$CE,$FC,$FC,$FC,$DA,$02,$E6,$E8,$E8
+		db  $F4,$E4,$02,$E6,$E8,$E8,$F4,$E4,$02,$DC,$00
+
+	;; Pellet table for maze 1
+;8A3B
+		db $62,$02,$01,$13,$01
+		db $01,$01,$02,$01,$04,$03,$13,$06,$04,$03,$01,$01,$01,$01,$01,$01
+		db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$06,$04,$03
+		db $10,$03,$06,$04,$03,$10,$03,$06,$04,$01,$01,$01,$01,$01,$01,$01
+		db $0C,$03,$01,$01,$01,$01,$01,$01,$07,$04,$0C,$03,$06,$07,$04,$0C
+		db $03,$06,$04,$01,$01,$01,$04,$0C,$01,$01,$01,$03,$01,$01,$01,$04
+		db $03,$04,$0F,$03,$03,$04,$03,$04,$0F,$03,$03,$04,$03,$01,$01,$01
+		db $01,$0F,$01,$01,$01,$03,$04,$03,$19,$04,$03,$19,$04,$03,$01,$01
+		db $01,$01,$0F,$01,$01,$01,$03,$04,$03,$04,$0F,$03,$03,$04,$03,$04
+		db $0F,$03,$03,$04,$01,$01,$01,$04,$0C,$01,$01,$01,$03,$01,$01,$01
+		db $07,$04,$0C,$03,$06,$07,$04,$0C,$03,$06,$04,$01,$01,$01,$01,$01
+		db $01,$01,$0C,$03,$01,$01,$01,$01,$01,$01,$04,$03,$10,$03,$06,$04
+		db $03,$10,$03,$06,$04,$03,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+		db $01,$01,$01,$01,$01,$01,$01,$01,$01,$06,$04,$03,$13,$06,$04,$02
+		db $01,$13,$01,$01,$01,$02,$01,$00,$00,$00,$00,$00,$00,$00,$00,$00
+		db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+
+	;; number of pellets to eat for maze 1
+
+;8b2c
+		db  $e0				; #E0 = 224 decimal
+
+	;; ghost destination table for maze 1
+; 8B2D
+		db $1d,$22				; column 22, row 1D (top right)
+		db $1d,$39				; column 39, row 1D (top left)
+		db $40,$20				; column 20, row 40 (bottom right)
+		db $40,$3b				; column 3B, row 40 (bottom left)
+
+
+	;; Power Pellet Table for maze 1 (screen locations)
+;8b35
+		db $63,$40 				; #4063 = location of upper right power pellet
+		db $7c,$40				; #407C = location of lower right power pellet
+		db $83,$43				; #4383	= location of upper left power pellet
+		db $9c,$43				; #439C = location of lower left power pellet
+
+
+; data table used for drawing slow down tunnels on levels 1 and 2
+
+;8b3d
+		db $49,$09,$17
+		db $09,$17,$09,$0E,$E0,$E0,$E0,$29,$09,$17,$09,$17,$09,$00,$00
+
+
+	;; entrance fruit paths for maze 1:  #8b4f - #8b81
+;8b4f
+		db $63,$8B				; #8B63
+		db $13,$94,$0C
+		db $68,$8B				; #8B68
+		db $22,$94,$F4
+		db $71,$8B				; #8B71
+		db $27,$4C,$F4
+		db $7B,$8B				; #8B7B
+		db $1C,$4C,$0C
+		db $80,$AA,$AA,$BF,$AA
+		db $80,$0A,$54,$55,$55,$55,$FF,$5F,$55
+		db $EA,$FF,$57,$55,$F5,$57,$FF,$15,$40,$55
+		db $EA,$AF,$02,$EA,$FF,$FF,$AA
+
+	;; exit fruit paths for maze 1
+;8b82
+		db $94,$8B				; #8B94
+		db $14,$00,$00
+		db $99,$8B				; #8B99
+		db $17,$00,$00
+		db $9F,$8B				; #8B9F
+		db $1A,$00,$00
+		db $A6,$8B				; #8BA6
+		db $1D
+		db $55,$40,$55,$55,$BF
+		db $AA,$80,$AA,$AA,$BF,$AA
+		db $AA,$80,$AA,$02,$80,$AA,$AA
+		db $55,$00,$00,$00,$55,$55,$FD,$AA
+
+
+; 8BAE
+Maze2
+
+	;; Maze 2 Table
+		db $40,$FC
+		db $DA,$02,$DE,$D8,$D2,$D2,$D2,$D2,$D2,$D2,$D2,$D6,$D8,$D2,$D2,$D2
+		db $D2,$D4,$FC,$FC,$FC,$FC,$DA,$02,$DE,$D8,$D2,$D2,$D2,$D2,$D4,$FC
+		db $DA,$02,$DE,$E4,$08,$DE,$E4,$05,$DC,$FC,$FC,$FC,$FC,$DA,$02,$DE
+		db $E4,$05,$DC,$FC,$DA,$02,$DE,$E4,$02,$E6,$E8,$E8,$E8,$EA,$02,$DE
+		db $E4,$02,$E6,$EA,$02,$E7,$D2,$D2,$D2,$D2,$EB,$02,$E7,$EB,$02,$E6
+		db $EA,$02,$DC,$FC,$DA,$02,$DE,$E4,$02,$DE,$F3,$E9,$E9,$EB,$02,$DE
+		db $E4,$02,$DE,$E4,$0C,$DE,$E4,$02,$DC,$FC,$DA,$02,$DE,$E4,$02,$DE
+		db $E4,$05,$DE,$E4,$02,$DE,$F2,$E8,$E8,$E8,$EA,$02,$E6,$EA,$02,$E6
+		db $E8,$E8,$F4,$E4,$02,$DC,$FC,$DA,$02,$E7,$EB,$02,$DE,$E4,$02,$E6
+		db $EA,$02,$E7,$EB,$02,$E7,$E9,$E9,$E9,$E9,$EB,$02,$DE,$E4,$02,$E7
+		db $E9,$E9,$E9,$EB,$02,$DC,$FC,$DA,$05,$DE,$E4,$02,$DE,$E4,$0C,$DE
+		db $E4,$08,$DC,$FC,$FA,$E8,$E8,$EA,$02,$DE,$E4,$02,$DE,$F2,$E8,$E8
+		db $E8,$E8,$EA,$02,$E6,$E8,$E8,$EA,$02,$DE,$F2,$E8,$E8,$EA,$02,$E6
+		db $EA,$02,$DC,$FC,$FB,$E9,$E9,$EB,$02,$E7,$EB,$02,$E7,$E9,$E9,$E9
+		db $E9,$E9,$EB,$02,$E7,$E9,$F5,$E4,$02,$DE,$F3,$E9,$E9,$EB,$02,$DE
+		db $E4,$02,$DC,$FC,$DA,$12,$DE,$E4,$02,$DE,$E4,$05,$DE,$E4,$02,$DC
+		db $FC,$DA,$02,$E6,$EA,$02,$E6,$E8,$E8,$E8,$E8,$EA,$02,$EC,$D3,$D3
+		db $D3,$EE,$02,$E7,$EB,$02,$E7,$EB,$02,$E6,$EA,$02,$DE,$E4,$02,$DC
+		db $FC,$DA,$02,$DE,$E4,$02,$E7,$E9,$E9,$E9,$F5,$E4,$02,$DC,$FC,$FC
+		db $FC,$DA,$08,$DE,$E4,$02,$E7,$EB,$02,$DC,$FC,$DA,$02,$DE,$E4,$06
+		db $DE,$E4,$02,$F0,$FC,$FC,$FC,$DA,$02,$E6,$E8,$E8,$E8,$EA,$02,$DE
+		db $E4,$05,$DC,$FC,$DA,$02,$DE,$F2,$E8,$E8,$E8,$EA,$02,$DE,$E4,$02
+		db $CE,$FC,$FC,$FC,$DA,$02,$DE,$C0,$C0,$C0,$E4,$02,$DE,$F2,$E8,$E8
+		db $EA,$02,$DC,$00,$00,$00,$00
+
+	;; Pellet table for maze 2
+;8d27
+
+		db $66,$01,$01,$01,$01,$01,$03,$01,$01
+		db $01,$0B,$01,$01,$07,$06,$03,$03,$0A,$03,$07,$06,$03,$03,$01,$01
+		db $01,$01,$01,$01,$01,$01,$01,$01,$03,$07,$03,$01,$01,$01,$03,$07
+		db $03,$06,$07,$03,$03,$03,$07,$03,$06,$07,$03,$03,$01,$01,$01,$01
+		db $01,$01,$01,$01,$01,$01,$03,$01,$01,$01,$01,$01,$01,$07,$03,$0D
+		db $06,$03,$07,$03,$0D,$06,$03,$04,$01,$01,$01,$01,$01,$01,$0D,$03
+		db $01,$01,$01,$03,$04,$03,$10,$03,$03,$03,$04,$03,$10,$01,$01,$01
+		db $03,$03,$04,$03,$01,$01,$01,$01,$12,$01,$01,$01,$04,$07,$15,$04
+		db $07,$15,$04,$03,$01,$01,$01,$01,$12,$01,$01,$01,$04,$03,$10,$01
+		db $01,$01,$03,$03,$04,$03,$10,$03,$03,$03,$04,$01,$01,$01,$01,$01
+		db $01,$0D,$03,$01,$01,$01,$03,$07,$03,$0D,$06,$03,$07,$03,$0D,$06
+		db $03,$07,$03,$03,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$03,$01
+		db $01,$01,$01,$01,$01,$07,$03,$03,$03,$07,$03,$06,$07,$03,$01,$01
+		db $01,$03,$07,$03,$06,$07,$06,$03,$03,$01,$01,$01,$01,$01,$01,$01
+		db $01,$01,$01,$03,$07,$06,$03,$03,$0A,$03,$08,$01,$01,$01,$01,$01
+		db $03,$01,$01,$01,$0B,$01,$01
+
+	;; number of pellets to eat for map 2
+;8e17
+		db  $f4				; #F4 = 244 decimal
+
+
+	;; destination table for maze 2
+;8e18
+		db $1d,$22				; column 22, row 1D (top right)
+		db $1d,$39				; column 39, row 1D (top right)
+		db $40,$20				; column 20, row 40 (bottom right)
+		db $40,$3b				; column 3B, row 40 (bottom left)
+
+	;; Power Pellet Table for maze 2 screen locations
+;8e20
+		db $65,$40				; #4065 = power pellet upper right
+		db $7b,$40				; #407B = power pellet lower right
+		db $85,$43				; #4385 = power pellet upper left
+		db $9b,$43				; #439B = power pellet lower left
+
+
+; data table used for drawing slow down tunnels on level 3
+;8e28
+		db $42,$16,$0A,$16,$0A,$16,$0A,$20
+		db $30,$20,$20,$DE,$E0,$22,$20,$20,$20,$20,$16,$0A,$16,$16,$00,$00
+
+	;; entrance fruit paths for maze 2:  #8E40-8E72
+	;; $$TODO  fix all these address pointers to point to labels
+
+;8e40
+		db $54,$8E				; #8E54
+		db $13,$C4,$0C
+		db $59,$8E				; #8E59
+		db $1E,$C4,$F4
+		db $61,$8E				; #8E61
+		db $26,$14,$F4
+		db $6B,$8E				; #8E6B
+		db $1D,$14,$0C
+		db $02,$AA,$AA,$80,$2A
+		db $02,$40,$55,$7F,$55,$15,$50,$05
+		db $EA,$FF,$57,$55,$F5,$FF,$57,$7F,$55,$05
+		db $EA,$FF,$FF,$FF,$EA,$AF,$AA,$02
+
+
+	;; exit fruit paths for maze 2
+	;; $$TODO  fix all these address pointers to point to labels
+;8e73
+		db $87,$8E				; #8E87
+		db $12,$00,$00
+		db $8C,$8E				; #8E8C
+		db $1D,$00,$00
+		db $94,$8E				; #8E94
+		db $21,$00,$00
+		db $9D,$8E				; #8E9D
+		db $2C,$00,$00,$
+		db $55,$7F,$55,$D5,$FF
+		db $AA,$BF,$AA,$2A,$A0,$EA,$FF,$FF
+		db $AA,$2A,$A0,$02,$00,$00,$A0,$AA,$02
+		db $55,$15,$A0,$2A,$00,$54,$05,$00,$00,$55,$FD
+
+
+Maze3
+
+	;; Maze Table 3
+;8ea8
+		db $40,$FC,$D0,$D2,$D2,$D2,$D2,$D2
+		db $D2,$D6,$E4,$02,$E7,$D2,$D2,$D2,$D2,$D2,$D2,$D2,$D2,$D2,$D2,$D6
+		db $D8,$D2,$D2,$D2,$D2,$D2,$D2,$D2,$D4,$FC,$DA,$07,$DE,$E4,$0D,$DE
+		db $E4,$08,$DC,$FC,$DA,$02,$E6,$E8,$E8,$EA,$02,$DE,$E4,$02,$E6,$E8
+		db $E8,$EA,$02,$E6,$E8,$E8,$E8,$EA,$02,$E7,$EB,$02,$E6,$EA,$02,$E6
+		db $EA,$02,$DC,$FC,$DA,$02,$DE,$F3,$E9,$EB,$02,$E7,$EB,$02,$E7,$E9
+		db $F5,$E4,$02,$E7,$E9,$E9,$F5,$E4,$05,$DE,$E4,$02,$DE,$E4,$02,$DC
+		db $FC,$DA,$02,$DE,$E4,$09,$DE,$E4,$05,$DE,$E4,$02,$E6,$E8,$E8,$F4
+		db $E4,$02,$DE,$E4,$02,$DC,$FC,$DA,$02,$DE,$E4,$02,$E6,$E8,$E8,$E8
+		db $E8,$EA,$02,$E7,$EB,$02,$E6,$EA,$02,$E7,$EB,$02,$E7,$E9,$E9,$E9
+		db $EB,$02,$E7,$EB,$02,$DC,$FC,$DA,$02,$DE,$E4,$02,$E7,$E9,$E9,$E9
+		db $F5,$E4,$05,$DE,$E4,$0E,$DC,$FC,$DA,$02,$DE,$E4,$06,$DE,$E4,$02
+		db $E6,$E8,$E8,$F4,$E4,$02,$E6,$E8,$E8,$E8,$EA,$02,$E6,$E8,$E8,$E8
+		db $E8,$E8,$F4,$FC,$DA,$02,$E7,$EB,$02,$E6,$E8,$EA,$02,$E7,$EB,$02
+		db $E7,$E9,$E9,$E9,$EB,$02,$DE,$F3,$E9,$E9,$EB,$02,$DE,$F3,$E9,$E9
+		db $E9,$E9,$F5,$FC,$DA,$05,$DE,$C0,$E4,$0B,$DE,$E4,$05,$DE,$E4,$05
+		db $DC,$FC,$FA,$E8,$E8,$EA,$02,$DE,$C0,$E4,$02,$E6,$EA,$02,$EC,$D3
+		db $D3,$D3,$EE,$02,$DE,$E4,$02,$E6,$EA,$02,$DE,$E4,$02,$E6,$EA,$02
+		db $DC,$FC,$FB,$E9,$E9,$EB,$02,$E7,$E9,$EB,$02,$DE,$E4,$02,$DC,$FC
+		db $FC,$FC,$DA,$02,$E7,$EB,$02,$DE,$E4,$02,$E7,$EB,$02,$DE,$E4,$02
+		db $DC,$FC,$DA,$09,$DE,$E4,$02,$F0,$FC,$FC,$FC,$DA,$05,$DE,$E4,$05
+		db $DE,$E4,$02,$DC,$FC,$DA,$02,$E6,$E8,$E8,$E8,$E8,$EA,$02,$DE,$E4
+		db $02,$CE,$FC,$FC,$FC,$DA,$02,$E6,$E8,$E8,$F4,$E4,$02,$E6,$E8,$E8
+		db $F4,$E4,$02,$DC,$00,$00,$00,$00
+
+	;; Pellet table for maze 3
+;9018
+		db $62,$01,$02,$01,$01,$03,$01,$01
+		db $01,$01,$01,$01,$01,$01,$01,$01,$01,$04,$01,$01,$01,$01,$01,$04
+		db $05,$03,$0B,$03,$03,$03,$04,$05,$03,$0B,$01,$01,$01,$03,$03,$04
+		db $03,$01,$01,$01,$01,$01,$0B,$06,$03,$04,$03,$10,$06,$03,$04,$03
+		db $10,$01,$01,$01,$01,$01,$01,$01,$01,$01,$04,$03,$01,$01,$01,$01
+		db $0F,$0A,$03,$04,$0F,$0A,$01,$01,$01,$04,$0C,$01,$01,$01,$03,$01
+		db $01,$01,$07,$04,$0C,$03,$03,$03,$07,$04,$0C,$03,$03,$03,$04,$01
+		db $01,$01,$01,$01,$01,$01,$0C,$03,$01,$01,$01,$03,$04,$07,$15,$04
+		db $07,$15,$04,$01,$01,$01,$01,$01,$01,$01,$0C,$03,$01,$01,$01,$03
+		db $07,$04,$0C,$03,$03,$03,$07,$04,$0C,$03,$03,$03,$04,$01,$01,$01
+		db $04,$0C,$01,$01,$01,$03,$01,$01,$01,$04,$03,$04,$0F,$0A,$03,$01
+		db $01,$01,$01,$0F,$0A,$03,$10,$01,$01,$01,$01,$01,$01,$01,$01,$01
+		db $04,$03,$10,$06,$03,$04,$03,$01,$01,$01,$01,$01,$0B,$06,$03,$04
+		db $05,$03,$0B,$01,$01,$01,$03,$03,$04,$05,$03,$0B,$03,$03,$03,$04
+		db $01,$02,$01,$01,$03,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+		db $04,$01,$01,$01,$01,$01,$00,$00,$00
+
+	;; number of pellets to eat for maze 3
+;9109
+		db  $f2				; #F2 = 242 decimal
+
+	;; destination table for maze 3
+;910a
+		db $40,$2d				; column 2d, row 40 (bottom center)
+		db $1d,$22				; column 22, row 1D (top right)
+		db $1d,$39				; column 39, row 1D (top left)
+		db $40,$20				; column 20, row 40 (bottom right)
+
+	;; Power Pellet Table 3
+;9112
+		db $64,$40				; #4064
+		db $78,$40				; #4078
+		db $84,$43				; #4384
+		db $98,$43				; #4398
+
+	;; entrance fruit paths for maze 3:  #911A-9141
+;911a
+		db $2E,$91				; #912E
+		db $15,$54,$0C
+		db $34,$91				; #9134
+		db $1E,$54,$F4
+		db $34,$91				; #9134
+		db $1E,$54,$F4
+		db $3C,$91				; #913C
+		db $15,$54,$0C
+
+;912e
+		db $EA,$FF,$AB,$FA,$AA,$AA
+		db $EA,$FF,$57,$55,$55,$D5,$57,$55
+		db $AA,$AA,$BF,$FA
+
+	;; exit fruit paths for maze 3
+;9142
+		db $56,$91				; #9156
+		db $22,$00,$00
+		db $5f,$91				; #915F
+		db $25,$00,$00
+		db $5f,$91				; #915F
+		db $25,$00,$00
+		db $6f,$91				; #916F
+		db $28,$00,$00
+
+;9156
+		db $05,$00,$00,$54,$05,$54,$7F,$F5,$0B
+		db $0A,$00,$00,$A8,$0A,$A8,$BF,$FA,$AB,$AA,$AA,$82,$AA,$00,$A0,$AA
+		db $55,$41,$55,$00,$A0,$02,$40,$F5,$57,$BF
+
+
+	;; Maze Table 4
+;9179
+Maze4
+		db $40,$FC,$D0,$D2,$D2,$D2,$D2
+		db $D2,$D2,$D2,$D2,$D4,$FC,$FC,$DA,$02,$DE,$E4,$02,$DC,$FC,$FC,$FC
+		db $FC,$D0,$D2,$D2,$D2,$D2,$D2,$D2,$D2,$D4,$FC,$DA,$09,$DC,$FC,$FC
+		db $DA,$02,$DE,$E4,$02,$DC,$FC,$FC,$FC,$FC,$DA,$08,$DC,$FC,$DA,$02
+		db $E6,$E8,$E8,$E8,$E8,$EA,$02,$E7,$D2,$D2,$EB,$02,$DE,$E4,$02,$E7
+		db $D2,$D2,$D2,$D2,$EB,$02,$E6,$E8,$E8,$E8,$EA,$02,$DC,$FC,$DA,$02
+		db $E7,$E9,$E9,$E9,$F5,$E4,$07,$DE,$E4,$09,$DE,$F3,$E9,$E9,$EB,$02
+		db $DC,$FC,$DA,$06,$DE,$E4,$02,$E6,$EA,$02,$E6,$E8,$F4,$F2,$E8,$EA
+		db $02,$E6,$E8,$E8,$EA,$02,$DE,$E4,$05,$DC,$FC,$DA,$02,$E6,$E8,$EA
+		db $02,$E7,$EB,$02,$DE,$E4,$02,$E7,$E9,$E9,$E9,$E9,$EB,$02,$E7,$E9
+		db $F5,$E4,$02,$E7,$EB,$02,$E6,$EA,$02,$DC,$FC,$DA,$02,$DE,$C0,$E4
+		db $05,$DE,$E4,$0B,$DE,$E4,$05,$DE,$E4,$02,$DC,$FC,$DA,$02,$DE,$C0
+		db $E4,$02,$E6,$E8,$E8,$F4,$F2,$E8,$E8,$EA,$02,$E6,$E8,$E8,$E8,$EA
+		db $02,$DE,$E4,$02,$E6,$E8,$E8,$F4,$E4,$02,$DC,$FC,$DA,$02,$E7,$E9
+		db $EB,$02,$E7,$E9,$E9,$F5,$F3,$E9,$E9,$EB,$02,$E7,$E9,$E9,$F5,$E4
+		db $02,$E7,$EB,$02,$E7,$E9,$E9,$F5,$E4,$02,$DC,$FC,$DA,$09,$DE,$E4
+		db $08,$DE,$E4,$08,$DE,$E4,$02,$DC,$FC,$DA,$02,$E6,$E8,$E8,$E8,$E8
+		db $EA,$02,$DE,$E4,$02,$EC,$D3,$D3,$D3,$EE,$02,$DE,$E4,$02,$E6,$E8
+		db $E8,$E8,$EA,$02,$DE,$E4,$02,$DC,$FC,$DA,$02,$DE,$F3,$E9,$E9,$E9
+		db $EB,$02,$E7,$EB,$02,$DC,$FC,$FC,$FC,$DA,$02,$E7,$EB,$02,$E7,$E9
+		db $E9,$F5,$E4,$02,$E7,$EB,$02,$DC,$FC,$DA,$02,$DE,$E4,$09,$F0,$FC
+		db $FC,$FC,$DA,$08,$DE,$E4,$05,$DC,$FC,$DA,$02,$DE,$E4,$02,$E6,$E8
+		db $E8,$E8,$E8,$EA,$02,$CE,$FC,$FC,$FC,$DA,$02,$E6,$E8,$E8,$E8,$EA
+		db $02,$DE,$E4,$02,$E6,$E8,$E8,$F4,$00,$00,$00,$00
+
+	;; Pellet table for maze 4
+;92ec
+		db $62,$01,$02,$01
+		db $01,$01,$01,$0F,$01,$01,$01,$02,$01,$04,$07,$0F,$06,$04,$07,$01
+		db $01,$01,$07,$01,$01,$01,$01,$01,$06,$04,$01,$01,$01,$01,$03,$03
+		db $07,$05,$03,$01,$01,$01,$04,$04,$03,$03,$07,$05,$03,$03,$04,$04
+		db $01,$01,$01,$03,$01,$01,$01,$01,$01,$01,$01,$01,$01,$03,$01,$01
+		db $01,$03,$04,$04,$0F,$03,$06,$04,$04,$0F,$03,$06,$04,$01,$01,$01
+		db $01,$01,$01,$01,$0C,$01,$01,$01,$01,$01,$01,$03,$04,$07,$12,$03
+		db $04,$07,$12,$03,$04,$03,$01,$01,$01,$01,$12,$01,$01,$01,$04,$03
+		db $16,$07,$03,$16,$07,$03,$01,$01,$01,$01,$12,$01,$01,$01,$04,$07
+		db $12,$03,$04,$07,$12,$03,$04,$01,$01,$01,$01,$01,$01,$01,$0C,$01
+		db $01,$01,$01,$01,$01,$03,$04,$04,$0F,$03,$06,$04,$04,$0F,$03,$06
+		db $04,$04,$01,$01,$01,$03,$01,$01,$01,$01,$01,$01,$01,$01,$01,$03
+		db $01,$01,$01,$03,$04,$04,$03,$03,$07,$05,$03,$03,$04,$01,$01,$01
+		db $01,$03,$03,$07,$05,$03,$01,$01,$01,$04,$07,$01,$01,$01,$07,$01
+		db $01,$01,$01,$01,$06,$04,$07,$0F,$06,$04,$01,$02,$01,$01,$01,$01
+		db $0F,$01,$01,$01,$02,$01,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+		db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+		db $00,$00,$00,$00,$00,$00,$00,$00,$00
+
+	;; number of pellets to eat for maze 4
+;93f9
+		db  $EE				; #EE = 238 decimal
+
+	;; Power Pellet Table for maze 4
+;93fa  
+		db $64,$40				; #4064
+		db $7c,$40				; #407C
+		db $84,$43				; #4384
+		db $9c,$43				; #439C
+
+	;; destination table for maze 4
+;9402
+		db $1d,$22				; column 22, row 1D (top right)
+		db $40,$20				; column 20, row 40 (bottom right)
+		db $1d,$39				; column 39, row 1D (top left)
+		db $40,$3b				; column 3B, row 40 (bottom left)
+
+	;; entrance fruit paths for maze 4:  #940A - #943B
+;940a
+		db $1E,$94				; #941E
+		db $14,$8C,$0C
+		db $23,$94				; #9423
+		db $1D,$8C,$F4
+		db $2B,$94				; #942B
+		db $2A,$74,$F4
+		db $36,$94				; #9436
+		db $15,$74,$0C
+		db $80,$AA,$BE,$FA,$AA
+		db $00,$50,$FD,$55,$F5,$D5,$57,$55
+		db $EA,$FF,$57,$D5,$5F,$FD,$15,$50,$01,$50,$55
+		db $EA,$AF,$FE,$2A,$A8,$AA
+
+
+	;; exit fruit paths for maze 4
+;943c
+		db $50,$94				; #9450
+		db $15,$00,$00
+		db $56,$94				; #9456
+		db $18,$00,$00
+		db $5C,$94				; #945C
+		db $19,$00,$00	
+		db $63,$94				; #9463
+		db $1C,$00,$00
+
+		db $55,$50,$41,$55,$FD,$AA
+		db $AA,$A0,$82,$AA,$FE,$AA
+		db $AA,$AF,$02,$2A,$A0,$AA,$AA
+		db $55,$5F,$01,$00,$50,$55,$BF
+
+
+;------------------------------------------------------------------------------
+;
+; RAM Shadow, represents actual video hardware in Pacman Arcade machine
+;
+
+; - align to 256 bytes  $$TODO put in a macro
+]futz = *
+		ds {{{]futz+$100}&$FF00}-]futz}
+; - align to 256 bytes
+
+tile_ram    ds 1024
+palette_ram ds 1024
+
+
+;------------------------------------------------------------------------------
+; Game Variables
+;
+level dw 0	; 4e13 - current level
+
+
+;------------------------------------------------------------------------------
+;
+; BlitMap
+;
+; Copy the Pacman Shadow to real VRAM
+;
+BlitMap mx %00
+
+:row_offset = temp0
+:cursor		= temp1
+:count      = temp2
+
+		lda #$3A0
+		sta <:row_offset
+
+		ldy #tile_ram
+		ldx #64*6+{{25-14}*2}+2
+
+]row_loop
+
+		sta <:cursor
+
+		lda #28
+		sta <:count
+
+]col_loop
+
+		lda (:cursor),y
+		and #$FF
+
+		sta >VRAM+VICKY_MAP0,x
+		inx
+		inx
+
+		; increment cursor
+		sec
+		lda <:cursor
+		sbc #$20
+		sta <:cursor
+
+		dec <:count
+		bne	]col_loop
+
+		; adjust destination in tile map
+		txa
+		; c=0
+		clc
+		adc #{64*2}-{28*2}
+		tax
+
+		lda <:row_offset
+		inc
+		sta <:row_offset
+		cmp #$3C0
+		bcc ]row_loop
+
+		rts
+
+
 
