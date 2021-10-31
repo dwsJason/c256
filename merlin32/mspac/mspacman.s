@@ -243,7 +243,9 @@ start   ent             ; make sure start is visible outside the file
 		dec
 		bpl ]delay
 
+		sep #$20
 		inc |level
+		rep #$30
 
 		bra ]next
 
@@ -298,7 +300,7 @@ decompress_pixels mx %00
 		tsc
 
 		sec
-		sbc	#256 		; A temporary DP on the stack
+		sbc	#256 		; A temporary DP on the stack	
 						; which is fine, as long as I stick
 						; to the bottom, and don't call too deep
 
