@@ -197,7 +197,10 @@ start   ent             ; make sure start is visible outside the file
 
 ;------------------------------------------------------------------------------
 ]next
-		; 2415 - Clear the Screen, to 0x40
+
+	;; Clear screen
+	;; 40 -> 4000-43ff (Video RAM)
+		; 2315 - Clear the Screen, to 0x40
 
 		lda #$4040
 		ldx #1022
@@ -209,6 +212,20 @@ start   ent             ; make sure start is visible outside the file
 
 ;------------------------------------------------------------------------------
 
+	;; 0f -> 4400 - 47ff (Color RAM)
+		; 2329
+		lda #$0F0F
+		ldx #1022
+]clear
+		sta |palette_ram,x
+		dex
+		dex
+		bpl ]clear
+
+;------------------------------------------------------------------------------
+
+		jsr ColorMaze		; fill, based on color# the maze
+
 		jsr DrawMaze		; draw the maze pacman style
 
 		jsr ResetPills		; be sure to mark all pills as active
@@ -217,6 +234,7 @@ start   ent             ; make sure start is visible outside the file
 
 		jsr DrawPowerPills  ; Draw out the power pills for the current maze
 
+		jsr BlitColor		; Based on Color RAM, fix up Vicky CLUTs
 		jsr BlitMap			; Copy the map data from tile_ram, to the Vicky RAM
 
 		lda #2*60
@@ -1799,6 +1817,53 @@ DrawPowerPills mx %00
 
 ;------------------------------------------------------------------------------
 ;
+; Color the Maze
+;
+; 24dd
+		
+ColorMaze mx %00
+
+		jsr GetLevelColor
+		; now A has the fill color
+
+;24e1
+		ldx #palette_ram+$40  ; location in palette ram
+
+		; mirror color in low and high, for 16 bit stores
+		pha
+		xba
+		ora 1,s
+		sta 1,s
+		pla
+
+		ldy #100	; storing out 200 times, but 16 bit per store
+]lp
+		sta |0,x
+		inx
+		inx
+		dey
+		bne ]lp
+; 24eb
+
+		; color top bar white
+		ldx #palette_ram+$3C0
+		lda #$0F0F		; white
+		ldy #20
+]lp
+		sta |0,x
+		inx
+		inx
+		dey
+		bne ]lp
+
+;$$TODO, finish task business and mark SLOW Areas
+
+
+		rts		
+
+
+;------------------------------------------------------------------------------
+;
 ; select the proper maze
 ;
 ; 946a
@@ -2324,8 +2389,9 @@ Power4
 ;]futz = *
 ;		ds {{{]futz+$100}&$FF00}-]futz}
 ; - align to 256 bytes
-
+; $4000
 tile_ram    ds 1024
+; $4400
 palette_ram ds 1024
 
 
@@ -2365,7 +2431,102 @@ ResetPills mx %00
 	rts
 
 
+;------------------------------------------------------------------------------
+; BlitColor
+;
+; $$BlitMap needs to include the color palette #'s
+;
+BlitColor mx %00
 
+:color = temp0
+:count = temp1
+; Initialize 8 Background Tile Color Palettes
+
+		jsr GetLevelColor
+		; A = the palette # to use for this maze
+
+		asl
+		asl
+		tax
+
+		stz <:count
+]lp
+		lda >palette_rom,x  ; color
+		and #$FF
+
+		jsr Pac2PhxColor
+
+		phx
+		lda <:count
+		asl
+		asl
+		tax
+
+		lda <:color
+		sta >GRPH_LUT0_PTR,x
+		lda <:color+2
+		sta >GRPH_LUT0_PTR+2,x
+
+		plx
+
+		inx	; increment to next color
+
+		lda <:count
+		inc
+		sta <:count   ; up to 4 colors
+		cmp #4
+		bcc ]lp
+
+		rts
+
+Pac2PhxColor mx %00
+
+:color = temp0
+
+		phx
+		tax
+		lda >color_rom,x
+		pha
+		asl
+		asl
+		xba
+		and #3
+		tay
+		lda |:b,y
+		sta <:color ; blue
+
+		lda 1,s
+		lsr
+		lsr
+		lsr
+		and #7
+		tay
+		lda |:rg,y
+		sta <:color+1  ; Green
+
+		pla
+		and #7
+		tay
+		lda |:rg,y
+		and #$FF
+		sta <:color+2	; red
+
+		plx
+		rts
+
+:rg 	db 0,$21,$47,$21+$47,$97,$97+$21,$97+$47,$21+$47+$97
+:b 		db 0,$51,$AE,$51+$AE
+
+
+
+;TranslatePaletteTable
+;
+;; Default 16 is white palette, index 0
+;
+;		db 0,0,0,0,0,0,0,3	; $00-$07
+;		db 0,0,0,0,0,0,0,0	; $08-$0F
+;		db 0,0,4,0,5,0,0,0	; $10-$17
+;		db 6,0,0,0,0,7,0,0	; $18-$1F
 
 ;------------------------------------------------------------------------------
 ;
@@ -2425,5 +2586,50 @@ BlitMap mx %00
 
 		rts
 
+
+;------------------------------------------------------------------------------
+;
+; 9580
+GetLevelColor mx %00
+;		beq :done
+; check task $$TODO fix this
+;
+
+; controls the color of the mazes
+
+; 9590
+		lda |level  ; get level #
+		cmp #21		; compare to 21
+		bcs	:mod_range  ; >= modify range
+:cont
+		tax
+		lda |:palette_table,x
+		and #$FF
+:done
+		rts
+
+;95A3
+:mod_range
+		sbc #21		; subtract 21
+		sec
+		sbc #16
+		bpl :mod_range
+		clc
+		adc #21
+		bra :cont
+
+;------------------------------------------------------------------------------
+
+	;; color palette table for the first 21 mazes ($0F)
+;$95AE
+:palette_table
+		db	$1d,$1d				; color code for levels 1 and 2
+		db  $16,$16,$16			; color code for levels 3, 4, 5
+		db  $14,$14,$14,$14		; color code for levels 6 - 9
+		db  $07,$07,$07,$07		; color code for levels 10 - 13
+		db  $18,$18,$18,$18		; color code for levels 14 - 17
+		db  $1d,$1d,$1d,$1d 	; color code for levels 18 - 21
+
+;------------------------------------------------------------------------------
 
 
