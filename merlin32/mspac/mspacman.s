@@ -196,7 +196,7 @@ start   ent             ; make sure start is visible outside the file
 		plb
 
 ;------------------------------------------------------------------------------
-
+]next
 		; 2415 - Clear the Screen, to 0x40
 
 		lda #$4040
@@ -218,6 +218,16 @@ start   ent             ; make sure start is visible outside the file
 		jsr DrawPowerPills  ; Draw out the power pills for the current maze
 
 		jsr BlitMap			; Copy the map data from tile_ram, to the Vicky RAM
+
+		lda #2*60
+]delay
+		jsr WaitVBL
+		dec
+		bpl ]delay
+
+		inc |level
+
+		bra ]next
 
 end 	bra     end
 
