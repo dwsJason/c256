@@ -215,6 +215,8 @@ start   ent             ; make sure start is visible outside the file
 
 		jsr DrawPills		; Draw out the player pills, int tile RAM
 
+		jsr DrawPowerPills  ; Draw out the power pills for the current maze
+
 		jsr BlitMap			; Copy the map data from tile_ram, to the Vicky RAM
 
 end 	bra     end
@@ -1742,7 +1744,48 @@ DrawPills mx %00
 		rts
 
 
+;------------------------------------------------------------------------------
+;
+; 246f
+DrawPowerPills mx %00
 
+		lda #PowerPelletTable		; Lookup Table Address
+		sta <temp0
+
+		jsr ChooseMaze
+		tay							; address of pelette table for this map
+
+; Draw 4 Power Pills
+
+		lda |0,y
+		tax							; x = vram address
+		sep #$20
+		lda |powerpills				; first power pill
+		sta |0,x					; store to VRAM
+		rep #$20
+
+		lda |2,y
+		tax							; x = vram address
+		sep #$20
+		lda |powerpills+1			; 2nd power pill
+		sta |0,x					; store to VRAM
+		rep #$20
+
+		lda |4,y
+		tax							; x = vram address
+		sep #$20
+		lda |powerpills+2			; 3rd power pill
+		sta |0,x					; store to VRAM
+		rep #$20
+
+		lda |6,y
+		tax							; x = vram address
+		sep #$20
+		lda |powerpills+3			; 4th power pill
+		sta |0,x					; store to VRAM
+		rep #$20
+
+		rts
 
 ;------------------------------------------------------------------------------
 ;
@@ -1794,6 +1837,11 @@ PelletTable
 		da Pellet3  ; 9018 ; pellets for maze 3
 		da Pellet4  ; 92ec ; pellets for maze 4
 
+PowerPelletTable
+		da Power1   ; #8B35 ; maze 1 power pellet address table 
+		da Power2   ; #8E20 ; maze 2 power pellet address table 
+		da Power3   ; #9112 ; maze 3 power pellet address table 
+		da Power4   ; #93FA ; maze 4 power pellet address table 
 
 
 ;------------------------------------------------------------------------------
@@ -1898,10 +1946,11 @@ Pellet1
 
 	;; Power Pellet Table for maze 1 (screen locations)
 ;8b35
-		db $63,$40 				; #4063 = location of upper right power pellet
-		db $7c,$40				; #407C = location of lower right power pellet
-		db $83,$43				; #4383	= location of upper left power pellet
-		db $9c,$43				; #439C = location of lower left power pellet
+Power1
+		da tile_ram+$63			; #4063 = location of upper right power pellet
+		da tile_ram+$7c			; #407C = location of lower right power pellet
+		da tile_ram+$383		; #4383	= location of upper left power pellet
+		da tile_ram+$39c		; #439C = location of lower left power pellet
 
 
 ; data table used for drawing slow down tunnels on levels 1 and 2
@@ -2006,10 +2055,11 @@ Pellet2
 
 	;; Power Pellet Table for maze 2 screen locations
 ;8e20
-		db $65,$40				; #4065 = power pellet upper right
-		db $7b,$40				; #407B = power pellet lower right
-		db $85,$43				; #4385 = power pellet upper left
-		db $9b,$43				; #439B = power pellet lower left
+Power2
+		da tile_ram+$65	   		; #4065 = power pellet upper right
+		da tile_ram+$7b	   		; #407B = power pellet lower right
+		da tile_ram+$385		; #4385 = power pellet upper left
+		da tile_ram+$39b		; #439B = power pellet lower left
 
 
 ; data table used for drawing slow down tunnels on level 3
@@ -2114,10 +2164,11 @@ Pellet3
 
 	;; Power Pellet Table 3
 ;9112
-		db $64,$40				; #4064
-		db $78,$40				; #4078
-		db $84,$43				; #4384
-		db $98,$43				; #4398
+Power3
+		da tile_ram+$64			; #4064
+		da tile_ram+$78			; #4078
+		da tile_ram+$384		; #4384
+		da tile_ram+$398		; #4398
 
 	;; entrance fruit paths for maze 3:  #911A-9141
 ;911a
@@ -2207,11 +2258,12 @@ Pellet4
 		db  $EE				; #EE = 238 decimal
 
 	;; Power Pellet Table for maze 4
-;93fa  
-		db $64,$40				; #4064
-		db $7c,$40				; #407C
-		db $84,$43				; #4384
-		db $9c,$43				; #439C
+;93fa
+Power4  
+		da tile_ram+$64				; #4064
+		da tile_ram+$7c				; #407C
+		da tile_ram+$384			; #4384
+		da tile_ram+$39c			; #439C
 
 	;; destination table for maze 4
 ;9402
