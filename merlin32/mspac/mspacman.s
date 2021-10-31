@@ -211,6 +211,10 @@ start   ent             ; make sure start is visible outside the file
 
 		jsr DrawMaze		; draw the maze pacman style
 
+		jsr ResetPills		; be sure to mark all pills as active
+
+		jsr DrawPills		; Draw out the player pills, int tile RAM
+
 		jsr BlitMap			; Copy the map data from tile_ram, to the Vicky RAM
 
 end 	bra     end
@@ -1676,6 +1680,66 @@ DrawMaze mx %00
 		rts
 
 
+;------------------------------------------------------------------------------
+;
+; OTTOPATCH
+;PATCH TO DO SAME THING FOR DOTS
+;NOTE THAT THE DOT TABLE IS USED TWICE, ONCE TO WRITE THE DOTS ONTO
+;THE SCREEN THEN AGAIN TO SEE WHICH DOTS HAVE BEEN EATEN.
+;
+; 2448
+DrawPills mx %00
+
+:pVRAM = temp1
+:counter = temp2
+:bitcount = temp3
+
+		lda #tile_ram
+		sta <:pVRAM
+
+		lda #30 	 	; the output size of the pilldata, also loop counter
+		sta <:counter
+
+		lda #PelletTable ; lookup table address
+		sta <temp0
+
+		jsr ChooseMaze
+		tay 				; pointer to source pellet table
+
+	    ldx #pilldata		; pointer to output pill table data
+]lp
+		lda #8				; 8 bits in the byte
+		sta <:bitcount
+]plp
+		lda |0,y 			; load the pellet table, adjust offset into vram
+		and #$FF
+		clc
+		adc <:pVRAM
+		sta <:pVRAM
+
+		sep #$20			; a short
+
+		lda |0,x			; load A with pill entry
+		asl
+		bcc :no_pill
+
+		pha
+
+		lda #16 	 		; tile # for a pelette
+		sta (:pVRAM)		; draw pill
+
+		pla
+:no_pill
+	    iny					; next table data
+		dec <:bitcount
+		rep #$30			; a long again
+		bne ]plp
+
+		inx					; next pill entry
+		dec <:counter
+		bne ]lp
+
+		rts
 
 
 
@@ -1702,6 +1766,34 @@ MazeTable
 		da Maze2	; 8bae
 		da Maze3	; 8ea8
 		da Maze4    ; 9179
+
+
+;	; pellet crossreference routine patch
+;	; arrive from #244b
+;
+;947c  215324    ld      hl,#2453	; load HL with return address
+;947f  1803      jr      #9484           ; skip next step
+;
+;	; arrive here from #248A
+;
+;9481  219224    ld      hl,#2492	; load HL with return address
+;
+;9484  e5        push    hl		; push HL to stack for return address (either #2453 or #2492)
+;9485  219994    ld      hl,#9499	; load HL with pellet map lookup table address
+;9488  cdbd94    call    #94bd		; load BC with value based on the level
+;948b  fd210000  ld      iy,#0000	; IY = #0000
+;948f  fd09      add     iy,bc		; add BC into IY
+;9491  210040    ld      hl,#4000	; load HL with start of video RAM
+;9494  dd21164e  ld      ix,#4e16	; load IX with pellet entries
+;9498  c9        ret     		; return (returns to either #2453 or #2492)
+
+
+PelletTable
+		da Pellet1  ; 8a3b ; pellets for maze 1
+		da Pellet2  ; 8d27 ; pellets for maze 2
+		da Pellet3  ; 9018 ; pellets for maze 3
+		da Pellet4  ; 92ec ; pellets for maze 4
+
 
 
 ;------------------------------------------------------------------------------
@@ -1773,6 +1865,7 @@ Maze1
 
 	;; Pellet table for maze 1
 ;8A3B
+Pellet1
 		db $62,$02,$01,$13,$01
 		db $01,$01,$02,$01,$04,$03,$13,$06,$04,$03,$01,$01,$01,$01,$01,$01
 		db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$06,$04,$03
@@ -1881,7 +1974,7 @@ Maze2
 
 	;; Pellet table for maze 2
 ;8d27
-
+Pellet2
 		db $66,$01,$01,$01,$01,$01,$03,$01,$01
 		db $01,$0B,$01,$01,$07,$06,$03,$03,$0A,$03,$07,$06,$03,$03,$01,$01
 		db $01,$01,$01,$01,$01,$01,$01,$01,$03,$07,$03,$01,$01,$01,$03,$07
@@ -1990,6 +2083,7 @@ Maze3
 
 	;; Pellet table for maze 3
 ;9018
+Pellet3
 		db $62,$01,$02,$01,$01,$03,$01,$01
 		db $01,$01,$01,$01,$01,$01,$01,$01,$01,$04,$01,$01,$01,$01,$01,$04
 		db $05,$03,$0B,$03,$03,$03,$04,$05,$03,$0B,$01,$01,$01,$03,$03,$04
@@ -2088,6 +2182,7 @@ Maze4
 
 	;; Pellet table for maze 4
 ;92ec
+Pellet4
 		db $62,$01,$02,$01
 		db $01,$01,$01,$0F,$01,$01,$01,$02,$01,$04,$07,$0F,$06,$04,$07,$01
 		db $01,$01,$07,$01,$01,$01,$01,$01,$06,$04,$01,$01,$01,$01,$03,$03
@@ -2164,8 +2259,8 @@ Maze4
 ;
 
 ; - align to 256 bytes  $$TODO put in a macro
-]futz = *
-		ds {{{]futz+$100}&$FF00}-]futz}
+;]futz = *
+;		ds {{{]futz+$100}&$FF00}-]futz}
 ; - align to 256 bytes
 
 tile_ram    ds 1024
@@ -2176,6 +2271,38 @@ palette_ram ds 1024
 ; Game Variables
 ;
 level dw 0	; 4e13 - current level
+
+;	4e16-4e33 0x13 pill data entries. each bit means if a pill is there
+;		or not (1=yes 0=no)
+;		the pills start at upper right corner, go down, then left.
+;		first pill is bit 7 of 4e16
+pilldata ds 30
+;	4e34-4e37 power pills data entries
+powerpills ds 4
+
+
+;------------------------------------------------------------------------------
+; ResetPills
+;24c9
+
+ResetPills mx %00
+; Enable all the pills in the maze
+	lda #$FFFF
+	ldx #28
+]lp sta |pilldata,x
+	dex
+	dex
+	bpl ]lp
+
+; Initialize Power Pills
+
+	lda #$1414
+	sta |powerpills
+	sta |powerpills+2
+
+	rts
+
+
 
 
 ;------------------------------------------------------------------------------
