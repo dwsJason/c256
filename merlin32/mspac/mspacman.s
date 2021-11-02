@@ -224,6 +224,17 @@ start   ent             ; make sure start is visible outside the file
 
 ;------------------------------------------------------------------------------
 
+		jmp JasonTestStuff
+
+;------------------------------------------------------------------------------
+;
+; Begin Actual MsPacman!!!
+;
+
+
+
+JasonTestStuff
+
 		jsr ColorMaze		; fill, based on color# the maze
 
 		jsr DrawMaze		; draw the maze pacman style
@@ -2382,34 +2393,10 @@ Power4
 		db $55,$5F,$01,$00,$50,$55,$BF
 
 
-;------------------------------------------------------------------------------
 ;
-; RAM Shadow, represents actual video hardware in Pacman Arcade machine
+; All the pacman RAM definitions
 ;
-
-; - align to 256 bytes  $$TODO put in a macro
-;]futz = *
-;		ds {{{]futz+$100}&$FF00}-]futz}
-; - align to 256 bytes
-; $4000
-tile_ram    ds 1024
-; $4400
-palette_ram ds 1024
-
-
-;------------------------------------------------------------------------------
-; Game Variables
-;
-level dw 0	; 4e13 - current level
-
-;	4e16-4e33 0x13 pill data entries. each bit means if a pill is there
-;		or not (1=yes 0=no)
-;		the pills start at upper right corner, go down, then left.
-;		first pill is bit 7 of 4e16
-pilldata ds 30
-;	4e34-4e37 power pills data entries
-powerpills ds 4
-
+		put ram.s
 
 ;------------------------------------------------------------------------------
 ; ResetPills
