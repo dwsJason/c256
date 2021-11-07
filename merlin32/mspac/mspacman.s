@@ -47,6 +47,9 @@
 		; Interrupts
 		use phx/interrupt_def.asm
 
+		; Math
+		use phx/Math_def.asm
+
 
 ;
 ; Decompress to this address
@@ -129,6 +132,17 @@ dpJiffy        	ds 2    ; Jiffy Timer
 		dend
 
 
+;------------------------------------------------------------------------------
+; Enums / Game Constants
+
+	dum 0
+MS_INIT ds 1		; MAINSTATE_INIT
+MS_DEMO ds 1 		; MAINSTATE_DEMO
+MS_COIN ds 1		; MAINSTATE_COIN inserted
+MS_PLAY ds 1		; MAINSTATE_PLAYING
+	dend
+
+;------------------------------------------------------------------------------
 
 start   ent             ; make sure start is visible outside the file
         clc

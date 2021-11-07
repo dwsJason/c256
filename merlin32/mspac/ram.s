@@ -121,15 +121,25 @@ fruitspritecolor	db 0	;	4c0d	fruit sprite entry
 ;	4d09	pacman X position
 ;
 ;	4d0a	red ghost Y tile pos (mid of tile) (bottom to top = decrease)
+redghost_tile_y db 0
 ;	4d0b	red ghost X tile pos (mid of tile) (left to right = decrease)
+redghost_tile_x db 0
 ;	4d0c	pink ghost Y tile pos (mid of tile) (bottom to top = decrease)
+pinkghost_tile_y db 0
 ;	4d0d	pink ghost X tile pos (mid of tile) (left to right = decrease)
+pinkghost_tile_x db 0
 ;	4d0e	blue ghost Y tile pos (mid of tile) (bottom to top = decrease)
+blueghost_tile_y db 0
 ;	4d0f	blue ghost X tile pos (mid of tile) (left to right = decrease)
+blueghost_tile_x db 0
 ;	4d10	orange ghost Y tile pos (mid of tile) (bottom to top = decrease)
+orangeghost_tile_y db 0
 ;	4d11	orange ghost X tile pos (mid of tile) (left to right = decrease)
+orangeghost_tile_x db 0
 ;	4d12	pacman tile pos in demo and cut scenes
+pacman_demo_tile_y db 0
 ;	4d13	pacman tile pos in demo and cut scenes
+pacman_demo_tile_x db 0
 ;
 ;	for the following, last move was 
 ;		(A) 0x00 = left/right, 0x01 = down, 0xff = up
@@ -153,8 +163,11 @@ fruitspritecolor	db 0	;	4c0d	fruit sprite entry
 ;	4d23	blue ghost x tile changes
 ;	4d24	orange ghost y tile changes
 ;	4d25	orange ghost x tile changes
+
 ;	4d26	wanted pacman tile changes
+wanted_pacman_tile_y db 0
 ;	4d27	wanted pacman tile changes
+wanted_pacman_tile_x db 0
 ;
 ;		character orientations:
 ;		0 = right, 1 = down, 2 = left, 3 = up
@@ -180,19 +193,30 @@ fruitspritecolor	db 0	;	4c0d	fruit sprite entry
 ;	4d38	orange ghost X tile position 2
 ;
 ;	4d39	pacman Y tile position (0x22..0x3e) (bottom-top = decrease)
+pacman_tile_pos_y db 0
 ;	4d3a	pacman X tile position (0x1e..0x3d) (left-right = decrease)
+pacman_tile_pos_x db 0
 ;
 ;	4d3c	wanted pacman orientation
-;
+wanted_pacman_orientation dw 0
+
 ;	path finding algorithm:
 ;	4d3b		best orientation found 
+best_orientation dw 0
 ;	4d3d		saves the opposite orientation
+opposite_orientation dw 0
 ;	4d3e-4d3f 	saves the current tile position
+save_current_tile dw 0
 ;	4d40-4d41 	saves the destination tile position
+save_dest_tile dw 0
 ;	4d42-4d43 	temp resulting position
+temp_position dw 0
 ;	4d44-4d45 	minimum distance^2 found
+min_distance2 dw 0
 ;
 ;	4dc7		current orientation we're trying
+current_try_orientation dw 0
+
 ;	4d46-4d85 	speed bit patterns (difficulty dependant)
 ;	4D46-4D49       speed bit patterns for pacman in normal state
 ;	4D4A-4D4D       speed bit patterns for pacman in big pill state
@@ -252,19 +276,22 @@ fruitspritecolor	db 0	;	4c0d	fruit sprite entry
 ;	4da4	# of ghost killed but no collision for yet [0..4]
 ;	4da5	pacman dead animation state (0 if not dead)
 ;	4da6	power pill effect (1=active, 0=no effect)
-;
+powerpill dw 0
 ;	4da7	red ghost blue flag (0=not blue)
+redghost_blue dw 0
 ;	4da8	pink ghost blue flag (0=not blue)
+pinkghost_blue dw 0
 ;	4da9	blue ghost blue flag (0=not blue)
+blueghost_blue dw 0
 ;	4daa	orange ghost blue flag (0=not blue)
-;
+orangeghost_blue dw 0
 ;	4dab	killing ghost state
 ;		0 = nothing
 ;		1 = kill red ghost
 ;		2 = kill pink ghost
 ;		3 = kill blue ghost
 ;		4 = kill orange ghost
-;
+killghost_state dw 0
 ;		ghost states:
 ;		0 = alive
 ;		1 = dead
@@ -272,9 +299,13 @@ fruitspritecolor	db 0	;	4c0d	fruit sprite entry
 ;		3 = go left after entering home after dead (blue)
 ;		3 = go right after entering home after dead (orange)
 ;	4dac	red ghost state
+redghost_state dw 0
 ;	4dad	pink ghost state
+pinkghost_state dw 0
 ;	4dae	blue ghost state
+blueghost_state dw 0
 ;	4daf	orange ghost state
+orangeghost_state dw 0
 ;
 ;	4db0	related to difficulty, appears to be unused 
 ;
@@ -339,13 +370,23 @@ fruitspritecolor	db 0	;	4c0d	fruit sprite entry
 ;		1: demo
 ;		2: coin inserted
 ;		3: playing
+mainstate dw 0
+
 ;	4e01	main routine 0, subroutine #
+mainroutine0 dw 0
+
 ;	4e02	main routine 1, subroutine # (related to blue maze bug)
+mainroutine1 dw 0
+
 ;	4e03	main routine 2, subroutine #
+mainroutine2 dw 0
+
 ;	4e04	level state subroutine #
 ;		3=ghost move, 2=ghost wait for start
 ;		(set to 2 to pause game)
 ;
+levelstate dw 0
+
 ;	4e06	state in first cutscene (pac-man only)
 ;	4e07	state in second cutscene (pac-man only)
 ;	4e08	state in third cutscene (pac-man only)
