@@ -2022,7 +2022,7 @@ ChooseMaze mx %00
 
 		lda |level
 		cmp #13			; is level number >= 13
-		bcs	:wrap_level ; level needs clamped between 0 and 13
+		bcs :wrap_level		; level needs clamped between 0 and 13
 :continue
 		tax
 		lda |MapOrderTable,x
@@ -2038,7 +2038,8 @@ ChooseMaze mx %00
 		; c=1
 		sbc #13
 
-]lp		sbc #8  	 	; subtract 8 until negative
+]lp		sec
+		sbc #8  	 	; subtract 8 until negative
 		bcs ]lp
 
 		adc #13			; add 13 back in
@@ -2735,10 +2736,12 @@ GetLevelColor mx %00
 
 ;95A3
 :mod_range
-		sbc #21		; subtract 21
 		sec
-		sbc #16
-		bpl :mod_range
+		sbc #21		; subtract 21
+]mod_loop
+		sec
+		sbc #17
+		bpl ]mod_loop
 		clc
 		adc #21
 		bra :cont
