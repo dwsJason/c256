@@ -1909,6 +1909,8 @@ DrawPowerPills mx %00
 
 		rts
 
+; 24d7
+task_colorMaze mx %00
 ;------------------------------------------------------------------------------
 ;
 ; Color the Maze
@@ -2480,6 +2482,11 @@ Power4
 ;
 		put ram.s
 
+;
+; All the pacman Task functions
+;
+		put tasks.s
+
 ;------------------------------------------------------------------------------
 ; ResetPills
 ;24c9
@@ -2777,8 +2784,8 @@ DECOUT EQU 4 ;2 bytes
 * DECOUT=Highest decimal digit
 * HEXIN & DECWORK altered
 HEXDEC
-	SEP #9
-	TDC
+	SEP #9    		; set BCD, and Set c=1, SED + SEC
+	TDC    			; load A with Zero
 	ROL HEXIN
 LOOP
 	STA DECWORK
