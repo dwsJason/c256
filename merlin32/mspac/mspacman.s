@@ -52,7 +52,7 @@
 ; Decompress to this address
 ;
 pixel_buffer = $100000	; need about 120k, put it in memory at 1.25MB mark
-						; try to leave room for kernel on a U
+			; try to leave room for kernel on a U
 
 
 ; Kernel method
@@ -70,14 +70,26 @@ VICKY_BITMAP0 = $000000
 ]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_TileMap_En
 ]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_Sprite_En
 ]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_GAMMA_En
-]VIDEO_MODE = ]VIDEO_MODE+$100                                        ; +800x600
+]VIDEO_MODE = ]VIDEO_MODE+$100                                       ; +800x600
 
 VICKY_MAP_TILES    = $000000
 VICKY_SPRITE_TILES = $010000
-VICKY_MAP0         = $020000   				; MAP Data for the TileSet
+VICKY_MAP0         = $020000   			      ; MAP Data for tile map 0
+VICKY_MAP1         = VICKY_MAP0+{64*64*2}	      ; MAP Data for tile map 1
+VICKY_MAP2         = VICKY_MAP1+{64*64*2}	      ; MAP Data for tile map 2
+VICKY_MAP3         = VICKY_MAP2+{64*64*2}	      ; MAP Data for tile map 3
 
 TILE_CLEAR_SIZE = $010000
 MAP_CLEAR_SIZE = 64*64*2
+
+TILE_Pal0 = 0*$800
+TILE_Pal1 = 1*$800
+TILE_Pal2 = 2*$800
+TILE_Pal3 = 3*$800
+TILE_Pal4 = 4*$800
+TILE_Pal5 = 5*$800
+TILE_Pal6 = 6*$800
+TILE_Pal7 = 7*$800
 
 
 ;------------------------------------------------------------------------------
@@ -87,33 +99,33 @@ MyDP = $100
 ;------------------------------------------------------------------------------
 ; Direct Page Equates
 		dum $80
-lzsa_sourcePtr ds 4
-lsza_destPtr   ds 4
-lzsa_matchPtr  ds 4
-lzsa_nibble    ds 2
-lzsa_suboffset ds 2
-lzsa_token     ds 2
+lzsa_sourcePtr	ds 4
+lsza_destPtr	ds 4
+lzsa_matchPtr	ds 4
+lzsa_nibble	ds 2
+lzsa_suboffset	ds 2
+lzsa_token	ds 2
 
-temp0		   ds 4
-temp1          ds 4
-temp2   	   ds 4
-temp3   	   ds 4
-temp4   	   ds 4
-temp5          ds 4
-temp6		   ds 4
-temp7          ds 4
+temp0		ds 4
+temp1		ds 4
+temp2		ds 4
+temp3		ds 4
+temp4		ds 4
+temp5		ds 4
+temp6		ds 4
+temp7		ds 4
 
 
-i32EOF_Address ds 4
-i32FileLength  ds 4
-pData          ds 4
-i16Version     ds 2
-i16Width       ds 2
-i16Height      ds 2
-pCLUT          ds 4
-pPIXL		   ds 4
+i32EOF_Address 	ds 4
+i32FileLength  	ds 4
+pData          	ds 4
+i16Version     	ds 2
+i16Width       	ds 2
+i16Height      	ds 2
+pCLUT          	ds 4
+pPIXL	       	ds 4
 
-dpJiffy        ds 2    ; Jiffy Timer
+dpJiffy        	ds 2    ; Jiffy Timer
 		dend
 
 
@@ -171,6 +183,7 @@ start   ent             ; make sure start is visible outside the file
 		lda #$00FF
 ]lp
 		sta >VICKY_MAP0+VRAM+{64*2}+4,x
+;		sta >VICKY_MAP1+VRAM+{64*2}+4,x
 		inx
 		inx
 		cpx #64*64*2
@@ -230,8 +243,20 @@ start   ent             ; make sure start is visible outside the file
 ;
 ; Begin Actual MsPacman!!!
 ;
+;------------------------------------------------------------------------------
+
+rst0
+		sei					; Disable Interrupts
+;		jmp	startuptest
+
+	; rst 38 (vblank)
+	; INTERRUPT MODE 1 handler
+rst38
 
 
+
+
+;------------------------------------------------------------------------------
 
 JasonTestStuff
 
@@ -943,24 +968,33 @@ InitMsPacVideo mx %00
 
 ; Default the first 4 colors of LUT0
 
+		ldx #0
+		clc
+]loop
 		; Black
-		stz |GRPH_LUT0_PTR
-		stz |GRPH_LUT0_PTR+2
+		stz |GRPH_LUT0_PTR,x
+		stz |GRPH_LUT0_PTR+2,x 
 
 		; Dark Grey
 		lda #$5050
-		sta |GRPH_LUT0_PTR+4
-		sta |GRPH_LUT0_PTR+6
+		sta |GRPH_LUT0_PTR+4,x 
+		sta |GRPH_LUT0_PTR+6,x 
 
 		; Dark Grey
 		lda #$A0A0
-		sta |GRPH_LUT0_PTR+8
-		sta |GRPH_LUT0_PTR+10
+		sta |GRPH_LUT0_PTR+8,x 
+		sta |GRPH_LUT0_PTR+10,x 
 
 		; White
 		lda #$FFFF
-		sta |GRPH_LUT0_PTR+12
-		sta |GRPH_LUT0_PTR+14
+		sta |GRPH_LUT0_PTR+12,x 
+		sta |GRPH_LUT0_PTR+14,x 
+
+		txa
+		adc #$400
+		tax
+		cpx #$2000
+		bcc ]loop
 
 ;---------------------------------------------------------
 ;
@@ -971,20 +1005,24 @@ InitMsPacVideo mx %00
 		ldx #TILE_Enable
 		ldy #0
 		stx |TL0_CONTROL_REG  	; Tile Plane 0 Enable
-		sty |TL1_CONTROL_REG	; Tile Plane 1 Enable
+		sty |TL1_CONTROL_REG	; Tile Plane 1 Disable
 		sty |TL2_CONTROL_REG	; Tile Plane 2 Disable
 		sty |TL3_CONTROL_REG	; Tile Plane 3 Disable
 
 		; Map Data Size
 		lda #64
 		sta |TL0_TOTAL_X_SIZE_L
+		sta |TL1_TOTAL_X_SIZE_L
 		sta |TL0_TOTAL_Y_SIZE_L
+		sta |TL1_TOTAL_Y_SIZE_L
 
 		; Tile Set Address
 		lda #VICKY_MAP_TILES
 		sta |TILESET0_ADDY_L
+		sta |TILESET1_ADDY_L
 		ldx #^VICKY_MAP_TILES
 		stx |TILESET0_ADDY_H
+		stx |TILESET1_ADDY_H
 
 		; Set TileMap 0 Name Data Address
 		lda #VICKY_MAP0
@@ -992,10 +1030,19 @@ InitMsPacVideo mx %00
 		ldx #^VICKY_MAP0
 		stx |TL0_START_ADDY_H
 
+		; Set TileMap 1 Name Data Address
+		lda #VICKY_MAP1
+		sta |TL1_START_ADDY_L
+		ldx #^VICKY_MAP1
+		stx |TL1_START_ADDY_H
+
+
 		; Map display position
 		stz |TL0_WINDOW_X_POS_L
+		stz |TL1_WINDOW_X_POS_L
 		lda #4
 		sta |TL0_WINDOW_Y_POS_L
+		sta |TL1_WINDOW_Y_POS_L
 
 
 ;---------------------------------------------------
@@ -1040,6 +1087,16 @@ InitMsPacVideo mx %00
 		pea #MAP_CLEAR_SIZE
 		
 		jsr vmemset0
+
+		; Clear Tile Map 1
+		pea #^VICKY_MAP1
+		pea #VICKY_MAP1
+
+		pea #^MAP_CLEAR_SIZE
+		pea #MAP_CLEAR_SIZE
+		
+		jsr vmemset0
+
 
 		rts
 
@@ -1360,6 +1417,7 @@ TestTiles mx %00
 ]lp
 		lda |:map_data,x
 		sta >VICKY_MAP0+VRAM+{64*2}+4,x
+;		sta >VICKY_MAP1+VRAM+{64*2}+4,x
 		inx
 		inx
 		cpx #64*16*2
@@ -1370,6 +1428,7 @@ TestTiles mx %00
 		lda #$00FF
 ]lp
 		sta >VICKY_MAP0+VRAM+{64*2}+4,x
+;		sta >VICKY_MAP1+VRAM+{64*2}+4,x
 		inx
 		inx
 		cpx #64*64*2
@@ -1555,6 +1614,7 @@ TestTiles mx %00
 ; tiles to display on the layer
 ;
 :map_data
+	do 1
 ]var = 0
 	lup 16
 	dw $000+]var,$001+]var,$002+]var,$003+]var,$004+]var,$005+]var,$006+]var,$007+]var
@@ -1569,6 +1629,27 @@ TestTiles mx %00
 
 ]var = ]var+16
 	--^
+
+	else
+
+]var = 0
+	lup 16
+	dw $000+]var,255,$001+]var,255,$002+]var,255,$003+]var,255
+	dw $004+]var,255,$005+]var,255,$006+]var,255,$007+]var,255
+	dw $008+]var,255,$009+]var,255,$00A+]var,255,$00B+]var,255
+	dw $00C+]var,255,$00D+]var,255,$00E+]var,255,$00F+]var,255
+
+	dw 255,255,255,255,255,255,255,255
+	dw 255,255,255,255,255,255,255,255
+	dw 255,255,255,255,255,255,255,255
+	dw 255,255,255,255,255,255,255,255
+
+]var = ]var+16
+	--^
+
+
+
+	fin
 
 
 ;------------------------------------------------------------------------------
@@ -2526,7 +2607,7 @@ Pac2PhxColor mx %00
 BlitMap mx %00
 
 :row_offset = temp0
-:cursor		= temp1
+:cursor	    = temp1
 :count      = temp2
 
 		lda #$3A0
@@ -2572,6 +2653,61 @@ BlitMap mx %00
 		sta <:row_offset
 		cmp #$3C0
 		bcc ]row_loop
+
+;------------------------------------------------------------------------------
+; temp test code
+
+		lda |level
+		ldx #VICKY_MAP0+{64*2}+4
+		jsr PrintHex
+
+		rts
+
+;------------------------------------------------------------------------------
+
+PrintHex 	mx %00
+
+		phb
+		pea >{VRAM+VICKY_MAP0}
+		plb
+		plb
+
+		pha		; hex we're going to print
+
+		xba
+		lsr
+		lsr
+		lsr
+		lsr
+		and #$F
+		ora #TILE_Pal1
+		sta |0,x 	; High Digit
+
+		lda 1,s
+		xba
+		and #$000F
+		ora #TILE_Pal1
+		sta |2,x    	; Next Digit
+
+		lda 1,s
+		and #$00F0      ; second from last
+		lsr
+		lsr
+		lsr
+		lsr
+		ora #TILE_Pal1
+		sta |4,x
+
+		pla
+		and #$000F	; last digit
+		ora #TILE_Pal1
+		sta |6,x
+
+		;$$JGA TEMP HACK, to work around color bug in Vicky
+		lda #TILE_Pal1+$40
+		sta |8,x
+
+		plb
 
 		rts
 
@@ -2620,5 +2756,35 @@ GetLevelColor mx %00
 		db  $1d,$1d,$1d,$1d 	; color code for levels 18 - 21
 
 ;------------------------------------------------------------------------------
+;
+; JBSI
 
+HEXIN EQU 0 ;2 bytes
+DECWORK EQU 2 ;2 bytes
+DECOUT EQU 4 ;2 bytes
+
+* On Entry:
+* Word to convert at HEXIN
+* e=0, m=0, x=0
+* DPage=0
+* On Exit:
+* A=Low 4 decimal digits
+* X,Y,DB,DPage preserved
+* e=0, m=0, x=0, Decimal flag cleared
+* DECOUT=Highest decimal digit
+* HEXIN & DECWORK altered
+HEXDEC
+	SEP #9
+	TDC
+	ROL HEXIN
+LOOP
+	STA DECWORK
+	ADC DECWORK
+	ROL DECOUT
+	ASL HEXIN
+	BNE LOOP
+	CLD
+	RTS
+
+;------------------------------------------------------------------------------
 
