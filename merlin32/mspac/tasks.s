@@ -191,6 +191,7 @@ task_pacmanAI mx %00
 		ldx |pacman_demo_tile_y			;4d12;  X contains both tilepos x and tilepos y
 		ldy |pinkghost_tile_y 			;4d0c;  Y contains both tilepos x and tilepos y
 		lda |wanted_pacman_orientation  ;4d3c; load A with wanted pacman orientation 
+:cont
 		jsr getBestNewDirection  		;2966; get best new direction 
 		sta |wanted_pacman_orientation  ;4d3c; store into wanted pacman orientation 
 		stx |wanted_pacman_tile_y       ;4d26; store into wanted pacman tile changes 
@@ -200,25 +201,38 @@ task_pacmanAI mx %00
 
 :not_blue
 
-;28fe  2a394d    ld      hl,(#4d39)	; load HL with pacman (Y,X) tile positions
-;2901  ed4b0c4d  ld      bc,(#4d0c)	; load BC with pink ghost (Y,X) tile positions
-;2905  7d        ld      a,l		; load A with pacman X tile position
-;2906  87        add     a,a		; A := A * 2
-;2907  91        sub     c		; subtract pink ghost X tile position
-;2908  6f        ld      l,a		; store result into L
-;2909  7c        ld      a,h		; load A with pacman Y tile position
-;290a  87        add     a,a		; A := A * 2
-;290b  90        sub     b		; subtract pink ghost Y tile position
-;290c  67        ld      h,a		; store result into H
-;290d  eb        ex      de,hl		; DE <-> HL.  The new destination is away from pink ghost
-;290e  2a124d    ld      hl,(#4d12)	; load HL with pacman tile positions
-;2911  3a3c4d    ld      a,(#4d3c)	; load A with wanted pacman orientation
-;2914  cd6629    call    #2966		; get best new direction
-;2917  22264d    ld      (#4d26),hl	; store new tile changes
-;291a  323c4d    ld      (#4d3c),a	; store new wanted pacman orientation
-;291d  c9        ret     		; return
+:temp_pacman_y equ temp0
+:temp_pacman_x equ temp0+1
+:temp_pink_y   equ temp1
+:temp_pink_x   equ temp1+1
+:result_y      equ temp2
+:result_x      equ temp2+1
 
-		rts
+		; put pink ghost xy, into temp variables
+		lda |pinkghost_tile_y
+		sta <:temp_pink_y
+
+		; put pacman xy, into temp variables
+		lda |pacman_tile_pos_y
+		sta <:temp_pacman_y
+
+		asl ; x2  - pacman_y times 2
+
+		sep #$21		; short a, c=1
+
+		sbc <:temp_pink_y
+		sta <:result_y
+
+		lda <:temp_pacman_x
+		asl
+		sec
+		sbc <:temp_pink_x
+		sta <:result_x
+
+		rep #$31 ; long ai, c=0
+		ldy <:result_y
+		bra :cont
+
 ;------------------------------------------------------------------------------
 ; #2AE0 ; A=18	; draws "high score" and scores.  clears player 1 and 2 scores to zero.
 task_resetScores
