@@ -74,6 +74,7 @@ VICKY_BITMAP0 = $000000
 ]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_Sprite_En
 ]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_GAMMA_En
 ]VIDEO_MODE = ]VIDEO_MODE+$100                                       ; +800x600
+;]VIDEO_MODE = ]VIDEO_MODE+$200                                       ; pixel double/ half resolution
 
 VICKY_MAP_TILES    = $000000
 VICKY_SPRITE_TILES = $010000
