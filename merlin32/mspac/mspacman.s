@@ -2887,7 +2887,77 @@ pm1017      mx %00
 
 	    jsr	mspac_death_update
 
+	    lda |pacman_dead_state	; skip out early if dead squence playing
+	    bne :continue
 
+	    rts
+
+:continue
+
+	    jsr eatghosts		; check for ghosts being eaten and set ghost states accordingly
+;1022  cd9410    call    #1094		; check for red ghost state and do things if not alive
+;1025  cd9e10    call    #109e		; check for pink ghost state and do things if not alive
+;1028  cda810    call    #10a8		; check for blue ghost (inky) state and do things if not alive
+;102b  cdb410    call    #10b4		; check for orange ghost state and do things if not alive
+;102e  3aa44d    ld      a,(#4da4)	; load A with # of ghost killed but no collision for yet [0..4]
+;1031  a7        and     a		; == #00 ?
+;1032  ca3910    jp      z,#1039		; yes, skip ahead
+;
+;1035  cd3512    call    #1235		; no, call this sub
+;1038  c9        ret     		; and return
+;
+;1039  cd1d17    call    #171d		; check for collision with regular ghosts
+;103c  cd8917    call    #1789		; check for collision with blue ghosts
+;103f  3aa44d    ld      a,(#4da4)	; load A with # of ghost killed but no collision for yet [0..4]
+;1042  a7        and     a		; is there a collsion ?
+;1043  c0        ret     nz		; yes, return
+;
+;1044  cd0618    call    #1806		; handle all pac-man movement
+;1047  cd361b    call    #1b36		; control movement for red ghost
+;104a  cd4b1c    call    #1c4b		; control movement for pink ghost
+;104d  cd221d    call    #1d22		; control movement for blue ghost (inky)
+;1050  cdf91d    call    #1df9		; control movement for orange ghost
+;1053  3a044e    ld      a,(#4e04)	; load A with level state subroutine #
+;1056  fe03      cp      #03		; is a game being played ?
+;1058  c0        ret     nz		; no, return
+;
+;1059  cd7613    call    #1376		; control blue ghost timer and reset ghosts when it is over or when pac eats all blue ghosts
+;105c  cd6920    call    #2069		; check for pink ghost to leave the ghost house
+;105f  cd8c20    call    #208c		; check for blue ghost (inky) to leave the ghost house
+;1062  cdaf20    call    #20af		; check for orange ghost to leave the ghost house
+
+	    rts
+
+;------------------------------------------------------------------------------
+;1066 
+eatghosts   mx %00
+	    lda |killghost_state	; ghost being eaten
+	    bne :continue
+	    rts				; no
+:continue
+	    stz |killghost_state	; clear killing ghost state
+	    dec				; is red ghost being eaten?
+	    bne	:not_red
+
+	    inc				; A := A + 1 [ A is now #01, code for dead ghost]
+	    sta |redghost_state         ; store into red ghost state
+	    rts
+:not_red
+	    dec 			; is the pink ghost being eaten?
+	    bne :not_pink
+	    inc
+
+	    sta |pinkghost_state	; set pink ghost state to dead
+	    rts
+:not_pink
+	    dec				; is blue ghost (inky) being eaten?
+	    bne :not_blue
+
+	    inc 			; A := #01
+	    sta |blueghost_state        ; set inky ghost state to dead
+	    rts
+:not_blue
+	    sta |orangeghost_state	; else orange ghost is being eaten.   set orange ghost state to dead 
 
 	    rts
 
