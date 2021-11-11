@@ -20,18 +20,18 @@ palette_ram ds 1024
 ; MsPacman RAM
 ;
 
-redghostsprite		db 0	;	4c02	red ghost sprite number
-redghostcolor		db 0	;	4c03	red ghost color entry
-pinkghostsprite		db 0	;	4c04	pink ghost sprite number
-pinkghostcolor		db 0	;	4c05	pink ghost color entry
-blueghostsprite 	db 0	;	4c06	blue ghost sprite number
-blueghostcolor		db 0	;	4c07	blue ghost color entry
-orangeghostsprite	db 0	;	4c08	orange ghost sprite number
-orangeghostcolor	db 0	;	4c09	orange ghost color entry
-pacmansprite		db 0	;	4c0a	pacman sprite number
-pacmancolor			db 0	;	4c0b	pacman color entry
-fruitsprite			db 0	;	4c0c	fruit sprite number
-fruitspritecolor	db 0	;	4c0d	fruit sprite entry
+redghostsprite		dw 0	;	4c02	red ghost sprite number
+redghostcolor		dw 0	;	4c03	red ghost color entry
+pinkghostsprite		dw 0	;	4c04	pink ghost sprite number
+pinkghostcolor		dw 0	;	4c05	pink ghost color entry
+blueghostsprite 	dw 0	;	4c06	blue ghost sprite number
+blueghostcolor		dw 0	;	4c07	blue ghost color entry
+orangeghostsprite	dw 0	;	4c08	orange ghost sprite number
+orangeghostcolor	dw 0	;	4c09	orange ghost color entry
+pacmansprite		dw 0	;	4c0a	pacman sprite number
+pacmancolor			dw 0	;	4c0b	pacman color entry
+fruitsprite			dw 0	;	4c0c	fruit sprite number
+fruitspritecolor	dw 0	;	4c0d	fruit sprite entry
 
 ;	4c20	sprite data that goes to the hardware sprite system
 ;
@@ -107,18 +107,31 @@ fruitspritecolor	db 0	;	4c0d	fruit sprite entry
 ;   4C42    PATH    pointer to the path the fruit is currently following
 ;   4E0E    DOTSEAT how many dots the current player has eaten
 ;   4EBC    BNOISE  set bit 5 of BNOISE to make the bounce sound
+bnoise dw 0
 
 ;	4d00	red ghost Y position (bottom to top = decreases)
+red_ghost_y db 0
 ;	4d01	red ghost X position (left to right = decreases)
+red_ghost_x db 0
 ;	4d02	pink ghost Y position (bottom to top = decreases)
+pink_ghost_y db 0
 ;	4d03	pink ghost X position (left to right = decreases)
+pink_ghost_x db 0
 ;	4d04	blue ghost Y position (bottom to top = decreases)
+blue_ghost_y db 0
 ;	4d05	blue ghost X position (left to right = decreases)
+blue_ghost_x db 0
 ;	4d06	orange ghost Y position (bottom to top = decreases)
+orange_ghost_y db 0
 ;	4d07	orange ghost X position (left to right = decreases)
+orange_ghost_x db 0
+
 ;
 ;	4d08	pacman Y position
+pacman_y db 0
 ;	4d09	pacman X position
+pacman_x db 0
+
 ;
 ;	4d0a	red ghost Y tile pos (mid of tile) (bottom to top = decrease)
 redghost_tile_y db 0
@@ -275,6 +288,7 @@ current_try_orientation dw 0
 ;	4da3	orange ghost substate (if alive)
 ;	4da4	# of ghost killed but no collision for yet [0..4]
 ;	4da5	pacman dead animation state (0 if not dead)
+pacman_dead_state dw 0
 ;	4da6	power pill effect (1=active, 0=no effect)
 powerpill dw 0
 ;	4da7	red ghost blue flag (0=not blue)
@@ -343,6 +357,8 @@ orangeghost_state dw 0
 ;	4dc2-4dc3 counter related to ghost orientation changes
 ;	4dc4	counter 0..8 to handle things once every 8 times
 ;	4dc5-4dc6 counter started after pacman killed
+pacman_dead_counter dw 0
+
 ; 	4dc7	counter for current orientation we're trying
 ;	4dc8	counter used to change ghost colors under big pill effects
 ;
@@ -359,6 +375,8 @@ orangeghost_state dw 0
 ;			4dd1 = 1: wating
 ;			4dd1 = 2: clearing killed ghost, changing state to 0
 ;	4dd2-4dd3 fruit position (sometimes for other sprite)
+fruit_y db 0
+fruit_x db 0
 ;
 ;	4dd4	entry to fruit points or 0 if no fruit
 ;	4dd6	used for LED state( 1: game waits for 1P/2P start button press)
@@ -401,6 +419,8 @@ levelstate dw 0
 ;	4C41	BCNT	current place within bounce
 ;	4C42	PATH	pointer to the path the fruit is currently following
 ;	4E0E	DOTSEAT	how many dots the current player has eaten
+dotseat dw 0
+
 ;	4EBC	BNOISE	set bit 5 of BNOISE to make the bounce sound
 ;
 ;	4e0c	first fruit flag (1 if fruit has appeared)
@@ -424,7 +444,9 @@ levelstate dw 0
 level dw 0	; 4e13 - current level
 
 ;	4e14	real number of lives
+num_lives dw 0
 ;	4e15	number of lives displayed
+displayed_lives dw 0
 ;
 ;	4e16-4e33 0x13 pill data entries. each bit means if a pill is there
 ;		or not (1=yes 0=no)

@@ -185,7 +185,7 @@ start   ent             ; make sure start is visible outside the file
 
 		; Wait 1 second
 		lda #60
-]lp 	jsr WaitVBL
+]lp 		jsr WaitVBL
 		dec
 		bpl ]lp
 
@@ -2015,7 +2015,7 @@ MazeTable
 ;9494  dd21164e  ld      ix,#4e16	; load IX with pellet entries
 ;9498  c9        ret     		; return (returns to either #2453 or #2492)
 
-
+; 9499
 PelletTable
 		da Pellet1  ; 8a3b ; pellets for maze 1
 		da Pellet2  ; 8d27 ; pellets for maze 2
@@ -2026,7 +2026,14 @@ PowerPelletTable
 		da Power1   ; #8B35 ; maze 1 power pellet address table 
 		da Power2   ; #8E20 ; maze 2 power pellet address table 
 		da Power3   ; #9112 ; maze 3 power pellet address table 
-		da Power4   ; #93FA ; maze 4 power pellet address table 
+		da Power4   ; #93FA ; maze 4 power pellet address table
+
+; 94B5
+PelletCountTable
+		da PelletCount1
+		da PelletCount2
+		da PelletCount3
+		da PelletCount4
 
 
 ;------------------------------------------------------------------------------
@@ -2120,6 +2127,7 @@ Pellet1
 	;; number of pellets to eat for maze 1
 
 ;8b2c
+PelletCount1
 		db  $e0				; #E0 = 224 decimal
 
 	;; ghost destination table for maze 1
@@ -2229,6 +2237,7 @@ Pellet2
 
 	;; number of pellets to eat for map 2
 ;8e17
+PelletCount2
 		db  $f4				; #F4 = 244 decimal
 
 
@@ -2339,6 +2348,7 @@ Pellet3
 
 	;; number of pellets to eat for maze 3
 ;9109
+PelletCount3
 		db  $f2				; #F2 = 242 decimal
 
 	;; destination table for maze 3
@@ -2441,6 +2451,7 @@ Pellet4
 
 	;; number of pellets to eat for maze 4
 ;93f9
+PelletCount4
 		db  $EE				; #EE = 238 decimal
 
 	;; Power Pellet Table for maze 4
@@ -2809,6 +2820,229 @@ LOOP
 	BNE LOOP
 	CLD
 	RTS
+
+;------------------------------------------------------------------------------
+;
+; demo or game is playing
+;
+; 08CD;
+game_playing mx %00
+;
+; In original code, rack test stuff, that I didn't port
+;
+;	    lda |dotseat 	; number of dots player has eaten
+
+; check to see if the board is cleared
+;
+; 94a1
+	    lda #PelletCountTable
+	    sta <temp0
+
+	    jsr ChooseMaze
+
+	    tax			; Address of the pellet count
+
+	    sep #$20
+
+	    lda |dotseat  ; number of dots player has eaten!
+	    cmp |0,x
+	    rep #$30
+	    bcc :not_done
+
+;08e5
+; 	  level complete
+;
+		; $$TODO ENUM?
+	    lda #12        	; signal end of level
+	    sta |levelstate
+
+	    rts
+
+:not_done
+
+	; core game loop
+
+;08eb  cd1710    call    #1017		; another core game loop that does many things
+	    jsr pm1017
+;08ee  cd1710    call    #1017		; another core game loop that does many things
+	    jsr pm1017
+;08f1  cddd13    call    #13dd		; check for release of ghosts from ghost house
+
+;08f4  cd420c    call    #0c42		; adjust movement of ghosts if moving out of ghost house
+;08f7  cd230e    call    #0e23		; change animation of ghosts every 8th frame
+;08fa  cd360e    call    #0e36		; periodically reverse ghost direction based on difficulty (only when energizer not active)
+;08fd  cdc30a    call    #0ac3		; handle ghost flashing and colors when power pills are eaten
+;0900  cdd60b    call    #0bd6		; color dead ghosts the correct colors
+;0903  cd0d0c    call    #0c0d		; handle power pill (dot) flashes
+;0906  cd6c0e    call    #0e6c		; change the background sound based on # of pills eaten
+;0909: CD AD 0E	 call	#0EAD		; check for fruit to come out.  (new ms. pac sub actually at #86EE.)
+;090C: C9	ret			; return ( to #0195 )
+
+	    rts
+
+;------------------------------------------------------------------------------
+; called from #052C, #052F, #08EB and #08EE 
+; 1017
+pm1017      mx %00
+
+	    jsr	mspac_death_update
+
+
+
+	    rts
+
+;------------------------------------------------------------------------------
+; arrive here from call at #08F1
+; 13dd
+ghosthouse mx %00
+	    rts
+
+;------------------------------------------------------------------------------
+;
+; State Machine for MsPacman Death Sequence
+;
+; called from #052C, #052F, #08EB and #08EE 
+mspac_death_update mx %00
+	    lda |pacman_dead_state
+	    asl
+	    tax
+	    jmp (:table,x)
+
+;1295
+:table
+	    da :alive         ; #000C ; alive returns immediately
+	    da :counter       ; #12B7 ; increase counter
+	    da :counter       ; #12B7 ; increase counter
+	    da :counter       ; #12B7 ; increase counter
+	    da :counter       ; #12B7 ; increase counter
+
+	    da :dead_state_1  ; #12CB	; animate dead mspac
+	    da :dead_state_2  ; #12F9	; animate dead mspac + start dying sound
+	    da :dead_state_3  ; #1306	; animate dead mspac
+	    da :dead_state_4  ; #130E	; animate dead mspac
+	    da :dead_state_5  ; #1316	; animate dead mspac
+	    da :dead_state_6  ; #131E	; animate dead mspac
+	    da :dead_state_7  ; #1326	; animate dead mspac
+	    da :dead_state_8  ; #132E	; animate dead mspac
+	    da :dead_state_9  ; #1336	; animate dead mspac
+	    da :dead_state_10 ; #133E	; animate dead mspac
+	    da :dead_state_11 ; #1346	; animate dead mspac + clear sound
+	    da :dead_state_12 ; #1353	; animate last time, decrease lives, clear ghosts, increase game state
+
+;12b7   ; increase counter
+:counter    inc |pacman_dead_counter
+	    lda #$78
+	    cmp |pacman_dead_counter
+	    bne :alive			; short cut to rts
+
+	    lda #5
+	    sta |pacman_dead_state
+
+;000c - do nothing
+:alive	    rts
+
+:dead_state_1
+	    jsr clear_ghosts		; hide the ghosts
+
+; choose a different sprite for cocktail mode
+; we don't support this, so I didn't port this
+
+; death animation display
+; 12e5
+	    ldx #$34   ;sprite number
+	    ldy #$b4   ; time
+
+:dead_anim
+	    stx |pacmansprite		; sprite frame/tile #
+
+	    inc |pacman_dead_counter
+	    txa
+	    cmp |pacman_dead_counter
+	    bne :rts
+
+	    inc |pacman_dead_state
+:rts
+	    rts
+;12F9
+:dead_state_2
+	    ; set dying sound
+	    lda #8
+	    tsb |bnoise		; enable dying sound
+
+	    ldx #$35		; sprite number
+	    ldy #$c3    	; time
+	    bra	:dead_anim
+;1306
+:dead_state_3
+	    ldx #$36		; sprite no
+	    ldy #$d2
+	    bra :dead_anim
+;130e
+:dead_state_4
+	    ldx #$37		; mspac sprite := #37  Frame 3
+	    ldy #$00e1		; timer := #E1
+	    bra :dead_anim
+
+:dead_state_5  ; #1316	; animate dead mspac
+	    ldx #$38		; mspac sprite := #38  Frame 4
+	    ldy #$00f0		; timer := #F0
+	    bra :dead_anim
+
+:dead_state_6  ; #131E	; animate dead mspac
+	    ldx #$39		; mspac sprite := #39  Frame 5
+	    ldy #$00ff		; timer := #FF
+	    bra :dead_anim
+
+:dead_state_7  ; #1326	; animate dead mspac
+	    ldx #$3a		; mspac sprite := #3A  Frame 6
+	    ldy #$010e		; timer := #10E
+	    bra :dead_anim
+
+:dead_state_8  ; #132E	; animate dead mspac
+	    ldx #$3b   		; mspac sprite := #3B  Frame 7
+	    ldy #$011d 		; timer := #11D
+	    bra :dead_anim
+
+:dead_state_9  ; #1336	; animate dead mspac
+	    ldx #$3c		; mspac sprite := #3C  Frame 8
+	    ldy #$012c		; timer := #12C
+	    bra :dead_anim
+
+:dead_state_10 ; #133E	; animate dead mspac
+	    ldx #$3d		; mspac sprite := #3D  Frame 9
+	    ldy #$013b		; timer := #13B
+	    bra :dead_anim
+
+:dead_state_11 ; #1346	; animate dead mspac + clear sound
+	    stz |bnoise		; clear sound
+	    ldx #$3e		; mspac sprite = #3E  Frame 10
+	    ldy #$0159		; timer := #159
+	    bra :dead_anim
+
+:dead_state_12 ; #1353	; animate last time, decrease lives, clear ghosts, increase game state
+
+	    lda #$3F		; set the sprite frame
+	    sta |pacmansprite
+
+	    inc |pacman_dead_counter
+
+	    lda #$1b8
+	    cmp |pacman_dead_counter
+
+	    bne :return
+
+	    ; times up
+
+	; decrement lives
+	; this gets called after the death animation, but before the screen gets redrawn.
+	; -- probably a good hook point for 'insert coin to contunue' --
+	; 1366
+	    dec |num_lives
+	    dec |displayed_lives
+	    inc |levelstate
+	    jsr task_clearActors
+:return
+	    rts
 
 ;------------------------------------------------------------------------------
 

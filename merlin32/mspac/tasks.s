@@ -4,7 +4,7 @@
 
 ; 23A8
 task_table
-		da task_clearScreen    ; #23ED ; A=00  ; clears the whole screen if parameter == 0, just the maze if parameter == 1
+		da task_clearScreen    ; #23ED ; A=00   ; clears the whole screen if parameter == 0, just the maze if parameter == 1
 		da task_colorMaze      ; #24D7 ; A=01	; colors the maze depending on parameter. if parameter == 2, then color maze white
 		da task_drawMaze 	   ; #2419 ; A=02	; draws the maze
 		da task_drawPellets	   ; #2448 ; A=03	; draws the pellets
@@ -112,6 +112,7 @@ task_setDemoMode mx %00
 		stz |mainroutine2
 		rts
 ;------------------------------------------------------------------------------
+; red ghost logic: (not edible)
 ; #2730 ; A=08   ; red ghost AI 
 task_redGhostAI
 		rts
@@ -224,7 +225,7 @@ task_pacmanAI mx %00
 		sta <:result_y
 
 		lda <:temp_pacman_x
-		asl
+		asl  ; x2 - paman_x times 2
 		sec
 		sbc <:temp_pink_x
 		sta <:result_x
@@ -259,7 +260,15 @@ task_drawCredits
 		rts
 ;------------------------------------------------------------------------------
 ; #2675	; A=1E	; clear fruit, pacman, and all ghosts
-task_clearActors
+task_clearActors mx %00
+		stz |fruit_y
+		stz |pacman_y
+
+clear_ghosts
+		stz |red_ghost_y
+		stz |pink_ghost_y
+		stz |blue_ghost_y
+		stz |orange_ghost_y
 		rts
 ;------------------------------------------------------------------------------
 ; #26B2	; A=1F	; writes points needed for extra life digits to screen
