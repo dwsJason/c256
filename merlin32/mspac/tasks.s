@@ -394,9 +394,13 @@ squareA mx %00
 ; data - tile differences tables for movements
 ; 32ff
 tile_move_table
+move_right
 		db 0,-1			; move right
+move_down
 		db 1,0			; move down
+move_left
 		db 0,1			; move left
+move_up
 		db -1,0			; move up
 
 ; second copy for speed, or for overflow when blue ghosts random directions aren't allowed

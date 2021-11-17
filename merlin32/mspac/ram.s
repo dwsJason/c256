@@ -185,25 +185,42 @@ wanted_pacman_tile_x db 0
 ;		character orientations:
 ;		0 = right, 1 = down, 2 = left, 3 = up
 ;	4d28	previous red ghost orientation (stored middle of movement)
+prev_red_ghost_dir    dw 0
 ;	4d29	previous pink ghost orientation (stored middle of movement)
+prev_pink_ghost_dir   dw 0
 ;	4d2a	previous blue ghost orientation (stored middle of movement)
+prev_blue_ghost_dir   dw 0
 ;	4d2b	previous orange ghost orientation (stored middle of movement)
+prev_orange_ghost_dir dw 0
 ;	4d2c	red ghost orientation (stored middle of movement)
+red_ghost_dir dw 0
 ;	4d2d	pink ghost orientation (stored middle of movement)
+pink_ghost_dir dw 0
 ;	4d2e	blue ghost orientation (stored middle of movement)
+blue_ghost_dir dw 0
 ;	4d2f	orange ghost orientation (stored middle of movement)
+orange_ghost_dir dw 0
 ;
 ;	4d30	pacman orientation
+pacman_dir dw 0
 ;
 ;		these are updated after a move
 ;	4d31	red ghost Y tile position 2 (See 4d0a)
+red_tile_y_2 db 0
 ;	4d32	red ghost X tile position 2 (See 4d0b)
+red_tile_x_2 db 0
 ;	4d33	pink ghost Y tile position 2
+pink_tile_y_2 db 0
 ;	4d34	pink ghost X tile position 2
+pink_tile_x_2 db 0
 ;	4d35	blue ghost Y tile position 2
+blue_tile_y_2 db 0
 ;	4d36	blue ghost X tile position 2
+blue_tile_x_2 db 0
 ;	4d37	orange ghost Y tile position 2
+orange_tile_y_2 db 0
 ;	4d38	orange ghost X tile position 2
+orange_tile_x_2 db 0
 ;
 ;	4d39	pacman Y tile position (0x22..0x3e) (bottom-top = decrease)
 pacman_tile_pos_y db 0
@@ -283,10 +300,15 @@ current_try_orientation dw 0
 ;		3 = going to the door
 ;
 ;	4da0	red ghost substate (if alive)
+red_substate dw 0
 ;	4da1	pink ghost substate (if alive)
+pink_substate dw 0
 ;	4da2	blue ghost substate (if alive)
+blue_substate dw 0
 ;	4da3	orange ghost substate (if alive)
+orange_substate dw 0
 ;	4da4	# of ghost killed but no collision for yet [0..4]
+num_ghosts_killed dw 0
 ;	4da5	pacman dead animation state (0 if not dead)
 pacman_dead_state dw 0
 ;	4da6	power pill effect (1=active, 0=no effect)
@@ -546,6 +568,8 @@ CH1_E_BASE_FREQ EQU     4eaa
 CH1_E_VOL       EQU     4eab
 
 ; 4EAC repeats the above for channel 2
+CH2_E_NUM		dw 0
+
 ; 4EBC repeats the above for channel 3
 
 CH1_W_NUM       EQU     4ecc    ; wave to play (bitmask)

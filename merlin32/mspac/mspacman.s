@@ -793,7 +793,7 @@ InstallJiffy mx %00
 
 ; Enable the SOF interrupt
 
-		lda	#FNX0_INT00_SOF
+		lda #FNX0_INT00_SOF
 		trb |INT_MASK_REG0
 
 		cli
@@ -2876,10 +2876,9 @@ game_playing mx %00
 ;0900  cdd60b    call    #0bd6		; color dead ghosts the correct colors
 ;0903  cd0d0c    call    #0c0d		; handle power pill (dot) flashes
 ;0906  cd6c0e    call    #0e6c		; change the background sound based on # of pills eaten
-;0909: CD AD 0E	 call	#0EAD		; check for fruit to come out.  (new ms. pac sub actually at #86EE.)
-;090C: C9	ret			; return ( to #0195 )
+;0909: CDAD0E	 call	 #0EAD		; check for fruit to come out.  (new ms. pac sub actually at #86EE.)
 
-	    rts
+	    rts   			; return ( to #0195 ) 
 
 ;------------------------------------------------------------------------------
 ; called from #052C, #052F, #08EB and #08EE 
@@ -2897,6 +2896,8 @@ pm1017      mx %00
 
 	    jsr eatghosts		; check for ghosts being eaten and set ghost states accordingly
 ;1022  cd9410    call    #1094		; check for red ghost state and do things if not alive
+	    jsr red_ghost_death_update
+
 ;1025  cd9e10    call    #109e		; check for pink ghost state and do things if not alive
 ;1028  cda810    call    #10a8		; check for blue ghost (inky) state and do things if not alive
 ;102b  cdb410    call    #10b4		; check for orange ghost state and do things if not alive
@@ -2960,6 +2961,149 @@ eatghosts   mx %00
 :not_blue
 	    sta |orangeghost_state	; else orange ghost is being eaten.   set orange ghost state to dead 
 
+	    rts
+
+;------------------------------------------------------------------------------
+; called from #1022
+;1094
+red_ghost_death_update mx %00
+	    lda |redghost_state
+	    asl
+	    tax
+	    jmp (:dispatch,x)   	; 1097 ; rst #20
+:dispatch
+	    da :return   ; #000C	; return immediately when ghost is alive
+	    da :eyes     ; #10C0	; when ghost is dead
+            da :at_house ; #10D2	; when ghost eyes are above and entering the ghost house when returning home
+
+; arrive here from #1097 when red ghost is dead (eyes)
+:eyes
+	    jsr red_ghost_move ;call #1BD8 ; handle red ghost movement
+
+;10C3: 2A 00 4D	ld	hl,(#4D00)	; load HL with red ghost (Y,X) position
+	    lda |red_ghost_y   		
+	    ora |red_ghost_x-1
+
+;10c6  116480    ld      de,#8064	; load DE with X=80, Y=64 position which is right above the ghost house
+;10c9  a7        and     a		; clear carry flag
+;10ca  ed52      sbc     hl,de		; is red ghost eyes right above the ghost house?
+;10cc  c0        ret     nz		; no, return
+	    cmp #$8064
+	    beq :next_state
+	    rts
+
+:next_state
+;10cd  21ac4d    ld      hl,#4dac	; yes, load HL with red ghost state
+;10d0  34        inc     (hl)		; increase
+;10d1  c9        ret			; return
+	    inc |redghost_state
+
+:return	    rts
+
+; arrive here from #1097 when red ghost eyes are above and entering the ghost house when returning home
+; 10d2
+:at_house
+;10d2  dd210133  ld      ix,#3301	; load IX with direction address tiles for moving down
+	    ldx #move_down
+;10d6  fd21004d  ld      iy,#4d00	; load IY with red ghost position
+	    ldy #red_ghost_y
+;10da  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
+;10dd  22004d    ld      (#4d00),hl	; store new position for red ghost
+	    sta |red_ghost_y
+
+;10e0  3e01      ld      a,#01		; A := #01
+	    lda #1
+;10e2  32284d    ld      (#4d28),a	; set previous red ghost orientation as moving down
+	    sta |prev_red_ghost_dir
+;10e5  322c4d    ld      (#4d2c),a	; set red ghost orientation as moving down
+	    sta |red_ghost_dir
+;10e8  3a004d    ld      a,(#4d00)	; load A with red ghost Y position
+	    lda |red_ghost_y
+	    and #$FF
+;10eb  fe80      cp      #80		; has the red ghost eyes fully entered the ghost house?
+	    cmp #$80
+	    beq :continue
+;10ed  c0        ret     nz		; no, return
+	    rts
+:continue
+;10ee  212f2e    ld      hl,#2e2f	; yes, load HL with 2E, 2F location which is the center of the ghost house
+	    lda #$2e2f
+;10f1  220a4d    ld      (#4d0a),hl	; store into red ghost tile position
+	    sta |redghost_tile_y
+;10f4  22314d    ld      (#4d31),hl	; store into red ghost tile position 2
+	    sta |red_tile_y_2
+;10f7  af        xor     a		; A := #00
+;10f8  32a04d    ld      (#4da0),a	; set red ghost substate as at home
+	    stz |red_substate
+;10fb  32ac4d    ld      (#4dac),a	; set red ghost state as alive
+	    stz |redghost_state
+;10fe  32a74d    ld      (#4da7),a	; set red ghost blue flag as not edible
+	    stz |redghost_blue
+;
+;; the other ghost subroutines arrive here after the ghost has arrived at home
+;
+ghost_arrive_home mx %00
+;1101  dd21ac4d  ld      ix,#4dac	; load IX with ghost state starting address
+;1105  ddb600    or      (ix+#00)	; is red ghost dead?
+	    lda |redghost_state
+;1108  ddb601    or      (ix+#01)	; or the pink ghost dead?
+	    ora |pinkghost_state
+;110b  ddb602    or      (ix+#02)	; or the blue ghost dead?
+	    ora |blueghost_state
+;110e  ddb603    or      (ix+#03)	; or the orange ghost dead
+	    ora |orangeghost_state
+;1111  c0        ret     nz		; yes, return
+	    beq :make_noise
+	    rts
+
+:make_noise
+;
+;; arrive here when ghost eyes return to ghost home and there are no other ghost eyes still moving around
+;
+;1112: 21 AC 4E	ld	hl,#4EAC	; load HL with sound channel 2
+;1115: CB B6	res	6,(hl)		; clear sound on bit 6
+	    lda #$40	; bit 6
+	    trb |CH2_E_NUM		; clear bit 6
+;1117: C9	ret			; return
+	    rts
+;
+;
+;; arrive here from #1097 when red ghost eyes are above and entering the ghost house when returning home
+;
+;10d2  dd210133  ld      ix,#3301	; load IX with direction address tiles for moving down
+;10d6  fd21004d  ld      iy,#4d00	; load IY with red ghost position
+;10da  cd0020    call    #2000		; HL := (IX) + (IY)
+;10dd  22004d    ld      (#4d00),hl	; store new position for red ghost
+;10e0  3e01      ld      a,#01		; A := #01
+;10e2  32284d    ld      (#4d28),a	; set previous red ghost orientation as moving down
+;10e5  322c4d    ld      (#4d2c),a	; set red ghost orientation as moving down
+;10e8  3a004d    ld      a,(#4d00)	; load A with red ghost Y position
+;10eb  fe80      cp      #80		; has the red ghost eyes fully entered the ghost house?
+;10ed  c0        ret     nz		; no, return
+;
+;10ee  212f2e    ld      hl,#2e2f	; yes, load HL with 2E, 2F location which is the center of the ghost house
+;10f1  220a4d    ld      (#4d0a),hl	; store into red ghost tile position
+;10f4  22314d    ld      (#4d31),hl	; store into red ghost tile position 2
+;10f7  af        xor     a		; A := #00
+;10f8  32a04d    ld      (#4da0),a	; set red ghost substate as at home
+;10fb  32ac4d    ld      (#4dac),a	; set red ghost state as alive
+;10fe  32a74d    ld      (#4da7),a	; set red ghost blue flag as not edible
+;
+;; the other ghost subroutines arrive here after the ghost has arrived at home
+;
+;1101  dd21ac4d  ld      ix,#4dac	; load IX with ghost state starting address
+;1105  ddb600    or      (ix+#00)	; is red ghost dead?
+;1108  ddb601    or      (ix+#01)	; or the pink ghost dead?
+;110b  ddb602    or      (ix+#02)	; or the blue ghost dead?
+;110e  ddb603    or      (ix+#03)	; or the orange ghost dead
+;1111  c0        ret     nz		; yes, return
+;
+;; arrive here when ghost eyes return to ghost home and there are no other ghost eyes still moving around
+;
+;1112: 21 AC 4E	ld	hl,#4EAC	; load HL with sound channel 2
+;1115: CB B6	res	6,(hl)		; clear sound on bit 6
+;1117: C9	ret			; return
 	    rts
 
 ;------------------------------------------------------------------------------
@@ -3114,6 +3258,42 @@ mspac_death_update mx %00
 	    jsr task_clearActors
 :return
 	    rts
+
+;------------------------------------------------------------------------------
+; called from #10C0 and several other places
+; handles red ghost movement
+; 1bd8
+red_ghost_move mx %00
+	    rts
+
+;------------------------------------------------------------------------------
+;; this is a common function
+; IY is preloaded with sprite locations
+; IX is preloaded with offset to add
+; result is stored into HL
+; HL := (IX) + (IY)
+; A = (X) + (Y)
+;2000
+double_add  mx %00
+;2000  fd7e00    ld      a,(iy+#00)	; load A with IY value (Y position)
+;2003  dd8600    add     a,(ix+#00)	; add with destination Y value
+;2006  6f        ld      l,a		; store result into L
+;200a  dd8601    add     a,(ix+#01)	; add with destination X value
+;200d  67        ld      h,a		; store result into H
+	    sep #$20   ; m=1 x=0
+	    clc
+	    lda |1,y
+	    adc |1,x
+	    xba
+	    clc
+	    lda |0,y
+	    adc |1,y
+	    rep #$31 	; mxc = 0
+;200e  c9        ret     		; return
+	    rts
+
+;------------------------------------------------------------------------------
+
 
 ;------------------------------------------------------------------------------
 
