@@ -158,24 +158,42 @@ pacman_demo_tile_x db 0
 ;		(A) 0x00 = left/right, 0x01 = down, 0xff = up
 ;		(B) 0x00 = up/down, 0x01 = left, 0xff = right
 ;	4d14	red ghost Y tile changes (A)
+red_ghost_tchangeA_y db 0
 ;	4d15	red ghost X tile changes (B)
+red_ghost_tchangeB_x db 0
 ;	4d16	pink ghost Y tile changes (A)
+pink_ghost_tchangeA_y db 0
 ;	4d17	pink ghost X tile changes (B)
+pink_ghost_tchangeB_x db 0
 ;	4d18	blue ghost Y tile changes (A)
+blue_ghost_tchangeA_y db 0
 ;	4d19	blue ghost X tile changes (B)
+blue_ghost_tchangeB_x db 0
 ;	4d1a	orange ghost Y tile changes (A)
+orange_ghost_tchangeA_y db 0
 ;	4d1b	orange ghost X tile changes (B)
+orange_ghost_tchangeB_x db 0
 ;	4d1c	pacman Y tile changes (A)
+pacman_tchangeA_y db 0
 ;	4d1d	pacman X tile changes (B)
+pacman_tchangeB_x db 0
 ;
 ;	4d1e	red ghost y tile changes
+red_ghost_tchange_y db 0
 ;	4d1f	red ghost x tile changes
+red_ghost_tchange_x db 0
 ;	4d20	pink ghost y tile changes
+pink_ghost_tchange_y db 0
 ;	4d21	pink ghost x tile changes
+pink_ghost_tchange_x db 0
 ;	4d22	blue ghost y tile changes
+blue_ghost_tchange_y db 0
 ;	4d23	blue ghost x tile changes
+blue_ghost_tchange_x db 0
 ;	4d24	orange ghost y tile changes
+orange_ghost_tchange_y db 0
 ;	4d25	orange ghost x tile changes
+orange_ghost_tchange_x db 0
 
 ;	4d26	wanted pacman tile changes
 wanted_pacman_tile_y db 0
@@ -347,10 +365,15 @@ orangeghost_state dw 0
 ;
 ;		with these, if they're set, ghosts change orientation
 ;	4db1	red ghost change orientation flag
+red_change_dir dw 0
 ;	4db2	pink ghost change orientation flag
+pink_change_dir dw 0
 ;	4db3	blue ghost change orientation flag
+blue_change_dir dw 0
 ;	4db4	orange ghost change orientation flag
+orange_change_dir dw 0
 ;	4bd5	pacman change orientation flag
+pacman_change_dir dw 0
 ;
 ; Difficulty settings
 ;

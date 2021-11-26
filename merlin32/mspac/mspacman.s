@@ -251,6 +251,51 @@ start   ent             ; make sure start is visible outside the file
 		bpl ]clear
 
 ;------------------------------------------------------------------------------
+		do 0
+		; Foenix U - Light Show
+		phk
+		plb
+		ldy #0  ; color table index
+
+		ldx #0  ; led array index
+]loop
+		jsr WaitVBL
+		lda |:colors,y
+		sta >$AF4400,x
+		lda |:colors+2,y
+		sta >$AF4400+2,x
+
+		inx
+		inx
+		inx
+		inx
+		cpx #30*4
+		bcc ]loop
+		ldx #0
+
+		iny
+		iny
+		iny
+		iny
+		cpy #8*4
+		bcc ]loop
+		ldy #0
+
+		jmp ]loop
+
+
+:colors
+		hex FFFFFFFF  ; white
+		hex FF0000FF  ; blue
+		hex 00FF00FF  ; green
+		hex 0000FFFF  ; red
+		hex 000000FF  ; black
+		hex FFFF00FF  ; blue
+		hex FF00FFFF  ; purple
+		hex 00FFFFFF  ; yello
+
+		fin
+
 
 		jmp JasonTestStuff
 
@@ -264,10 +309,14 @@ rst0
 		sei					; Disable Interrupts
 ;		jmp	startuptest
 
+;;$$TODO, port the rst28 - Add task, with argument
+rst28
+		rts
+
 	; rst 38 (vblank)
 	; INTERRUPT MODE 1 handler
 rst38
-
+		rts
 
 
 
@@ -298,7 +347,7 @@ JasonTestStuff
 		inc |level
 		rep #$30
 
-		bra ]next
+		jmp ]next
 
 end 	bra     end
 
@@ -687,10 +736,10 @@ c256Init mx %00
 ;
 ;	unsigned int 	file_length;  // In bytes, including the 16 byte header
 ;
-;	short			version;  // 0x0000 for now
-;	short			width;	  // In pixels
-;	short			height;	  // In pixels
-;   short           reserved;
+;	short		version;      // 0x0000 for now
+;	short		width;	      // In pixels
+;	short		height;	      // In pixels
+;   	short           reserved;
 ;
 c256ParseHeader mx %00
 
@@ -3067,44 +3116,6 @@ ghost_arrive_home mx %00
 	    trb |CH2_E_NUM		; clear bit 6
 ;1117: C9	ret			; return
 	    rts
-;
-;
-;; arrive here from #1097 when red ghost eyes are above and entering the ghost house when returning home
-;
-;10d2  dd210133  ld      ix,#3301	; load IX with direction address tiles for moving down
-;10d6  fd21004d  ld      iy,#4d00	; load IY with red ghost position
-;10da  cd0020    call    #2000		; HL := (IX) + (IY)
-;10dd  22004d    ld      (#4d00),hl	; store new position for red ghost
-;10e0  3e01      ld      a,#01		; A := #01
-;10e2  32284d    ld      (#4d28),a	; set previous red ghost orientation as moving down
-;10e5  322c4d    ld      (#4d2c),a	; set red ghost orientation as moving down
-;10e8  3a004d    ld      a,(#4d00)	; load A with red ghost Y position
-;10eb  fe80      cp      #80		; has the red ghost eyes fully entered the ghost house?
-;10ed  c0        ret     nz		; no, return
-;
-;10ee  212f2e    ld      hl,#2e2f	; yes, load HL with 2E, 2F location which is the center of the ghost house
-;10f1  220a4d    ld      (#4d0a),hl	; store into red ghost tile position
-;10f4  22314d    ld      (#4d31),hl	; store into red ghost tile position 2
-;10f7  af        xor     a		; A := #00
-;10f8  32a04d    ld      (#4da0),a	; set red ghost substate as at home
-;10fb  32ac4d    ld      (#4dac),a	; set red ghost state as alive
-;10fe  32a74d    ld      (#4da7),a	; set red ghost blue flag as not edible
-;
-;; the other ghost subroutines arrive here after the ghost has arrived at home
-;
-;1101  dd21ac4d  ld      ix,#4dac	; load IX with ghost state starting address
-;1105  ddb600    or      (ix+#00)	; is red ghost dead?
-;1108  ddb601    or      (ix+#01)	; or the pink ghost dead?
-;110b  ddb602    or      (ix+#02)	; or the blue ghost dead?
-;110e  ddb603    or      (ix+#03)	; or the orange ghost dead
-;1111  c0        ret     nz		; yes, return
-;
-;; arrive here when ghost eyes return to ghost home and there are no other ghost eyes still moving around
-;
-;1112: 21 AC 4E	ld	hl,#4EAC	; load HL with sound channel 2
-;1115: CB B6	res	6,(hl)		; clear sound on bit 6
-;1117: C9	ret			; return
-	    rts
 
 ;------------------------------------------------------------------------------
 ; arrive here from call at #08F1
@@ -3264,7 +3275,368 @@ mspac_death_update mx %00
 ; handles red ghost movement
 ; 1bd8
 red_ghost_move mx %00
+
+;1bd8  21144d    ld      hl,#4d14	; load HL with red ghost Y tile changes address
+;1bdb  7e        ld      a,(hl)		; load A with red ghost Y tile changes
+	    lda |red_ghost_tchangeA_y
+;1bdc  a7        and     a		; is the red ghost moving left to right or right to left ?
+	    and #$00FF
+;1bdd  caed1b    jp      z,#1bed		; yes, skip ahead
+	    beq :skip_ahead
+
+;1be0  3a004d    ld      a,(#4d00)	; load A with red ghost Y position
+	    lda |red_ghost_y
+;1be3  e607      and     #07		; mask out bits, result is between 0 and 7
+	    and #$7
+;1be5  fe04      cp      #04		; == #04 ?  Is the red ghost in the middle of a tile where he can change direction?
+	    cmp #4
+;1be7  caf71b    jp      z,#1bf7		; yes, skip ahead
+	    beq :skip_ahead2
+;1bea  c3361c    jp      #1c36		; no, jump ahead
+	    bra :jump_ahead
+
+:skip_ahead
+;1bed  3a014d    ld      a,(#4d01)	; load A with red ghost X position
+	    lda |red_ghost_x
+;1bf0  e607      and     #07		; mask bits.  result is between 0 and 7
+	    and #$7
+;1bf2  fe04      cp      #04		; == #04 ? Is the red ghost in the middle of a tile where he can change direction?
+	    cmp #4
+;1bf4  c2361c    jp      nz,#1c36	; no, jump ahead
+	    beq :jump_ahead
+:skip_ahead2
+;1bf7  3e01      ld      a,#01		; A := #01
+	    lda #1
+;1bf9  cdd01e    call    #1ed0		; check to see if red ghost is on the edge of the screen (tunnel)
+	    jsr check_screen_edge
+
+;1bfc  381b      jr      c,#1c19         ; yes, jump ahead
+	    bcs :is_on_edge
+
+;1bfe  3aa74d    ld      a,(#4da7)	; no, load A with red ghost blue flag (0=not blue)
+	    lda |redghost_blue
+;1c01  a7        and     a		; is the red ghost blue (edible) ?
+;1c02  ca0b1c    jp      z,#1c0b		; no, skip ahead
+	    beq :not_blue
+;1c05  ef        rst     #28		; yes, insert task #0C to control red ghost movement when power pill active
+;1c06  0c 00
+	    lda #$000C
+	    jsr rst28
+
+;1c08  c3191c    jp      #1c19		; skip ahead
+	    bra :is_on_edge
+
+:not_blue
+;1c0b  2a0a4d    ld      hl,(#4d0a)	; else load HL with red tile position (Y,X)
+	    lda |redghost_tile_y
+;1c0e  cd5220    call    #2052		; convert ghost Y,X position in HL to a color screen location
+	    jsr yx_to_color_addy
+
+;1c11  7e        ld      a,(hl)		; load A with color of screen location of ghost
+	    tax
+	    lda |0,x
+	    and #$00FF
+;1c12  fe1a      cp      #1a		; == #1A ?  (this color marks zones where ghosts cannot change direction, e.g. above the ghost house in pac-man)
+	    cmp #$1A
+;1c14  2803      jr      z,#1c19         ; yes, skip next step
+	    beq :is_on_edge
+
+;1c16  ef        rst     #28		; no, insert task #08 to control red ghost AI
+;1c17  08 00
+	    lda #$0008
+	    jsr rst28
+
+:is_on_edge
+;1c19  cdfe1e    call    #1efe		; check for and handle red ghost direction reversals
+	    jsr check_reverse_red
+
+;1c1c  dd211e4d  ld      ix,#4d1e	; load IX with red ghost tile changes
+;1c20  fd210a4d  ld      iy,#4d0a	; load IY with red ghost tile position
+;1c24  cd0020    call    #2000		; HL := (IX) + (IY)
+;1c27  220a4d    ld      (#4d0a),hl	; store new result into red ghost tile position
+;1c2a  2a1e4d    ld      hl,(#4d1e)	; load HL with red ghost tile changes
+;1c2d  22144d    ld      (#4d14),hl	; store into red ghost tile changes (A)
+;1c30  3a2c4d    ld      a,(#4d2c)	; load A with red ghost orientation
+;1c33  32284d    ld      (#4d28),a	; store into previous red ghost orientation
+;
+:jump_ahead
+
+;1c36  dd21144d  ld      ix,#4d14	; load IX with red ghost tile changes (A)
+;1c3a  fd21004d  ld      iy,#4d00	; load IY with red ghost position
+;1c3e  cd0020    call    #2000		; HL := (IX) + (IY)
+;1c41  22004d    ld      (#4d00),hl	; store result into red ghost position
+;1c44  cd1820    call    #2018		; convert sprite position into a tile position
+;1c47  22314d    ld      (#4d31),hl	; store into red ghost tile position 2 
+;1c4a  c9        ret			; return
 	    rts
+
+;------------------------------------------------------------------------------
+; called from #1A3A while in demo mode
+; called from #1BF9 when red ghost movement checking.  A is preloaded with #01
+; if the ghost/pacman is on the edge of the screen, the carry flag is set, else it is cleared
+; 1ed0
+check_screen_edge mx %00
+	    sep #$30		; short a,x
+;1ed0  87        add     a,a		; A := A * 2
+	    asl
+;1ed1  4f        ld      c,a		; copy to C
+;1ed2  0600      ld      b,#00		; B := #00
+	    tax
+;1ed4  21094d    ld      hl,#4d09	; load HL with pacman X position address
+;1ed7  09        add     hl,bc		; add offset to HL.  HL how has the ghost/pacman tile position address
+;1ed8  7e        ld      a,(hl)		; load A with ghost/pacman tile X position
+	    lda |pacman_x,x
+;1ed9  fe1d      cp      #1d		; has the ghost moved off the far right side of the screen?
+	    cmp #$1d
+;1edb  c2e31e    jp      nz,#1ee3	; no, skip next 2 steps
+	    bne :no
+
+;1ede  363d      ld      (hl),#3d	; yes, change ghost/pacman X position to far left side of screen
+	    lda #$3d
+	    sta |pacman_x,x
+;1ee0  c3fc1e    jp      #1efc		; jump ahead, set carry flag and return
+	    bra :sec
+:no
+
+;1ee3  fe3e      cp      #3e		; has the ghost/pacman moved off the far left side of the screen ?
+	    cmp #$3e
+;1ee5  c2ed1e    jp      nz,#1eed	; no, skip next 2 steps
+	    bne :not_edge
+
+;1ee8  361e      ld      (hl),#1e	; yes, change ghost/pacman X position to far right side of screen
+	    lda #$1e
+	    sta |pacman_x,x
+;1eea  c3fc1e    jp      #1efc		; jump ahead, set carry flag and return
+	    bra :sec
+:not_edge
+;1eed  0621      ld      b,#21		; B := #21
+;1eef  90        sub     b		; subtract from ghost/pacman X position.  is the ghost on the far right edge ?
+	    sec
+	    sbc #$21
+;1ef0  dafc1e    jp      c,#1efc		; yes, set carry flag and return
+	    bcs :sec
+
+;1ef3  7e        ld      a,(hl)		; else load A with ghost/pacman tile X position
+	    lda |pacman_x,x
+;1ef4  063b      ld      b,#3b		; B := #3B
+;1ef6  90        sub     b		; subtract.  is the ghost/pacman on the far left edge?
+	    sec
+	    sbc #$3b
+;1ef7  d2fc1e    jp      nc,#1efc	; yes, set carry flag and return
+	    bcc :sec
+:clc
+;1efa  a7        and     a		; else clear carry flag
+	    rep #$31	; mxc = 000
+;1efb  c9        ret			; return
+	    rts
+:sec
+;1efc  37        scf			; set carry flag
+	    rep #$30
+	    sec
+;1efd  c9        ret			; return
+	    rts
+
+;------------------------------------------------------------------------------
+; check for reverse direction of red ghost
+; 1efe
+check_reverse_red mx %00
+;1efe  3ab14d    ld      a,(#4db1)	; load A with red ghost change orientation flag
+	    lda |red_change_dir
+;1f01  a7        and     a		; is the red ghost reversing direction ?
+;1f02  c8        ret     z		; no, return
+	    bne :yes
+	    rts			; no, return
+
+; reverse direction of red ghost
+:yes
+
+;;1f03  af        xor     a		; yes, A := #00
+;;1f04  32b14d    ld      (#4db1),a	; clear red ghost change orientation flag
+	    stz |red_change_dir
+
+;1f07  21ff32    ld      hl,#32ff	; load HL with table data - tile differences tables for movements
+;1f0a  3a284d    ld      a,(#4d28)	; load A with previous red ghost orientation
+	    lda |prev_red_ghost_dir
+;1f0d  ee02      xor     #02		; toggle bit 1
+	    eor #$0002
+;1f0f  322c4d    ld      (#4d2c),a	; store into red ghost orientation
+	    sta |red_ghost_dir
+	    tay
+
+;;1f12  47        ld      b,a		; copy to B
+;;1f13  df        rst     #18		; load HL with tile difference for movements based on table at #32FF
+	    asl
+	    tax
+	    lda |tile_move_table,x  	; see 1f07
+
+;1f14  221e4d    ld      (#4d1e),hl	; store into red ghost tile changes
+	    sta |red_ghost_tchange_y
+	    tax
+
+;1f17  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
+	    lda |mainroutine1
+;1f1a  fe22      cp      #22		; == #22 ?
+	    cmp #$22
+	    beq :continue
+;1f1c  c0        ret     nz		; no, return
+	    rts
+:continue
+;1f1d  22144d    ld      (#4d14),hl	; yes, store movement into alternate red ghost tile changes
+	    stx |red_ghost_tchangeA_y
+;1f20  78        ld      a,b		; load A with red ghost orientation
+;1f21  32284d    ld      (#4d28),a	; store into previous red ghost orientation
+	    sty |prev_red_ghost_dir
+;1f24  c9        ret			; return
+	    rts
+
+;------------------------------------------------------------------------------
+; check for reverse direction of pink ghost
+; 1f25
+check_reverse_pink mx %00
+
+;1f25  3ab24d    ld      a,(#4db2)	; load A with pink ghost change orientation flag
+	    lda |pink_change_dir
+;1f28  a7        and     a		; is the pink ghost reversing direction ?
+;1f29  c8        ret     z		; no, return
+	    bne :yes
+	    rts				; no, return
+
+; reverse direction of pink ghost
+:yes
+;1f2a  af        xor     a		; yes, A := #00
+;1f2b  32b24d    ld      (#4db2),a	; clear pink ghost change orientation flag
+	    stz |pink_change_dir
+;1f2e  21ff32    ld      hl,#32ff	; load HL with table data - tile differences tables for movements
+;1f31  3a294d    ld      a,(#4d29)	; load A with previous pink ghost orientation
+	    lda |prev_pink_ghost_dir
+;1f34  ee02      xor     #02		; flip bit #1
+	    eor #2
+;1f36  322d4d    ld      (#4d2d),a	; store into pink ghost orientation
+	    sta |pink_ghost_dir
+	    tay
+;1f39  47        ld      b,a		; copy to B
+;1f3a  df        rst     #18		; load HL with new direction tile offsets
+	    asl
+	    tax
+	    lda |tile_move_table,x      ; see 1f2e
+;1f3b  22204d    ld      (#4d20),hl	; store into pink ghost tile offsets
+	    sta |pink_ghost_tchange_y
+	    tax
+;1f3e  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
+	    lda |mainroutine1
+;1f41  fe22      cp      #22		; == #22 (check for demo mode, pac-man only, when pac-man is chased by 4 ghosts on title screen)
+	    cmp #$22
+	    beq :continue
+;1f43  c0        ret     nz		; no, return
+	    rts
+:continue
+;1f44  22164d    ld      (#4d16),hl	; yes, store new direction tile offsets into alternate pink ghost tile changes
+	    stx	|pink_ghost_tchangeA_y
+;1f47  78        ld      a,b		; load A with pink ghost orientation
+;1f48  32294d    ld      (#4d29),a	; store into previous pink ghost direction
+	    sty |prev_pink_ghost_dir
+;1f4b  c9        ret     		; return
+	    rts
+
+;------------------------------------------------------------------------------
+; check for reverse direction of inky
+; 1f4c
+check_reverse_inky mx %00
+
+;1f4c  3ab34d    ld      a,(#4db3)	; load A with blue ghost (inky) change orientation flag
+	    lda |blue_change_dir
+;1f4f  a7        and     a		; is inky reversing direction ?
+;1f50  c8        ret     z		; no, return
+	    bne :yes
+	    rts				; no, return
+
+; reverse direction of inky
+:yes
+;+-------1f51  af        xor     a		; yes, A := #00
+;1f52  32b34d    ld      (#4db3),a	; clear inky ghost change orienation flag
+	    stz |blue_change_dir
+;1f55  21ff32    ld      hl,#32ff	; load HL with table data - tile differences tables for movements
+;1f58  3a2a4d    ld      a,(#4d2a)	; load A with previous inky orientation
+	    lda |prev_blue_ghost_dir
+;1f5b  ee02      xor     #02		; flip bit #1
+	    eor #2
+;1f5d  322e4d    ld      (#4d2e),a	; store into inky orientation
+	    sta |blue_ghost_dir
+	    tay
+;1f60  47        ld      b,a		; copy to B
+;1f61  df        rst     #18		; load HL with new direction tile offsets
+	    asl
+	    tax
+	    lda |tile_move_table,x	; see 1f55
+;1f62  22224d    ld      (#4d22),hl	; store into inky ghost tile offsets
+	    sta |blue_ghost_tchange_y
+	    tax
+;1f65  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
+	    lda |mainroutine1
+;1f68  fe22      cp      #22		; == #22 ? (check for demo mode, pac-man only, when pac-man is chased by 4 ghosts on title screen)
+	    cmp #$22
+;1f6a  c0        ret     nz		; no, return
+	    beq :continue
+	    rts
+:continue
+;1f6b  22184d    ld      (#4d18),hl	; yes, store new direction tile offsets into alternate inky ghost tile changes
+	    stx |blue_ghost_tchangeA_y
+;1f6e  78        ld      a,b		; load A with inky orientation
+;1f6f  322a4d    ld      (#4d2a),a	; store into previous inky direction
+	    sty |prev_blue_ghost_dir 
+;1f72  c9        ret			; return
+	    rts
+
+;------------------------------------------------------------------------------
+; check for reverse direction of orange ghost
+; 1f73
+check_reverse_orange mx %00
+
+;1f73  3ab44d    ld      a,(#4db4)	; load A with orange ghost change orientation flag
+	    lda |orange_change_dir
+;1f76  a7        and     a		; is orange ghost reversing direction ?
+;1f77  c8        ret     z		; no, return
+	    bne :yes
+	    rts				; no, return
+
+; reverse direction of orange ghost
+:yes
+;1f78  af        xor     a		; yes, A := #00
+;1f79  32b44d    ld      (#4db4),a	; clear orange ghost change orientation flag
+	    stz |orange_change_dir
+;1f7c  21ff32    ld      hl,#32ff	; load HL with table data - tile differences tables for movements
+;1f7f  3a2b4d    ld      a,(#4d2b)	; load A with previous orange ghost orienation
+	    lda |prev_orange_ghost_dir
+;1f82  ee02      xor     #02		; flip bit #1
+	    eor #2
+;1f84  322f4d    ld      (#4d2f),a	; store into orange ghost orienation
+	    sta |orange_ghost_dir
+	    tay
+;1f87  47        ld      b,a		; copy to B
+;1f88  df        rst     #18		; load HL with new direction tile offsets
+	    asl
+	    tax
+	    lda |tile_move_table,x	; see 1f7c above
+;1f89  22244d    ld      (#4d24),hl	; store into orange ghost tile offsets
+	    sta |orange_ghost_tchange_y
+	    tax
+;1f8c  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
+	    lda |mainroutine1
+;1f8f  fe22      cp      #22		; == #22 ? (check for demo mode, pac-man only, when pac-man is chased by 4 ghosts on title screen)
+	    cmp #$22
+;1f91  c0        ret     nz		; no, return
+	    beq :continue
+	    rts
+
+:continue
+;1f92  221a4d    ld      (#4d1a),hl	; yes, store new direction tile offsets into alternate orange ghost tile changes
+	    stx |orange_ghost_tchangeA_y
+;1f95  78        ld      a,b		; load A with orange ghost orienation
+;1f96  322b4d    ld      (#4d2b),a	; store into previous orange ghost direction
+	    sty |prev_orange_ghost_dir
+;1f99  c9        ret     		; return
+	    rts
+
 
 ;------------------------------------------------------------------------------
 ;; this is a common function
@@ -3292,8 +3664,77 @@ double_add  mx %00
 ;200e  c9        ret     		; return
 	    rts
 
-;------------------------------------------------------------------------------
 
+;------------------------------------------------------------------------------
+; converts pac-mans sprite position into a grid position
+; HL has sprite position at start, grid position at end
+; 0065 jumps to here. 
+; 202D
+yx_to_screen mx %00
+:hl = temp0
+:bc = temp1
+;202D: F5            push af		; save AF
+;202E: C5            push bc		; save BC
+	    sta <:hl
+;202F: 7D            ld   a,l		; load A with L.  
+	    sep #$31	; mxc = 111
+;2030: D6 20         sub  #20		; subtract #20.  
+	    sbc #$20
+;2032: 6F            ld   l,a		; store back into L. 
+	    sta <:hl
+;2033: 7C            ld   a,h		; load A with H.  
+	    xba
+;2034: D6 20         sub  #20		; subtract 20.  
+	    sec
+	    sbc #$20
+;2036: 67            ld   h,a		; store back into H. 
+	    sta <:hl+1
+;2037: 06 00         ld   b,#00		; load B with #00
+	    stz <:b
+;2039: CB 24         sla  h		; shift left through carry flag.  mult by 2
+;203B: CB 24         sla  h
+;203D: CB 24         sla  h
+;203F: CB 24         sla  h	 
+	    asl
+	    asl
+	    asl
+	    asl
+;2041: CB 10         rl   b
+	    rol <:b
+;2043: CB 24         sla  h
+	    asl
+;2045: CB 10         rl   b
+	    rol <:b
+;2047: 4C            ld   c,h
+	    lda <:hl+1
+	    sta <:bc+1
+;2048: 26 00         ld   h,#00
+	    stz <:hl+1
+
+	    rep #$31 ; mxc = 000
+;204A: 09            add  hl,bc		; add into HL
+	    lda <:hl
+	    adc <:bc
+;204B: 01 40 40      ld   bc,#4040	; load BC with grid offset
+;204E: 09            add  hl,bc		; add into HL
+	    clc
+	    adc #tile_ram+$40
+;204F: C1            pop  bc		; restore BC
+;2050: F1            pop  af		; restore AF
+;2051: C9            ret			; return    
+	    rts
+
+;------------------------------------------------------------------------------
+; converts pac-man or ghost Y,X position in HL to a color screen location
+; 2052
+
+yx_to_color_addy mx %00
+	    jsr yx_to_screen
+	    clc
+	    adc #$400	; add 1k offset
+	    rts
+
+;------------------------------------------------------------------------------
 
 ;------------------------------------------------------------------------------
 
