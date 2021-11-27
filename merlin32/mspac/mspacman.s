@@ -3353,11 +3353,11 @@ red_ghost_move mx %00
 ;1c1c  dd211e4d  ld      ix,#4d1e	; load IX with red ghost tile changes
 	    ldx #red_ghost_tchange_y
 ;1c20  fd210a4d  ld      iy,#4d0a	; load IY with red ghost tile position
-	    ldx #red_ghost_tile_y
+	    ldx #redghost_tile_y
 ;1c24  cd0020    call    #2000		; HL := (IX) + (IY)
 	    jsr double_add
 ;1c27  220a4d    ld      (#4d0a),hl	; store new result into red ghost tile position
-	    sta |red_ghost_tile_y
+	    sta |redghost_tile_y
 ;1c2a  2a1e4d    ld      hl,(#4d1e)	; load HL with red ghost tile changes
 	    lda |red_ghost_tchange_y
 ;1c2d  22144d    ld      (#4d14),hl	; store into red ghost tile changes (A)
