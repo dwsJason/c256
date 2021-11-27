@@ -3351,22 +3351,36 @@ red_ghost_move mx %00
 	    jsr check_reverse_red
 
 ;1c1c  dd211e4d  ld      ix,#4d1e	; load IX with red ghost tile changes
+	    ldx #red_ghost_tchange_y
 ;1c20  fd210a4d  ld      iy,#4d0a	; load IY with red ghost tile position
+	    ldx #red_ghost_tile_y
 ;1c24  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
 ;1c27  220a4d    ld      (#4d0a),hl	; store new result into red ghost tile position
+	    sta |red_ghost_tile_y
 ;1c2a  2a1e4d    ld      hl,(#4d1e)	; load HL with red ghost tile changes
+	    lda |red_ghost_tchange_y
 ;1c2d  22144d    ld      (#4d14),hl	; store into red ghost tile changes (A)
+	    sta |red_ghost_tchangeA_y
 ;1c30  3a2c4d    ld      a,(#4d2c)	; load A with red ghost orientation
+	    lda |red_ghost_dir
 ;1c33  32284d    ld      (#4d28),a	; store into previous red ghost orientation
+	    sta |prev_red_ghost_dir
 ;
 :jump_ahead
 
 ;1c36  dd21144d  ld      ix,#4d14	; load IX with red ghost tile changes (A)
+	    ldx #red_ghost_tchangeA_y
 ;1c3a  fd21004d  ld      iy,#4d00	; load IY with red ghost position
+	    ldy #red_ghost_y
 ;1c3e  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
 ;1c41  22004d    ld      (#4d00),hl	; store result into red ghost position
+	    sta |red_ghost_y
 ;1c44  cd1820    call    #2018		; convert sprite position into a tile position
+	    jsr |spr_to_tile
 ;1c47  22314d    ld      (#4d31),hl	; store into red ghost tile position 2 
+	    sta |red_tile_y_2
 ;1c4a  c9        ret			; return
 	    rts
 
@@ -3664,6 +3678,52 @@ double_add  mx %00
 ;200e  c9        ret     		; return
 	    rts
 
+;------------------------------------------------------------------------------
+; load A with screen value of position computed in (IX) + (IY)
+;200f
+;200f  cd0020    call    #2000		; HL := (IX) + (IY)
+;2012  cd6500    call    #0065		; convert to screen position
+;2015  7e        ld      a,(hl)		; load A with the value in this screen position
+;2016  a7        and     a		; clear flags
+;2017  c9        ret     		; return
+
+;------------------------------------------------------------------------------
+; converts a sprite position into a tile position
+; HL is preloaded with sprite position
+; at end, HL is loaded with tile position
+; for us A = HL
+;2018
+spr_to_tile mx %00
+	    sep #$30
+; I think the X, and Y are swapped here $$JGA revist maybe
+
+;2018  7d        ld      a,l		; load A with X position
+;2019  cb3f      srl     a
+;201b  cb3f      srl     a
+;201d  cb3f      srl     a		; shift right 3 times
+	    lsr
+	    lsr
+	    lsr
+	    clc
+;201f  c620      add     a,#20		; add offset
+	    adc #$20
+
+;2021  6f        ld      l,a		; store into L
+;2022  7c        ld      a,h		; load A with Y position
+	    xba
+;2023  cb3f      srl     a
+;2025  cb3f      srl     a
+;2027  cb3f      srl     a		; shift right 3 times
+	    lsr
+	    lsr
+	    lsr
+;2029  c61e      add     a,#1e		; add offset
+	    clc
+	    adc #$1e
+;202b  67        ld      h,a		; store into H.  HL now has screen location
+	    xba
+;202c  c9        ret     		; return
+	    rts
 
 ;------------------------------------------------------------------------------
 ; converts pac-mans sprite position into a grid position
