@@ -2948,6 +2948,8 @@ pm1017      mx %00
 	    jsr red_ghost_death_update
 
 ;1025  cd9e10    call    #109e		; check for pink ghost state and do things if not alive
+	    jsr pink_ghost_death_update
+
 ;1028  cda810    call    #10a8		; check for blue ghost (inky) state and do things if not alive
 ;102b  cdb410    call    #10b4		; check for orange ghost state and do things if not alive
 ;102e  3aa44d    ld      a,(#4da4)	; load A with # of ghost killed but no collision for yet [0..4]
@@ -3116,6 +3118,66 @@ ghost_arrive_home mx %00
 	    trb |CH2_E_NUM		; clear bit 6
 ;1117: C9	ret			; return
 	    rts
+
+;------------------------------------------------------------------------------
+; called from #1025
+pink_ghost_death_update mx %00
+;109E: 3A AD 4D	ld	a,(#4DAD)	; load A with pink ghost state
+	    lda |pinkghost_state
+;10A1: E7	rst	#20		; jump based on A
+	    asl
+	    tax
+	    jmp (:table,x)
+
+:table
+	    da :rts 	 ; #000C ; return immediately when ghost is alive
+	    da :isdead   ; #1118 ; when ghost is dead
+	    da :at_house ; #112A ; when ghost eyes are above and entering the ghost house when returning home
+
+; arrive here from #10A1 when pink ghost is dead (eyes)
+:isdead
+;1118  cdaf1c    call    #1caf		; handle pink ghost movement
+	    jsr pink_ghost_move
+
+;111b  2a024d    ld      hl,(#4d02)	; load HL with pink ghost position
+	    lda |pink_ghost_y
+;111e  116480    ld      de,#8064	; load DE with Y,X position above ghost house 
+;1121  a7        and     a		; clear carry flag
+;1122  ed52      sbc     hl,de		; subtract. is the pink ghost eyes right above the ghost home?
+	    sec
+	    sbc #$8064
+;1124  c0        ret     nz		; no, return
+	    bne :rts
+
+;1125  21ad4d    ld      hl,#4dad	; yes, load HL with pink ghost state
+;1128  34        inc     (hl)		; increase
+	    inc |pinkghost_state
+;1129  c9        ret  			; return
+:rts
+	    rts
+; arrive here from #10A1 when pink ghost eyes are above and entering the ghost house when returning home
+:at_house
+;112a  dd210133  ld      ix,#3301	; load IX with direction address tiles for moving down
+;112e  fd21024d  ld      iy,#4d02	; load IY with pink ghost position
+;1132  cd0020    call    #2000		; HL := (IX) + (IY)
+;1135  22024d    ld      (#4d02),hl	; store new position for pink ghost
+;1138  3e01      ld      a,#01		; A := #01
+;113a  32294d    ld      (#4d29),a	; set previous pink ghost orientation as moving down
+;113d  322d4d    ld      (#4d2d),a	; set pink ghost orientation as moving down
+;1140  3a024d    ld      a,(#4d02)	; load A with pink ghost Y position
+;1143  fe80      cp      #80		; has the pink ghost eyes fully entered the ghost house?
+;1145  c0        ret     nz		; no, return
+;
+;1146  212f2e    ld      hl,#2e2f	; yes, load HL with 2E, 2F location which is the center of the ghost house
+;1149  220c4d    ld      (#4d0c),hl	; store into pink ghost tile position
+;114c  22334d    ld      (#4d33),hl	; store into pink ghost tile position 2
+;114f  af        xor     a		; A := #00
+;1150  32a14d    ld      (#4da1),a	; set pink ghost substate as at home
+;1153  32ad4d    ld      (#4dad),a	; set pink ghost state as alive
+;1156  32a84d    ld      (#4da8),a	; set pink ghost blue flag as not edible
+;1159  c30111    jp      #1101		; jump to check for clearing eyes sound
+	    jmp ghost_arrive_home
+
 
 ;------------------------------------------------------------------------------
 ; arrive here from call at #08F1
@@ -3383,6 +3445,66 @@ red_ghost_move mx %00
 	    sta |red_tile_y_2
 ;1c4a  c9        ret			; return
 	    rts
+
+;------------------------------------------------------------------------------
+;1caf
+pink_ghost_move mx %00
+;1caf  21164d    ld      hl,#4d16	; load HL with address for pink ghost Y tile changes
+;1cb2  7e        ld      a,(hl)		; load A with pink ghost Y tile changes
+;1cb3  a7        and     a		; Is the pink ghost moving left-right or right-left ?
+;1cb4  cac41c    jp      z,#1cc4		; yes, skip ahead
+
+;1cb7  3a024d    ld      a,(#4d02)	; no, load A with pink ghost Y position
+;1cba  e607      and     #07		; mask bits
+;1cbc  fe04      cp      #04		; is pink ghost in the middle of the tile ?
+;1cbe  cace1c    jp      z,#1cce		; yes, skip ahead
+
+;1cc1  c30d1d    jp      #1d0d		; no, jump ahead
+
+;1cc4  3a034d    ld      a,(#4d03)	; load A with pink ghost X position
+;1cc7  e607      and     #07		; mask bits
+;1cc9  fe04      cp      #04		; is pink ghost in the middle of the tile ?
+;1ccb  c20d1d    jp      nz,#1d0d	; no, skip ahead
+
+;1cce  3e02      ld      a,#02		; yes, A := #02
+;1cd0  cdd01e    call    #1ed0		; check to see if pink ghost is on the edge of the screen (tunnel)
+;1cd3  381b      jr      c,#1cf0         ; yes, jump ahead
+
+;1cd5  3aa84d    ld      a,(#4da8)	; no, load A with pink ghost blue flag (0=not blue)
+;1cd8  a7        and     a		; is the pink ghost blue ?
+;1cd9  cae21c    jp      z,#1ce2		; no, skip ahead
+
+;1cdc  ef        rst     #28		; yes, insert task to handle pink ghost movement when power pill active
+;1cdd  0d 00				; task data
+;1cdf  c3f01c    jp      #1cf0		; skip ahead
+
+;1ce2  2a0c4d    ld      hl,(#4d0c)	; load HL with pink ghost Y,X tile pos
+;1ce5  cd5220    call    #2052		; convert ghost Y,X position in HL to a color screen location
+;1ce8  7e        ld      a,(hl)		; load A with color screen position of ghost
+;1ce9  fe1a      cp      #1a		; == #1A? (this color marks zones where ghosts cannot change direction, e.g. above the ghost house in pac-man)
+;1ceb  2803      jr      z,#1cf0         ; yes, skip next step
+
+;1ced  ef        rst     #28		; insert task to handle pink ghost AI
+;1cee  09 00				; task data
+
+;1cf0  cd251f    call    #1f25		; check for and handle when pink ghost reverses directions
+;1cf3  dd21204d  ld      ix,#4d20	; load IX with pink ghost tile changes
+;1cf7  fd210c4d  ld      iy,#4d0c	; load IY with pink ghost tile position
+;1cfb  cd0020    call    #2000		; HL := (IX) + (IY)
+;1cfe  220c4d    ld      (#4d0c),hl	; store new result into pink ghost tile position
+;1d01  2a204d    ld      hl,(#4d20)	; load HL with pink ghost tile changes
+;1d04  22164d    ld      (#4d16),hl	; store into pink ghost tile changes (A)
+;1d07  3a2d4d    ld      a,(#4d2d)	; load A with pink ghost orientation
+;1d0a  32294d    ld      (#4d29),a	; store into previous pink ghost orientation
+
+;1d0d  dd21164d  ld      ix,#4d16	; load IX with pink ghost tile changes (A)
+;1d11  fd21024d  ld      iy,#4d02	; load IY with pink ghost position
+;1d15  cd0020    call    #2000		; HL := (IX) + (IY)
+;1d18  22024d    ld      (#4d02),hl	; store result into pink ghost postion
+;1d1b  cd1820    call    #2018		; convert sprite position into a tile position
+;1d1e  22334d    ld      (#4d33),hl	; store into pink ghost tile position 2
+	    rts                    ; return 
+
 
 ;------------------------------------------------------------------------------
 ; called from #1A3A while in demo mode
