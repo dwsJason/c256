@@ -3694,7 +3694,7 @@ double_add  mx %00
 ; for us A = HL
 ;2018
 spr_to_tile mx %00
-	    sep #$30
+	    sep #$20	; m=1
 ; I think the X, and Y are swapped here $$JGA revist maybe
 
 ;2018  7d        ld      a,l		; load A with X position
@@ -3723,6 +3723,7 @@ spr_to_tile mx %00
 ;202b  67        ld      h,a		; store into H.  HL now has screen location
 	    xba
 ;202c  c9        ret     		; return
+	    rep #$31  	; mxc=000
 	    rts
 
 ;------------------------------------------------------------------------------
