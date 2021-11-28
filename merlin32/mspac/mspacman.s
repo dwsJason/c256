@@ -3074,10 +3074,9 @@ red_ghost_death_update mx %00
 	    and #$FF
 ;10eb  fe80      cp      #80		; has the red ghost eyes fully entered the ghost house?
 	    cmp #$80
-	    beq :continue
 ;10ed  c0        ret     nz		; no, return
-	    rts
-:continue
+	    bne :return
+
 ;10ee  212f2e    ld      hl,#2e2f	; yes, load HL with 2E, 2F location which is the center of the ghost house
 	    lda #$2e2f
 ;10f1  220a4d    ld      (#4d0a),hl	; store into red ghost tile position
@@ -3158,23 +3157,40 @@ pink_ghost_death_update mx %00
 ; arrive here from #10A1 when pink ghost eyes are above and entering the ghost house when returning home
 :at_house
 ;112a  dd210133  ld      ix,#3301	; load IX with direction address tiles for moving down
+	    ldx #move_down
 ;112e  fd21024d  ld      iy,#4d02	; load IY with pink ghost position
+	    ldy #pink_ghost_y
 ;1132  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
 ;1135  22024d    ld      (#4d02),hl	; store new position for pink ghost
+	    sta |pink_ghost_y
 ;1138  3e01      ld      a,#01		; A := #01
+	    lda #1
 ;113a  32294d    ld      (#4d29),a	; set previous pink ghost orientation as moving down
+	    sta |prev_pink_ghost_dir
 ;113d  322d4d    ld      (#4d2d),a	; set pink ghost orientation as moving down
+	    sta |pink_ghost_dir
 ;1140  3a024d    ld      a,(#4d02)	; load A with pink ghost Y position
+	    lda |pink_ghost_y
+	    and #$FF
 ;1143  fe80      cp      #80		; has the pink ghost eyes fully entered the ghost house?
+	    cmp #$80
 ;1145  c0        ret     nz		; no, return
+	    bne :rts
 ;
 ;1146  212f2e    ld      hl,#2e2f	; yes, load HL with 2E, 2F location which is the center of the ghost house
+	    lda #$2e2f
 ;1149  220c4d    ld      (#4d0c),hl	; store into pink ghost tile position
+	    sta |pinkghost_tile_y
 ;114c  22334d    ld      (#4d33),hl	; store into pink ghost tile position 2
+	    sta |pink_tile_y_2
 ;114f  af        xor     a		; A := #00
 ;1150  32a14d    ld      (#4da1),a	; set pink ghost substate as at home
+	    stz |pink_substate
 ;1153  32ad4d    ld      (#4dad),a	; set pink ghost state as alive
+	    stz |pinkghost_state
 ;1156  32a84d    ld      (#4da8),a	; set pink ghost blue flag as not edible
+	    stz |pinkghost_blue
 ;1159  c30111    jp      #1101		; jump to check for clearing eyes sound
 	    jmp ghost_arrive_home
 
