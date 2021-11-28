@@ -3467,58 +3467,104 @@ red_ghost_move mx %00
 pink_ghost_move mx %00
 ;1caf  21164d    ld      hl,#4d16	; load HL with address for pink ghost Y tile changes
 ;1cb2  7e        ld      a,(hl)		; load A with pink ghost Y tile changes
+	    lda |pink_ghost_tchangeA_y
 ;1cb3  a7        and     a		; Is the pink ghost moving left-right or right-left ?
+	    and #$FF
 ;1cb4  cac41c    jp      z,#1cc4		; yes, skip ahead
+	    beq :skip_ahead
 
 ;1cb7  3a024d    ld      a,(#4d02)	; no, load A with pink ghost Y position
+	    lda |pink_ghost_y
 ;1cba  e607      and     #07		; mask bits
+	    and #$0007
 ;1cbc  fe04      cp      #04		; is pink ghost in the middle of the tile ?
+	    cmp #4
 ;1cbe  cace1c    jp      z,#1cce		; yes, skip ahead
+	    beq :mid_tile
 
 ;1cc1  c30d1d    jp      #1d0d		; no, jump ahead
-
+	    bra :jump_ahead
+:skip_ahead
 ;1cc4  3a034d    ld      a,(#4d03)	; load A with pink ghost X position
+	    lda |pink_ghost_x
 ;1cc7  e607      and     #07		; mask bits
+	    and #$0007
 ;1cc9  fe04      cp      #04		; is pink ghost in the middle of the tile ?
+	    cmp #4
 ;1ccb  c20d1d    jp      nz,#1d0d	; no, skip ahead
-
+	    bne :jump_ahead
+:mid_tile
 ;1cce  3e02      ld      a,#02		; yes, A := #02
+	    lda #2
 ;1cd0  cdd01e    call    #1ed0		; check to see if pink ghost is on the edge of the screen (tunnel)
+	    jsr check_screen_edge
 ;1cd3  381b      jr      c,#1cf0         ; yes, jump ahead
+	    bcs :is_on_edge
 
 ;1cd5  3aa84d    ld      a,(#4da8)	; no, load A with pink ghost blue flag (0=not blue)
+	    lda |pinkghost_blue
 ;1cd8  a7        and     a		; is the pink ghost blue ?
 ;1cd9  cae21c    jp      z,#1ce2		; no, skip ahead
+	    beq :not_blue
 
 ;1cdc  ef        rst     #28		; yes, insert task to handle pink ghost movement when power pill active
 ;1cdd  0d 00				; task data
+	    lda #$000D
+	    jsr rst28
 ;1cdf  c3f01c    jp      #1cf0		; skip ahead
+	    bra :is_on_edge
 
+:not_blue
 ;1ce2  2a0c4d    ld      hl,(#4d0c)	; load HL with pink ghost Y,X tile pos
+	    lda |pinkghost_tile_y
 ;1ce5  cd5220    call    #2052		; convert ghost Y,X position in HL to a color screen location
+	    jsr yx_to_color_addy
+
 ;1ce8  7e        ld      a,(hl)		; load A with color screen position of ghost
+	    tax
+	    lda |0,x
+	    and #$00FF
 ;1ce9  fe1a      cp      #1a		; == #1A? (this color marks zones where ghosts cannot change direction, e.g. above the ghost house in pac-man)
+	    cmp #$1A
 ;1ceb  2803      jr      z,#1cf0         ; yes, skip next step
+	    beq :is_on_edge
 
 ;1ced  ef        rst     #28		; insert task to handle pink ghost AI
 ;1cee  09 00				; task data
-
+	    lda #$0009
+	    jsr rst28
+:is_on_edge
 ;1cf0  cd251f    call    #1f25		; check for and handle when pink ghost reverses directions
+	    jsr check_reverse_pink
 ;1cf3  dd21204d  ld      ix,#4d20	; load IX with pink ghost tile changes
+	    ldx #pink_ghost_tchange_y
 ;1cf7  fd210c4d  ld      iy,#4d0c	; load IY with pink ghost tile position
+	    ldy #pinkghost_tile_y
 ;1cfb  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
 ;1cfe  220c4d    ld      (#4d0c),hl	; store new result into pink ghost tile position
+	    sta |pinkghost_tile_y
 ;1d01  2a204d    ld      hl,(#4d20)	; load HL with pink ghost tile changes
+	    lda |pink_ghost_tchange_y
 ;1d04  22164d    ld      (#4d16),hl	; store into pink ghost tile changes (A)
+	    sta |pink_ghost_tchangeA_y
 ;1d07  3a2d4d    ld      a,(#4d2d)	; load A with pink ghost orientation
+	    lda |pink_ghost_dir
 ;1d0a  32294d    ld      (#4d29),a	; store into previous pink ghost orientation
-
+	    sta |prev_pink_ghost_dir
+:jump_ahead
 ;1d0d  dd21164d  ld      ix,#4d16	; load IX with pink ghost tile changes (A)
+	    ldx #pink_ghost_tchangeA_y
 ;1d11  fd21024d  ld      iy,#4d02	; load IY with pink ghost position
+	    ldy #pink_ghost_y
 ;1d15  cd0020    call    #2000		; HL := (IX) + (IY)
-;1d18  22024d    ld      (#4d02),hl	; store result into pink ghost postion
+	    jsr double_add
+;1d18  22024d    ld      (#4d02),hl	; store result into pink ghost postion			
+	    sta |pink_ghost_y
 ;1d1b  cd1820    call    #2018		; convert sprite position into a tile position
+	    jsr spr_to_tile
 ;1d1e  22334d    ld      (#4d33),hl	; store into pink ghost tile position 2
+	    sta |pink_tile_y_2
 	    rts                    ; return 
 
 
