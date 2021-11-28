@@ -2951,7 +2951,11 @@ pm1017      mx %00
 	    jsr pink_ghost_death_update
 
 ;1028  cda810    call    #10a8		; check for blue ghost (inky) state and do things if not alive
+	    jsr blue_ghost_death_update
+
 ;102b  cdb410    call    #10b4		; check for orange ghost state and do things if not alive
+	    jsr orange_ghost_death_update
+
 ;102e  3aa44d    ld      a,(#4da4)	; load A with # of ghost killed but no collision for yet [0..4]
 ;1031  a7        and     a		; == #00 ?
 ;1032  ca3910    jp      z,#1039		; yes, skip ahead
@@ -3194,7 +3198,124 @@ pink_ghost_death_update mx %00
 ;1159  c30111    jp      #1101		; jump to check for clearing eyes sound
 	    jmp ghost_arrive_home
 
+;------------------------------------------------------------------------------
+; called from #1028
+;10A8
+blue_ghost_death_update mx %00
+	    lda |blueghost_state        ; load A with blue ghost (Inky) state 
+	    asl
+	    tax
+	    jmp (:table,x)       	; jump based on A 
+:table
+	    da :rts    		    ; #000C	; return immediately when ghost is alive
+	    da :isdead		    ; #115C	; when ghost is dead
+	    da :at_house	    ; #116E	; when ghost eyes are above and entering the ghost house when returning home
+	    da :move_left	    ; #118F	; when ghost eyes have arrived in ghost house and when moving to left side of ghost house
 
+
+; arrive here from #10AB when blue ghost (inky) is dead (eyes)
+:isdead
+;115c  cd861d    call    #1d86		; handle inky movement
+	    jsr inky_ghost_move
+
+;115f  2a044d    ld      hl,(#4d04)	; load HL with blue ghost (inky) position
+	    lda |blue_ghost_y
+;1162  116480    ld      de,#8064	; load DE with Y,X position above ghost house
+;1165  a7        and     a		; clear carry flag
+;1166  ed52      sbc     hl,de		; subtract.  are inky's eyes right above the ghost home?
+	    cmp #$8064
+;1168  c0        ret     nz		; no, return
+	    bne :rts
+
+;1169  21ae4d    ld      hl,#4dae	; yes, load HL with blue ghost (inky) state
+;116c  34        inc     (hl)		; increase
+	    inc |blueghost_state
+;116d  c9        ret			; return
+:rts
+	    rts
+
+; arrive here from #10AB when blue ghost (inky) eyes are above and entering the ghost house when returning home
+:at_house
+;116e  dd210133  ld      ix,#3301	; load IX with direction address tiles for moving down
+	    ldx #move_down
+;1172  fd21044d  ld      iy,#4d04	; load IY with inky position
+	    ldy #blue_ghost_y
+;1176  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
+;1179  22044d    ld      (#4d04),hl	; store new position for inky
+	    sta |blue_ghost_y
+;117c  3e01      ld      a,#01		; A := #01
+	    lda #1
+;117e  322a4d    ld      (#4d2a),a	; set previous inky orientation as moving down
+	    sta |prev_blue_ghost_dir
+;1181  322e4d    ld      (#4d2e),a	; set inky orientation as moving down
+	    sta |blue_ghost_dir
+;1184  3a044d    ld      a,(#4d04)	; load A with inky Y position
+	    lda |blue_ghost_y
+;1187  fe80      cp      #80		; have the inky eyes fully entered the ghost house?
+	    and #$00FF
+	    cmp #$80
+;1189  c0        ret     nz		; no, return
+	    bne :rts
+
+;118a  21ae4d    ld      hl,#4dae	; yes, load HL with blue ghost (inky) state 
+;118d  34        inc     (hl)		; increase
+	    inc |blueghost_state
+;118e  c9        ret			; return
+	    rts
+
+; arrive here from #10AB when inky ghost eyes have arrived in ghost house and when moving to left side of ghost house
+:move_left
+
+;118f  dd210333  ld      ix,#3303	; load IX with direction address tiles for moving left
+	    ldx #move_left
+;1193  fd21044d  ld      iy,#4d04	; load IY with inky position
+	    ldy #blue_ghost_y
+;1197  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
+;119a  22044d    ld      (#4d04),hl	; store new position for inky
+	    sta |blue_ghost_y
+;119d  3e02      ld      a,#02		; A := #02
+	    lda #2
+;119f  322a4d    ld      (#4d2a),a	; set previous inky orientation as moving left
+	    sta |prev_blue_ghost_dir
+;11a2  322e4d    ld      (#4d2e),a	; set inky orientation as moving left
+	    sta |blue_ghost_dir
+;11a5  3a054d    ld      a,(#4d05)	; load A with inky X position
+	    lda |blue_ghost_x
+;11a8  fe90      cp      #90		; has inky reached the left side of the ghost house?
+	    and #$00FF
+	    cmp #$0090
+;11aa  c0        ret     nz		; no, return
+	    bne :rts
+
+;11ab  212f30    ld      hl,#302f	; yes, load HL with #30, #2F for tile position inside ghost house
+	    lda #$302F
+;11ae  220e4d    ld      (#4d0e),hl	; store into inky tile position
+	    sta |blueghost_tile_y
+;11b1  22354d    ld      (#4d35),hl	; store into inky tile position 2
+	    sta |blue_tile_y_2
+;11b4  3e01      ld      a,#01		; A := #01
+	    lda #1
+;11b6  322a4d    ld      (#4d2a),a	; set previous inky orientation as moving down
+	    sta |prev_blue_ghost_dir
+;11b9  322e4d    ld      (#4d2e),a	; set inky orientation as moving down
+	    sta |blue_ghost_dir
+;11bc  af        xor     a		; A := #00
+;11bd  32a24d    ld      (#4da2),a	; set inky substate as at home
+	    stz |blue_substate
+;11c0  32ae4d    ld      (#4dae),a	; set inky state as alive
+	    sta |blueghost_state
+;11c3  32a94d    ld      (#4da9),a	; set inky blue flag as not edible
+	    stz |blueghost_blue
+;11c6  c30111    jp      #1101		; jump to check for clearing eyes sound
+	    jmp ghost_arrive_home
+
+;------------------------------------------------------------------------------
+; called from #102B
+;10B4
+orange_ghost_death_update mx %00
+	    rts
 ;------------------------------------------------------------------------------
 ; arrive here from call at #08F1
 ; 13dd
@@ -3567,6 +3688,167 @@ pink_ghost_move mx %00
 	    sta |pink_tile_y_2
 	    rts                    ; return 
 
+;------------------------------------------------------------------------------
+; check movement patterns for inky
+; called from #104D
+
+;1d22  3aa24d    ld      a,(#4da2)	; load A with blue ghost (inky) substate
+;1d25  fe01      cp      #01		; is blue ghost at home ?
+;1d27  c0        ret     nz		; yes, return
+
+;1d28  3aae4d    ld      a,(#4dae)	; else load A with blue ghost (inky) state
+;1d2b  a7        and     a		; is inky alive ?
+;1d2c  c0        ret     nz		; no, return
+
+;1d2d  2a354d    ld      hl,(#4d35)	; load HL with inky tile position 2
+;1d30  019b4d    ld      bc,#4d9b	; load BC with address of aux var used by inky to check positions
+;1d33  cd5a20    call    #205a		; check to see if inky has entered a tunnel slowdown area
+;1d36  3a9b4d    ld      a,(#4d9b)	; load A with aux var used by inky to check positions
+;1d39  a7        and     a		; is inky in a tunnel slowdown area?
+;1d3a  ca541d    jp      z,#1d54		; no, skip ahead
+
+;1d3d  2a784d    ld      hl,(#4d78)	; yes, load HL with speed bit patterns for inky tunnel areas
+;1d40  29        add     hl,hl		; double it
+;1d41  22784d    ld      (#4d78),hl	; store result
+;1d44  2a764d    ld      hl,(#4d76)	; load HL with speed bit patterns for inky tunnel areas
+;1d47  ed6a      adc     hl,hl		; double it
+;1d49  22764d    ld      (#4d76),hl	; store result.  have we exceeded the threshold?
+;1d4c  d0        ret     nc		; no, return
+
+;1d4d  21784d    ld      hl,#4d78	; yes, load HL with address of speed bit patterns for inky tunnel areas
+;1d50  34        inc     (hl)		; increase
+;1d51  c3861d    jp      #1d86		; skip ahead
+
+;1d54  3aa94d    ld      a,(#4da9)	; load A with inky blue flag
+;1d57  a7        and     a		; is inky edible ?
+;1d58  ca721d    jp      z,#1d72		; no, skip ahead
+
+;1d5b  2a744d    ld      hl,(#4d74)	; yes, load HL with speed bit patterns for inky in blue state
+;1d5e  29        add     hl,hl		; double it
+;1d5f  22744d    ld      (#4d74),hl	; store result
+;1d62  2a724d    ld      hl,(#4d72)	; load HL with speed bit patterns for inky in blue state
+;1d65  ed6a      adc     hl,hl		; double it
+;1d67  22724d    ld      (#4d72),hl	; store result.  have we exceeded the threshold?
+;1d6a  d0        ret     nc		; no, return
+
+;1d6b  21744d    ld      hl,#4d74	; yes, load HL with speed bit patterns for inky in blue state
+;1d6e  34        inc     (hl)		; increase
+;1d6f  c3861d    jp      #1d86		; jump ahead
+
+;1d72  2a704d    ld      hl,(#4d70)	; load HL with speed bit patterns for inky normal state
+;1d75  29        add     hl,hl		; double it
+;1d76  22704d    ld      (#4d70),hl	; store result
+;1d79  2a6e4d    ld      hl,(#4d6e)	; load HL with speed bit patterns for inky normal state
+;1d7c  ed6a      adc     hl,hl		; double it
+;1d7e  226e4d    ld      (#4d6e),hl	; store result. have we exceeded the threshold ?
+;1d81  d0        ret     nc		; no, return
+
+;1d82  21704d    ld      hl,#4d70	; yes, load HL with speed bit patterns for inky normal state
+;1d85  34        inc     (hl)		; increase
+
+
+inky_ghost_move	mx %00
+;1d86  21184d    ld      hl,#4d18	; load HL with address of inky Y tile changes
+;1d89  7e        ld      a,(hl)		; load A with inky Y tile changes
+	    lda |blue_ghost_tchangeA_y
+;1d8a  a7        and     a		; is inky moving left-right or right left ?
+	    and #$00FF
+;1d8b  ca9b1d    jp      z,#1d9b		; yes, skip ahead
+	    beq :skip_ahead
+
+;1d8e  3a044d    ld      a,(#4d04)	; no, load A with inky Y position
+	    lda |blue_ghost_y
+;1d91  e607      and     #07		; mask bits
+	    and #7
+;1d93  fe04      cp      #04		; is inky in the middle of a tile ?
+	    cmp #4
+;1d95  caa51d    jp      z,#1da5		; yes, skip ahead
+	    beq :is_middle
+;1d98  c3e41d    jp      #1de4		; no, jump ahead
+	    bra :jump_ahead
+:skip_ahead
+;1d9b  3a054d    ld      a,(#4d05)	; load A with inky X position
+	    lda |blue_ghost_x
+;1d9e  e607      and     #07		; mask bits
+	    and #7
+;1da0  fe04      cp      #04		; is inky in the middle of the tile ?
+	    cmp #4
+;1da2  c2e41d    jp      nz,#1de4	; no, skip ahead
+	    bne	:jump_ahead
+:is_middle
+;1da5  3e03      ld      a,#03		; yes, A := #03
+	    lda #3
+;1da7  cdd01e    call    #1ed0		; check to see if inky is on the edge of the screen (tunnel)
+	    jsr check_screen_edge
+;1daa  381b      jr      c,#1dc7         ; yes, jump ahead
+	    bcs :is_on_edge
+
+;1dac  3aa94d    ld      a,(#4da9)	; no, load A with inky blue flag (0 = not blue)
+	    lda |blueghost_blue
+;1daf  a7        and     a		; is inky edible ?
+;1db0  cab91d    jp      z,#1db9		; no, skip ahead
+	    beq :not_blue
+
+;1db3  ef        rst     #28		; yes, insert task to handle blue ghost (inky) movement when power pill active
+;1db4  0e 00
+	    lda #$000E
+	    jsr rst28
+;1db6  c3c71d    jp      #1dc7		; skip ahead
+	    bra :is_on_edge
+:not_blue
+;1db9  2a0e4d    ld      hl,(#4d0e)	; load HL with inky tile position
+	    lda |blueghost_tile_y
+;1dbc  cd5220    call    #2052		; covert to color screen location
+	    jsr yx_to_color_addy
+	    tax
+;1dbf  7e        ld      a,(hl)		; load A with color of screen location
+	    lda |0,x
+	    and #$00FF
+;1dc0  fe1a      cp      #1a		; == #1A ? (this color marks zones where ghosts cannot change direction, e.g. above the ghost house in pac-man)
+	    cmp #$001A
+;1dc2  2803      jr      z,#1dc7         ; yes, skip next step
+	    beq :is_on_edge
+
+;1dc4  ef        rst     #28		; insert task to handle blue ghost (inky) AI
+;1dc5  0a 00
+	    lda #$000A
+	    jsr rst28
+
+:is_on_edge
+;1dc7  cd4c1f    call    #1f4c		; check for and handle when inky reverses directions
+	    jsr check_reverse_inky
+
+;1dca  dd21224d  ld      ix,#4d22	; load IX with inky tile changes
+	    ldx #blue_ghost_tchange_y
+;1dce  fd210e4d  ld      iy,#4d0e	; load IY with inky tile position
+	    ldy #blueghost_tile_y
+;1dd2  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
+;1dd5  220e4d    ld      (#4d0e),hl	; store new result into inky tile position
+	    sta |blueghost_tile_y
+;1dd8  2a224d    ld      hl,(#4d22)	; load HL with inky tile changes
+	    lda |blue_ghost_tchange_y
+;1ddb  22184d    ld      (#4d18),hl	; store into inky tile changes (A)
+	    sta |blue_ghost_tchangeA_y
+;1dde  3a2e4d    ld      a,(#4d2e)	; load A with inky orientation
+	    lda |blue_ghost_dir
+;1de1  322a4d    ld      (#4d2a),a	; store into inky previous orientation
+	    sta |prev_blue_ghost_dir
+:jump_ahead
+;1de4  dd21184d  ld      ix,#4d18	; load IX with inky tile changes (A)
+	    ldx #blue_ghost_tchangeA_y
+;1de8  fd21044d  ld      iy,#4d04	; load IY with inky position
+	    ldy #blue_ghost_y
+;1dec  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
+;1def  22044d    ld      (#4d04),hl	; store result into inky position
+	    sta |blue_ghost_y
+;1df2  cd1820    call    #2018		; convert sprite position into a tile position
+	    jsr spr_to_tile
+;1df5  22354d    ld      (#4d35),hl	; store into inky tile position 2
+	    sta |blue_tile_y_2
+;1df8  c9        ret     		; return
+	    rts
 
 ;------------------------------------------------------------------------------
 ; called from #1A3A while in demo mode
