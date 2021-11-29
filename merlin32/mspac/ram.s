@@ -415,6 +415,7 @@ pacman_dead_counter dw 0
 ;	4dd0	current number of killed ghosts (0..4)	(rel 4da5)
 ;
 ;	4dd1	killed ghost animation state
+dead_ghost_anim_state dw 0
 ;		if 4da4 != 0:
 ;			4dd1 = 0: killed, showing points per kill
 ;			4dd1 = 1: wating

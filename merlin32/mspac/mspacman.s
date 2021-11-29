@@ -2957,12 +2957,16 @@ pm1017      mx %00
 	    jsr orange_ghost_death_update
 
 ;102e  3aa44d    ld      a,(#4da4)	; load A with # of ghost killed but no collision for yet [0..4]
+	    lda |num_ghosts_killed
 ;1031  a7        and     a		; == #00 ?
 ;1032  ca3910    jp      z,#1039		; yes, skip ahead
+	    beq :none
 ;
 ;1035  cd3512    call    #1235		; no, call this sub
+	    jsr ghost_eat_process
 ;1038  c9        ret     		; and return
-;
+	    rts
+:none
 ;1039  cd1d17    call    #171d		; check for collision with regular ghosts
 ;103c  cd8917    call    #1789		; check for collision with blue ghosts
 ;103f  3aa44d    ld      a,(#4da4)	; load A with # of ghost killed but no collision for yet [0..4]
@@ -3419,6 +3423,76 @@ orange_ghost_death_update mx %00
 	    stz |orangeghost_blue
 ;1232  c30111    jp      #1101		; jump to check for clearing eyes sound
 	    jmp ghost_arrive_home
+
+;------------------------------------------------------------------------------
+; called from #1035
+; arrive here when a ghost is eaten, or after the point score for eating a ghost is set to vanish
+;1235
+ghost_eat_process mx %00
+;1235: 3A D1 4D	ld	a,(#4DD1)	; load A with killed ghost animation state
+;1238: E7 	rst  #20		; jump based on A
+	    lda |dead_ghost_anim_state
+	    asl
+	    tax
+	    jmp (:table,x)
+:table
+	    da :process    ; #123F	; a ghost is being eaten
+	    da :rts        ; #000C	; return immediately
+	    da :process    ; #123F	; point score is set to vanish
+
+:rts	    rts
+:process
+;123f  21004c    ld      hl,#4c00	; load HL with starting address for ghost sprites and colors
+;1242  3aa44d    ld      a,(#4da4)	; load A with # of ghost killed but no collision for yet
+;1245  87        add     a,a		; A := A * 2
+;1246  5f        ld      e,a		; store into E
+;1247  1600      ld      d,#00		; clear D
+;1249  19        add     hl,de		; add.  now HL has the sprite address of the ghost killed
+;124a  3ad14d    ld      a,(#4dd1)	; load A with killed ghost animation state
+;124d  a7        and     a		; is this ghost killed, showing points per kill ?
+;124e  2027      jr      nz,#1277        ; no, skip ahead
+;
+;1250  3ad04d    ld      a,(#4dd0)	; yes, load A with current number of killed ghosts
+;1253  0627      ld      b,#27		; B := #27
+;1255  80        add     a,b		; add together to choose correct sprite (200, 400, 800 or 1600)
+;1256  47        ld      b,a		; store result into B
+;1257  3a724e    ld      a,(#4e72)	; load A with cocktail mode (0=no, 1=yes)
+;125a  4f        ld      c,a		; copy to C
+;125b  3a094e    ld      a,(#4e09)	; load A with current player number (0=P1, 1=P2)
+;125e  a1        and     c		; is this player 2 and cocktail mode ?
+;125f  2804      jr      z,#1265         ; no, skip next 2 steps
+;
+;1261  cbf0      set     6,b		; set bit 6 of B
+;1263  cbf8      set     7,b		; set bit 7 of B
+;
+;1265  70        ld      (hl),b		; store B into ghost sprite score
+;1266  23        inc     hl		; HL now has ghost sprite color
+;1267  3618      ld      (hl),#18	; store color #18
+;1269  3e00      ld      a,#00		; A := #00
+;126b  320b4c    ld      (#4c0b),a	; store into pacman sprite color
+;126e  f7        rst     #30		; set timed task to increase killed ghost animation state when a ghost is eaten
+;126f  4a 03 00				; task timer=#4A, task=3, param=0.  
+
+; arrive here from task table when a ghost has been eaten.  Task #03, arrive from #0246
+
+;1272  21d14d    ld      hl,#4dd1	; load HL with killed ghost animation state
+;1275  34        inc     (hl)		; increase to next type
+;1276  c9        ret     		; return
+
+; arrive here when score for eating a ghost is set to dissapear
+
+;1277: 36 20	ld	(hl),#20	; set ghost sprite to eyes
+;1279: 3E 09	ld	a,#09		; load A with #09
+;127B: 32 0B 4C	ld	(#4C0B),a	; store into pacman sprite color to restore pacman to screen
+;127E: 3A A4 4D	ld	a,(#4DA4)	; load A with # of ghost killed but no collision for yet
+;1281: 32 AB 4D	ld	(#4DAB),a	; store into killing ghost state
+;1284: AF	xor	a		; A := #00
+;1285: 32 A4 4D	ld	(#4DA4),a	; store into # of ghost killed but no collision for yet
+;1288: 32 D1 4D	ld	(#4DD1),a	; store into killed ghost animation state
+;128B: 21 AC 4E	ld	hl,#4EAC	; load HL with sound channel 2
+;128E: CB F6	set	6,(hl)		; play sound for ghost eyes
+;1290: C9	ret			; return
+	    rts
 
 ;------------------------------------------------------------------------------
 ; arrive here from call at #08F1
