@@ -3315,7 +3315,111 @@ blue_ghost_death_update mx %00
 ; called from #102B
 ;10B4
 orange_ghost_death_update mx %00
+;10B4: 3A AF 4D	ld	a,(#4DAF)	; load A with orange ghost state
+	    lda |orangeghost_state
+	    asl
+	    tax
+	    jmp (:table,x)
+:table
+	    da :rts    		   ; #000C	; return immediately when ghost is alive
+	    da :is_dead   	   ; #11C9	; when ghost is dead
+	    da :at_house	   ; #11DB	; when ghost eyes are above and entering the ghost house when returning home
+	    da :move_right  	   ; #11FC	; when ghost eyes have arrived in ghost house and when moving to right side of ghost house
+:is_dead
+; arrive here from #10B7 when orange ghost is dead (eyes)
+
+;11c9  cd5d1e    call    #1e5d		; handle orange ghost movement
+	    jsr orange_ghost_move
+;11cc  2a064d    ld      hl,(#4d06)	; load HL with orange ghost position
+	    lda |orange_ghost_y
+;11cf  116480    ld      de,#8064	; load DE with Y,X position above ghost home
+;11d2  a7        and     a		; clear carry flag
+;11d3  ed52      sbc     hl,de		; subtract.  is orange ghost eyes right above ghost home?
+	    cmp #$8064
+;11d5  c0        ret     nz		; no, return
+	    bne :rts
+;11d6  21af4d    ld      hl,#4daf	; yes, load HL with orange ghost state
+;11d9  34        inc     (hl)		; increase
+	    inc |orangeghost_state
+;11da  c9        ret 			; return
+:rts
 	    rts
+
+; arrive here from #10B7 when orange ghost eyes are above and entering the ghost house when returning home
+:at_house
+;11db  dd210133  ld      ix,#3301	; load IX with direction address tiles for moving down
+	    ldx #move_down
+;11df  fd21064d  ld      iy,#4d06	; load IY with orange ghost position 
+	    ldy #orange_ghost_y
+;11e3  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
+;11e6  22064d    ld      (#4d06),hl	; store new position for orange ghost
+	    sta |orange_ghost_y
+;11e9  3e01      ld      a,#01		; A := #01
+	    lda #1
+;11eb  322b4d    ld      (#4d2b),a	; set previous orange ghost orientation as moving down
+	    sta |prev_orange_ghost_dir
+;11ee  322f4d    ld      (#4d2f),a	; set orange orientation as moving down
+	    sta |orange_ghost_dir
+;11f1  3a064d    ld      a,(#4d06)	; load A with orange ghost Y position
+	    lda |orange_ghost_y
+;11f4  fe80      cp      #80		; has the orange ghost eyes fully entered the ghost house?
+	    and #$FF
+	    cmp #$80
+;11f6  c0        ret     nz		; no, return
+	    bne :rts
+
+;11f7  21af4d    ld      hl,#4daf	; yes, load HL with orange ghost state
+;11fa  34        inc     (hl)		; increase
+	    inc |orangeghost_state
+;11fb  c9        ret			; return
+	    rts
+
+; arrive here from #10B7 when orange ghost eyes have arrived in ghost house and when moving to right side of ghost house
+:move_right
+;11fc  dd21ff32  ld      ix,#32ff	; load IX with direction address tiles for moving right
+	    ldx #move_right
+;1200  fd21064d  ld      iy,#4d06	; load IY with orange ghost position 
+	    ldy #orange_ghost_y
+;1204  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
+;1207  22064d    ld      (#4d06),hl	; store new position for orange ghost
+	    sta |orange_ghost_y
+;120a  af        xor     a		; A := #00
+;120b  322b4d    ld      (#4d2b),a	; set previous orange ghost orientation as moving right
+	    stz |prev_orange_ghost_dir
+;120e  322f4d    ld      (#4d2f),a	; set orange orientation as moving right
+	    stz |orange_ghost_dir
+;1211  3a074d    ld      a,(#4d07)	; load A with orange ghost X position
+	    lda |orange_ghost_x
+;1214  fe70      cp      #70		; has the orange ghost reached the right side of the ghost house?
+	    and #$FF
+	    cmp #$70
+;1216  c0        ret     nz		; no, return
+	    bne :rts
+
+;1217  212f2c    ld      hl,#2c2f	; yes, load HL with tile position of the right side of ghost house
+	    lda #$2c2f
+;121a  22104d    ld      (#4d10),hl	; store into orange ghost tile position
+	    sta |orangeghost_tile_y
+;121d  22374d    ld      (#4d37),hl	; store into orange ghost tile position 2
+	    sta |orange_tile_y_2
+;1220  3e01      ld      a,#01		; A := #01
+	    lda #1
+;1222  322b4d    ld      (#4d2b),a	; set previous orange ghost orientation as moving down
+	    sta |prev_orange_ghost_dir
+;1225  322f4d    ld      (#4d2f),a	; set orange ghost orientation as moving down
+	    sta |orange_ghost_dir
+;1228  af        xor     a		; A := #00
+;1229  32a34d    ld      (#4da3),a	; set orange ghost substate as at home
+	    stz |orange_substate
+;122c  32af4d    ld      (#4daf),a	; set orange ghost state as alive
+	    stz |orangeghost_state
+;122f  32aa4d    ld      (#4daa),a	; set orange ghost blue flag as not edible
+	    stz |orangeghost_blue
+;1232  c30111    jp      #1101		; jump to check for clearing eyes sound
+	    jmp ghost_arrive_home
+
 ;------------------------------------------------------------------------------
 ; arrive here from call at #08F1
 ; 13dd
@@ -3848,6 +3952,166 @@ inky_ghost_move	mx %00
 ;1df5  22354d    ld      (#4d35),hl	; store into inky tile position 2
 	    sta |blue_tile_y_2
 ;1df8  c9        ret     		; return
+	    rts
+
+;------------------------------------------------------------------------------
+; control movement patterns for orange ghost
+; called from #1050
+
+;1df9  3aa34d    ld      a,(#4da3)	; load A with orange ghost substate
+;1dfc  fe01      cp      #01		; is orange ghost at home ?
+;1dfe  c0        ret     nz		; yes, return
+;
+;1dff  3aaf4d    ld      a,(#4daf)	; else load A with orange ghost state
+;1e02  a7        and     a		; is orange ghost alive ?
+;1e03  c0        ret     nz		; no, return
+;
+;1e04  2a374d    ld      hl,(#4d37)	; load HL with orange ghost tile position 2
+;1e07  019c4d    ld      bc,#4d9c	; load BC with address of aux var used by orange ghost to check positions
+;1e0a  cd5a20    call    #205a		; check to see if orange ghost has entered a tunnel slowdown area
+;1e0d  3a9c4d    ld      a,(#4d9c)	; load A with aux var used by orange ghost to check positions
+;1e10  a7        and     a		; is the orange ghost in a tunnel slowdown area?
+;1e11  ca2b1e    jp      z,#1e2b		; no, skip ahead
+;
+;1e14  2a844d    ld      hl,(#4d84)	; yes, load HL with speed bit patterns for orange ghost tunnel areas
+;1e17  29        add     hl,hl		; double it
+;1e18  22844d    ld      (#4d84),hl	; store result
+;1e1b  2a824d    ld      hl,(#4d82)	; load HL with speed bit patterns for orange ghost tunnel areas
+;1e1e  ed6a      adc     hl,hl		; double it
+;1e20  22824d    ld      (#4d82),hl	; store result.  have we exceeded the threshold?
+;1e23  d0        ret     nc		; no, return
+;
+;1e24  21844d    ld      hl,#4d84	; yes, load HL with speed bit patterns for orange ghost tunnel areas
+;1e27  34        inc     (hl)		; increase
+;1e28  c35d1e    jp      #1e5d		; skip ahead
+;
+;1e2b  3aaa4d    ld      a,(#4daa)	; load A with orange ghost blue flag
+;1e2e  a7        and     a		; is the orange ghost blue ( edible ) ?
+;1e2f  ca491e    jp      z,#1e49		; no, skip ahead
+;
+;1e32  2a804d    ld      hl,(#4d80)	; yes, load HL with speed bit patterns for orange ghost blue state
+;1e35  29        add     hl,hl		; double it
+;1e36  22804d    ld      (#4d80),hl	; store result
+;1e39  2a7e4d    ld      hl,(#4d7e)	; load HL with speed bit patterns for orange ghost blue state
+;1e3c  ed6a      adc     hl,hl		; double it
+;1e3e  227e4d    ld      (#4d7e),hl	; store result.  have we exceeded the threshold ?
+;1e41  d0        ret     nc		; no, return
+;
+;1e42  21804d    ld      hl,#4d80	; yes, load HL with speed bit patterns for orange ghost blue state
+;1e45  34        inc     (hl)		; increase 
+;1e46  c35d1e    jp      #1e5d		; skip ahead
+;
+;1e49  2a7c4d    ld      hl,(#4d7c)	; load HL with speed bit patterns for orange ghost normal state
+;1e4c  29        add     hl,hl		; double it
+;1e4d  227c4d    ld      (#4d7c),hl	; store result
+;1e50  2a7a4d    ld      hl,(#4d7a)	; load HL with speed bit patterns for orange ghost normal state
+;1e53  ed6a      adc     hl,hl		; double it
+;1e55  227a4d    ld      (#4d7a),hl	; store result.  have we exceeded the threshold ?
+;1e58  d0        ret     nc		; no, return
+;
+;1e59  217c4d    ld      hl,#4d7c	; yes, load HL with speed bit patterns for orange ghost normal state
+;1e5c  34        inc     (hl)		; increase
+
+;------------------------------------------------------------------------------
+;1e5d
+orange_ghost_move mx %00
+;1e5d  211a4d    ld      hl,#4d1a	; load HL with address for orange ghost Y tile changes
+;1e60  7e        ld      a,(hl)		; load A with orange ghost Y tile changes
+	    lda |orange_ghost_tchangeA_y
+;1e61  a7        and     a		; is the orange ghost moving left-right or right-left ?
+	    and #$ff
+;1e62  ca721e    jp      z,#1e72		; yes, skip ahead
+	    beq :skip_ahead
+;
+;1e65  3a064d    ld      a,(#4d06)	; no, load A with orange ghost Y position
+	    lda |orange_ghost_y
+;1e68  e607      and     #07		; mask bits
+	    and #7
+;1e6a  fe04      cp      #04		; is orange ghost in the middle of the tile ?
+	    cmp #4
+;1e6c  ca7c1e    jp      z,#1e7c		; yes, skip ahead
+	    beq :is_mid_tile
+;1e6f  c3bb1e    jp      #1ebb		; no, jump ahead
+	    bra :jump_ahead
+:skip_ahead
+;1e72  3a074d    ld      a,(#4d07)	; load A with orange ghost X position
+	    lda |orange_ghost_x
+;1e75  e607      and     #07		; mask bits
+	    and #7
+;1e77  fe04      cp      #04		; is orange ghost in the middle of the tile ?
+	    cmp #4
+;1e79  c2bb1e    jp      nz,#1ebb	; no, skip ahead
+	    bne :jump_ahead
+:is_mid_tile
+;1e7c  3e04      ld      a,#04		; yes, A := #04
+	    lda #4
+;1e7e  cdd01e    call    #1ed0		; check to see if orange ghost is on the edge of the screen (tunnel)
+	    jsr check_screen_edge
+;1e81  381b      jr      c,#1e9e         ; yes, jump ahead
+	    bcs :on_edge
+;1e83  3aaa4d    ld      a,(#4daa)	; no, load A with orange ghost blue flag (0 = not blue)
+	    lda |orangeghost_blue
+;1e86  a7        and     a		; is the orange ghost blue (edible) ?
+;1e87  ca901e    jp      z,#1e90		; no, skip ahead
+	    beq :not_blue
+;1e8a  ef        rst     #28		; yes, insert task to handle orange ghost movement when power pill active
+;1e8b  0f 00				; task data
+	    lda #$000F
+	    jsr rst28
+;1e8d  c39e1e    jp      #1e9e		; skip ahead
+	    bra :on_edge
+:not_blue
+;1e90  2a104d    ld      hl,(#4d10)	; load HL with orange ghost Y,X tile position
+	    lda orangeghost_tile_y
+;1e93  cd5220    call    #2052		; covert Y,X position in HL to color screen location
+	    jsr yx_to_color_addy
+;1e96  7e        ld      a,(hl)		; load A with color screen position of ghost
+	    tax
+	    lda |0,x
+;1e97  fe1a      cp      #1a		; == #1A ((this color marks zones where ghosts cannot change direction, e.g. above the ghost house in pac-man)
+	    and #$FF
+	    cmp #$1A
+;1e99  2803      jr      z,#1e9e         ; yes, skip next step
+	    beq :on_edge
+;
+;1e9b  ef        rst     #28		; insert task to control orange ghost AI
+;1e9c  0b 00				; task data
+	    lda #$000B
+	    jsr rst28
+:on_edge
+;1e9e  cd731f    call    #1f73		; check for and handle when orange ghost reverses directions
+	    jsr check_reverse_orange
+
+;1ea1  dd21244d  ld      ix,#4d24	; load IX with orange ghost tile changes
+	    ldx #orange_ghost_tchange_y
+;1ea5  fd21104d  ld      iy,#4d10	; load IY with orange ghost tile position
+	    ldy #orangeghost_tile_y
+;1ea9  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
+;1eac  22104d    ld      (#4d10),hl	; store result into orange ghost tile position
+	    sta |orangeghost_tile_y
+;1eaf  2a244d    ld      hl,(#4d24)	; load HL with orange ghost tile changes
+	    lda |orange_ghost_tchange_y
+;1eb2  221a4d    ld      (#4d1a),hl	; store into orange ghost tile changes (A)
+	    sta |orange_ghost_tchangeA_y
+;1eb5  3a2f4d    ld      a,(#4d2f)	; load A with orange ghost orientation
+	    lda |orange_ghost_dir
+;1eb8  322b4d    ld      (#4d2b),a	; store into previous orange ghost orientation
+	    sta |prev_orange_ghost_dir
+:jump_ahead
+;1ebb  dd211a4d  ld      ix,#4d1a	; load IX with orange ghost tile changes (A)
+	    ldx #orange_ghost_tchangeA_y
+;1ebf  fd21064d  ld      iy,#4d06	; load IY with orange ghost position
+	    ldy #orange_ghost_y
+;1ec3  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
+;1ec6  22064d    ld      (#4d06),hl	; store result into orange ghost position
+	    sta |orange_ghost_y
+;1ec9  cd1820    call    #2018		; convert sprite position into a tile position
+	    jsr spr_to_tile
+;1ecc  22374d    ld      (#4d37),hl	; store into orange ghost tile position 2
+	    sta |orange_tile_y_2
+;1ecf  c9        ret			; return
 	    rts
 
 ;------------------------------------------------------------------------------
