@@ -2972,6 +2972,8 @@ pm1017      mx %00
 	    rts
 :none
 ;1039  cd1d17    call    #171d		; check for collision with regular ghosts
+	    jsr normal_ghost_collide
+
 ;103c  cd8917    call    #1789		; check for collision with blue ghosts
 ;103f  3aa44d    ld      a,(#4da4)	; load A with # of ghost killed but no collision for yet [0..4]
 ;1042  a7        and     a		; is there a collsion ?
@@ -3738,6 +3740,132 @@ ghosthouse mx %00
 ;141b  ccd120    call    z,#20d1		; yes, then call this sub which will release orange ghost
 ;141e  c9        ret     		; return
 	    jmp release_orange
+
+
+;------------------------------------------------------------------------------
+;; normal ghost collision detect
+;; called from #1039
+;171d
+normal_ghost_collide mx %00
+
+;171d  0604      ld      b,#04		; B := #04
+	    ldy #4
+;171f  ed5b394d  ld      de,(#4d39)	; load DE with pacman Y and X tile positions
+	    ldx |pacman_tile_pos_y
+;1723  3aaf4d    ld      a,(#4daf)	; load A with orange ghost state
+	    lda |orangeghost_state
+;1726  a7        and     a		; is orange ghost alive ?
+;1727  2009      jr      nz,#1732        ; no, skip ahead for next ghost
+	    bne :check_blue
+
+;1729  2a374d    ld      hl,(#4d37)	; else load HL with orange ghost Y and X tile positions
+	    cpx |orange_tile_y_2
+
+;172c  a7        and     a		; clear the carry flag
+;172d  ed52      sbc     hl,de		; is pacman colliding with orange ghost?
+;172f  ca6317    jp      z,#1763		; yes, jump ahead and continue checks
+	    beq :collided
+:check_blue
+;1732  05        dec     b		; B := #03
+	    dey
+;1733  3aae4d    ld      a,(#4dae)	; load A with blue ghost (inky) state
+	    lda |blueghost_state
+;1736  a7        and     a		; is inky alive ?
+;1737  2009      jr      nz,#1742        ; no, skip ahead for next ghost
+	    bne :check_pink
+
+;1739  2a354d    ld      hl,(#4d35)	; else load HL with inky's Y and X tile positions
+;173c  a7        and     a		; clear carry flag
+;173d  ed52      sbc     hl,de		; is pacman colliding with inky ?
+	    cpx |blue_tile_y_2
+;173f  ca6317    jp      z,#1763		; yes, jump ahead and continue checks
+	    beq :collided
+:check_pink
+;1742  05        dec     b		; B := #02
+	    dey
+;1743  3aad4d    ld      a,(#4dad)	; load A with pink ghost state
+	    lda |pinkghost_state
+;1746  a7        and     a		; is pink ghost alive ?
+;1747  2009      jr      nz,#1752        ; no, skip ahead
+	    bne :check_red
+
+;1749  2a334d    ld      hl,(#4d33)	; else load HL with pink ghost Y and X tile positions
+;174c  a7        and     a		; clear carry flag
+;174d  ed52      sbc     hl,de		; is pacman colliding with pink ghost?
+	    cpx |pink_tile_y_2
+;174f  ca6317    jp      z,#1763		; yes, jump ahead and continue checks
+	    beq :collided
+:check_red
+;1752  05        dec     b		; B := #01
+	    dey
+;1753  3aac4d    ld      a,(#4dac)	; load A with red ghost state
+	    lda |redghost_state
+;1756  a7        and     a		; is red ghost alive ?
+;1757  2009      jr      nz,#1762        ; no, skip ahead
+	    bne :red_dead
+
+;1759  2a314d    ld      hl,(#4d31)	; else load HL with red ghost Y and X tile positions
+;175c  a7        and     a		; clear carry flag
+;175d  ed52      sbc     hl,de		; is pacman colliding with red ghost?
+	    cpx |red_tile_y_2
+;175f  ca6317    jp      z,#1763		; yes, jump ahead and continue checks
+	    beq :collided
+:red_dead
+;1762  05        dec     b		; B := #00 , no collision occurred
+	    dey
+:collided
+;1763  78        ld      a,b		; load A with ghost # that collided with pacman
+	    tya
+;1764  32a44d    ld      (#4da4),a	; store
+	    sta |num_ghosts_killed
+
+	; invincibility check ; HACK3
+	; 1764 c3b01f    jp      #1fb0
+	;
+
+;1767  32a54d    ld      (#4da5),a	; store into pacman dead animation state (0 if not dead)
+	    sta |pacman_dead_state
+;176a  a7        and     a		; was there a collision?
+;176b  c8        ret     z		; no, return
+	    beq :rts
+
+;176c  21a64d    ld      hl,#4da6	; else load HL with start of ghost flags
+;176f  5f        ld      e,a		; load E with ghost # that collided
+;1770  1600      ld      d,#00		; D := #00
+;1772  19        add     hl,de		; add.  HL now has the ghost blue flag (0 if not blue)
+	    asl
+	    tax
+;1773  7e        ld      a,(hl)		; load A with the ghost's status
+	    lda |redghost_blue-2,x
+;1774  a7        and     a		; is this ghost blue (eatable) ?
+;1775  c8        ret     z		; no, return
+	    beq :not_blue
+
+; else arrive here when eating a blue ghost
+
+;1776  af        xor     a		; A := #00
+;1777  32a54d    ld      (#4da5),a	; store into pacman dead animation state (0 if not dead)
+	    stz |pacman_dead_state
+;177a  21d04d    ld      hl,#4dd0	; load HL with # of ghosts killed
+;177d  34        inc     (hl)		; increase
+	    inc |num_killed_ghosts
+;177e  46        ld      b,(hl)		; load B with this # of ghosts killed
+	    lda |num_killed_ghosts
+;177f  04        inc     b		; increase by one, used for scoring routine
+	    inc
+;1780  cd5a2a    call    #2a5a		; update score.  B has code for items scored. draws score on screen, checks for high score and extra lives
+	    jsr update_score
+
+;1783: 21 BC 4E	ld	hl,#4EBC	; load HL with sound channel 3
+	    lda #%1000
+;1786: CB DE	set	3,(hl)		; set sound for eating a ghost
+	    tsb |bnoise
+:not_blue
+:rts
+;1788: C9	ret			; return
+	    rts
+	;; end normal ghost collision detect
+
 
 ;------------------------------------------------------------------------------
 ; called from #10C0 and several other places

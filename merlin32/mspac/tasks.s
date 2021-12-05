@@ -391,6 +391,16 @@ squareA mx %00
 		rts
 
 ;------------------------------------------------------------------------------
+; arrive here from #1780 when a ghost is eaten. 
+; B contains the # of ghosts eaten +1 (2-5)
+;
+; or arrive from #23A7 for a task
+; B is loaded with code of scoring item
+;2a5a
+update_score mx %00
+		rts
+
+;------------------------------------------------------------------------------
 ; data - tile differences tables for movements
 ; 32ff
 tile_move_table
