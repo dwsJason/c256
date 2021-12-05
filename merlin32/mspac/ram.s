@@ -292,8 +292,13 @@ current_try_orientation dw 0
 ;	    the next entry
 ;
 ;	4d94	counter related to ghost movement inside home
+home_counter0 dw 0
 ;	4d95-4d96 number of units before ghost leaves home (no change w/ pills)
+home_counter1 dw 0
+home_counter2 dw 0  ;4d96
 ;	4d97-4d98 inactivity counter for units of the above
+home_counter3 dw 0
+home_counter4 dw 0  ;4d98
 ;
 ;	4d99 - 4d9c
 ;	    These values are normally 0, but are changed to 1 when a ghost has
@@ -309,6 +314,7 @@ current_try_orientation dw 0
 ;		0x06	when eating big pill
 ;		0xff	when not eating a pill
 ;	4d9e	related to number of pills eaten before last pacman move
+RTNOPEBLPM dw 0
 ;	4d9f	eaten pills counter after pacman has died in a level
 ;		used to make ghosts go out of home after # pills eaten
 ;

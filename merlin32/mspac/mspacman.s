@@ -3531,12 +3531,6 @@ ghost_eat_process mx %00
 	    rts
 
 ;------------------------------------------------------------------------------
-; arrive here from call at #08F1
-; 13dd
-ghosthouse mx %00
-	    rts
-
-;------------------------------------------------------------------------------
 ;
 ; State Machine for MsPacman Death Sequence
 ;
@@ -3682,6 +3676,68 @@ mspac_death_update mx %00
 	    jsr task_clearActors
 :return
 	    rts
+
+
+;------------------------------------------------------------------------------
+; arrive here from call at #08F1
+; 13dd
+ghosthouse mx %00
+;13dd  219e4d    ld      hl,#4d9e	; load HL with address related to number of pills eaten before last pacman move
+	    lda |RTNOPEBLPM
+;13e0  3a0e4e    ld      a,(#4e0e)	; load A with # of pills eaten
+;13e3  be        cp      (hl)		; are they equal ?
+	    cmp |dotseat
+;13e4  caee13    jp      z,#13ee		; yes, skip ahead
+	    beq :skip
+;13e7  210000    ld      hl,#0000	; else HL := #0000
+;13ea  22974d    ld      (#4d97),hl	; clear inactivity counter
+	    stz |home_counter3
+;13ed  c9        ret     		; return
+:rts
+	    rts
+:skip
+;13ee  2a974d    ld      hl,(#4d97)	; load HL with inactivity counter
+;13f1  23        inc     hl		; increment
+;13f2  22974d    ld      (#4d97),hl	; store
+	    inc |home_counter3
+;13f5  ed5b954d  ld      de,(#4d95)	; load DE with number of units before ghost leaves home (no change w/ pills)
+	    lda |home_counter1
+;13f9  a7        and     a		; clear carry flag
+;13fa  ed52      sbc     hl,de		; subtract.  are they equal ?
+	    cmp |home_counter3
+;13fc  c0        ret     nz		; no, return
+	    bne :rts
+
+;13fd  210000    ld      hl,#0000	; else HL := #0000
+;1400  22974d    ld      (#4d97),hl	; clear inactivity counter
+	    stz |home_counter3
+;1403  3aa14d    ld      a,(#4da1)	; load A with pink ghost substate
+	    lda |pink_substate
+;1406  a7        and     a		; is pink ghost in the ghost house ?
+	    bne :next_ghost
+;1407  f5        push    af		; save AF
+;1408  cc8620    call    z,#2086		; yes, then call this sub which will release the pink ghost
+	    jmp release_pink
+;140b  f1        pop     af		; restore AF
+;140c  c8        ret     z		; yes, then return
+:next_ghost
+;140d  3aa24d    ld      a,(#4da2)	; else load A with blue (inky) ghost state
+	    lda |blue_substate
+;1410  a7        and     a		; is inky in the ghost house ?
+	    bne :next_ghost2
+;1411  f5        push    af		; save AF
+;1412  cca920    call    z,#20a9		; yes, then call this sub which will release Inky
+	    jmp release_blue
+;1415  f1        pop     af		; restore AF
+;1416  c8        ret     z		; yes, then return
+:next_ghost2
+;1417  3aa34d    ld      a,(#4da3)	; else load A with orange ghost state
+	    lda |orange_substate
+	    bne :rts
+;141a  a7        and     a		; is orange ghost in the ghost house?
+;141b  ccd120    call    z,#20d1		; yes, then call this sub which will release orange ghost
+;141e  c9        ret     		; return
+	    jmp release_orange
 
 ;------------------------------------------------------------------------------
 ; called from #10C0 and several other places
@@ -4636,6 +4692,43 @@ yx_to_color_addy mx %00
 	    rts
 
 ;------------------------------------------------------------------------------
+; releases pink ghost from the ghost house
+; called from #1408
+; 2086
+release_pink mx %00
+;2086  3e02      ld      a,#02		; A := #02
+	    lda #2
+;2088  32a14d    ld      (#4da1),a	; store into pink ghost substate to indicate he is leaving the ghost house
+	    sta |pink_substate
+;208b  c9        ret     		; return
+	    rts
+
+;------------------------------------------------------------------------------
+
+
+;------------------------------------------------------------------------------
+; releases blue ghost (inky) from the ghost house
+; called from #1412
+
+release_blue
+;20a9  3e03      ld      a,#03		; A := #03
+	    lda #3
+;20ab  32a24d    ld      (#4da2),a	; store in inky's ghost state
+	    sta |blue_substate
+;20ae  c9        ret     		; return
+	    rts
+
+;------------------------------------------------------------------------------
+
+; releases orange ghost from the ghost house
+; called from #141b
+release_orange
+;20d1  3e03      ld      a,#03		; A := #03
+	    lda #3
+;20d3  32a34d    ld      (#4da3),a	; store into orange ghost state
+	    sta |orange_substate
+;20d6  c9        ret     		; return
+	    rts
 
 ;------------------------------------------------------------------------------
 
