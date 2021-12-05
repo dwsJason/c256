@@ -19,7 +19,8 @@ palette_ram ds 1024
 ;
 ; MsPacman RAM
 ;
-
+allsprite			dw 0	;   4c00
+allspritecolor		dw 0    ;   4c01
 redghostsprite		dw 0	;	4c02	red ghost sprite number
 redghostcolor		dw 0	;	4c03	red ghost color entry
 pinkghostsprite		dw 0	;	4c04	pink ghost sprite number
@@ -413,7 +414,7 @@ pacman_dead_counter dw 0
 ;	4dce	counter started after insert coin (LED and 1UP/2UP blink)
 ;	4dcf	counter to handle power pill flashes
 ;	4dd0	current number of killed ghosts (0..4)	(rel 4da5)
-;
+num_killed_ghosts dw 0
 ;	4dd1	killed ghost animation state
 dead_ghost_anim_state dw 0
 ;		if 4da4 != 0:

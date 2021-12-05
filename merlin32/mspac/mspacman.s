@@ -313,6 +313,10 @@ rst0
 rst28
 		rts
 
+;;$$TODO, A=TNTM Y=param  TN=Task number, TM=Timer
+rst30
+		rts
+
 	; rst 38 (vblank)
 	; INTERRUPT MODE 1 handler
 rst38
@@ -3448,13 +3452,26 @@ ghost_eat_process mx %00
 ;1246  5f        ld      e,a		; store into E
 ;1247  1600      ld      d,#00		; clear D
 ;1249  19        add     hl,de		; add.  now HL has the sprite address of the ghost killed
+
+	    lda |num_ghosts_killed
+	    asl
+	    asl
+	    tax
+
 ;124a  3ad14d    ld      a,(#4dd1)	; load A with killed ghost animation state
+	    lda |dead_ghost_anim_state
 ;124d  a7        and     a		; is this ghost killed, showing points per kill ?
 ;124e  2027      jr      nz,#1277        ; no, skip ahead
+	    bne :next
 ;
 ;1250  3ad04d    ld      a,(#4dd0)	; yes, load A with current number of killed ghosts
+	    lda |num_killed_ghosts
 ;1253  0627      ld      b,#27		; B := #27
 ;1255  80        add     a,b		; add together to choose correct sprite (200, 400, 800 or 1600)
+	    clc
+	    adc #$27
+
+	    ; We don't need cocktail stuff
 ;1256  47        ld      b,a		; store result into B
 ;1257  3a724e    ld      a,(#4e72)	; load A with cocktail mode (0=no, 1=yes)
 ;125a  4f        ld      c,a		; copy to C
@@ -3466,31 +3483,50 @@ ghost_eat_process mx %00
 ;1263  cbf8      set     7,b		; set bit 7 of B
 ;
 ;1265  70        ld      (hl),b		; store B into ghost sprite score
+	    sta |allsprite,x
 ;1266  23        inc     hl		; HL now has ghost sprite color
 ;1267  3618      ld      (hl),#18	; store color #18
+	    lda #$18
+	    sta |allsprite+2,x
 ;1269  3e00      ld      a,#00		; A := #00
 ;126b  320b4c    ld      (#4c0b),a	; store into pacman sprite color
+	    stz |pacmancolor
 ;126e  f7        rst     #30		; set timed task to increase killed ghost animation state when a ghost is eaten
 ;126f  4a 03 00				; task timer=#4A, task=3, param=0.  
+	    lda #$034a
+	    ldy #0
+	    jsr rst30
 
 ; arrive here from task table when a ghost has been eaten.  Task #03, arrive from #0246
 
 ;1272  21d14d    ld      hl,#4dd1	; load HL with killed ghost animation state
 ;1275  34        inc     (hl)		; increase to next type
+	    inc |dead_ghost_anim_state
 ;1276  c9        ret     		; return
+	    rts
 
 ; arrive here when score for eating a ghost is set to dissapear
-
+:next
 ;1277: 36 20	ld	(hl),#20	; set ghost sprite to eyes
+	    lda #$20
+	    sta |allsprite,x
 ;1279: 3E 09	ld	a,#09		; load A with #09
+	    lda #9
 ;127B: 32 0B 4C	ld	(#4C0B),a	; store into pacman sprite color to restore pacman to screen
+	    sta |pacmancolor
 ;127E: 3A A4 4D	ld	a,(#4DA4)	; load A with # of ghost killed but no collision for yet
+	    lda |num_ghosts_killed
 ;1281: 32 AB 4D	ld	(#4DAB),a	; store into killing ghost state
+	    sta |killghost_state
 ;1284: AF	xor	a		; A := #00
 ;1285: 32 A4 4D	ld	(#4DA4),a	; store into # of ghost killed but no collision for yet
+	    stz |num_ghosts_killed
 ;1288: 32 D1 4D	ld	(#4DD1),a	; store into killed ghost animation state
+	    stz |dead_ghost_anim_state
 ;128B: 21 AC 4E	ld	hl,#4EAC	; load HL with sound channel 2
 ;128E: CB F6	set	6,(hl)		; play sound for ghost eyes
+	    lda #%01000000
+	    tsb |CH2_E_NUM
 ;1290: C9	ret			; return
 	    rts
 
