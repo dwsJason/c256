@@ -398,6 +398,16 @@ squareA mx %00
 ; B is loaded with code of scoring item
 ;2a5a
 update_score mx %00
+		lda |mainstate
+		cmp #1			; is this the intro mode ?
+		bne :continue
+		; in intro, so skip
+		rts
+
+:continue
+
+; if we probably don't need this yet
+
 		rts
 
 ;------------------------------------------------------------------------------

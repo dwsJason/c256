@@ -2975,6 +2975,7 @@ pm1017      mx %00
 	    jsr normal_ghost_collide
 
 ;103c  cd8917    call    #1789		; check for collision with blue ghosts
+	    jsr blue_ghost_collide
 ;103f  3aa44d    ld      a,(#4da4)	; load A with # of ghost killed but no collision for yet [0..4]
 ;1042  a7        and     a		; is there a collsion ?
 ;1043  c0        ret     nz		; yes, return
@@ -3814,6 +3815,7 @@ normal_ghost_collide mx %00
 ;1762  05        dec     b		; B := #00 , no collision occurred
 	    dey
 :collided
+ghost_collided = *
 ;1763  78        ld      a,b		; load A with ghost # that collided with pacman
 	    tya
 ;1764  32a44d    ld      (#4da4),a	; store
@@ -3866,6 +3868,150 @@ normal_ghost_collide mx %00
 	    rts
 	;; end normal ghost collision detect
 
+;------------------------------------------------------------------------------
+;; blue (edible) ghost collision detect
+;
+; called from #103C
+; 1789
+blue_ghost_collide mx %00
+;1789  3aa44d    ld      a,(#4da4)	; load A with ghost # that collided with pacman (0=no collision)
+	    lda |num_ghosts_killed
+;178c  a7        and     a		; was there a collision ?
+;178d  c0        ret     nz		; yes, return
+	    beq :continue
+:rts
+	    rts
+:continue
+;178e  3aa64d    ld      a,(#4da6)	; no, load A with power pill status
+	    lda |powerpill
+;1791  a7        and     a		; is a power pill active ?
+;1792  c8        ret     z		; no, return
+	    beq :rts
+
+	    sep #$31  ; mxc = 1
+;1793  0e04      ld      c,#04		; else C := #04
+;1795  0604      ld      b,#04		; B := #04
+	    ldy #4
+;1797  dd21084d  ld      ix,#4d08	; load IX with pacman Y position
+;179b  3aaf4d    ld      a,(#4daf)	; load A with orange ghost state
+	    lda |orangeghost_state
+;179e  a7        and     a		; is ghost alive ?
+;179f  2013      jr      nz,#17b4        ; no, skip ahead for next ghost
+	    bne :check_blue
+;
+;17a1  3a064d    ld      a,(#4d06)	; yes, load A with orange ghost Y position
+	    lda |orange_ghost_y
+;17a4  dd9600    sub     (ix+#00)	; subtract pacman's Y position
+	    ; c=1
+	    sbc |pacman_y
+;17a7  b9        cp      c		; <= #04 ?
+	    cmp #4
+;17a8  300a      jr      nc,#17b4        ; no, skip ahead for next ghost
+	    bcc :check_blue
+;
+;17aa  3a074d    ld      a,(#4d07)	; yes, load A with orange ghost X position
+	    lda |orange_ghost_x
+;17ad  dd9601    sub     (ix+#01)	; subtract pacman's X position
+	    sbc |pacman_x
+;17b0  b9        cp      c		; <= #04 ?
+	    cmp #4
+;17b1  da6317    jp      c,#1763		; yes, jump back and set collision
+	    ;bcc :check_blue
+	    ;rep #$30
+	    ;jmp ghost_collided
+	    bcs :collided
+
+:check_blue mx %11
+;17b4  05        dec     b		; B := #03
+	    dey
+;17b5  3aae4d    ld      a,(#4dae)	; load A with blue ghost (inky) state
+	    lda |blueghost_state
+;17b8  a7        and     a		; is inky alive ?
+;17b9  2013      jr      nz,#17ce        ; no, skip ahead for next ghost
+	    bne :check_pink
+;
+;17bb  3a044d    ld      a,(#4d04)	; load A with inky's Y position
+	    lda |blue_ghost_y
+;17be  dd9600    sub     (ix+#00)	; subtract pacman's Y position
+	    sec
+	    sbc |pacman_y
+;17c1  b9        cp      c		; <= #04 ?
+	    cmp #4
+;17c2  300a      jr      nc,#17ce        ; no, skip ahead for next ghost
+	    bcc :check_pink
+;
+;17c4  3a054d    ld      a,(#4d05)	; yes, load A with inky's X position
+	    lda |blue_ghost_x
+;17c7  dd9601    sub     (ix+#01)	; subtract pacman's X position
+	    sbc |pacman_x
+;17ca  b9        cp      c		; <= #04 ?
+	    cmp #4
+;17cb  da6317    jp      c,#1763		; yes, jump back and set collision
+	    bcs :collided
+
+:check_pink mx %11
+;17ce  05        dec     b		; B := #02
+	    dey
+;17cf  3aad4d    ld      a,(#4dad)	; load A with pink ghost state
+	    lda |pinkghost_state
+;17d2  a7        and     a		; is pink ghost alive ?
+;17d3  2013      jr      nz,#17e8        ; no, skip ahead for next ghost
+	    bne :check_red
+;
+;17d5  3a024d    ld      a,(#4d02)	; load A with pink ghost Y position
+	    lda |pink_ghost_y
+;17d8  dd9600    sub     (ix+#00)	; subtract pacman's Y position
+	    sec
+	    sbc |pacman_y
+;17db  b9        cp      c		; <= #04 ?
+	    cmp #4
+;17dc  300a      jr      nc,#17e8        ; no, skip ahead for next ghost
+	    bcc :check_red
+;
+;17de  3a034d    ld      a,(#4d03)	; yes, load A with pink ghost X position
+	    lda |pink_ghost_x
+;17e1  dd9601    sub     (ix+#01)	; subtract pacman's X position
+	    sbc |pacman_x
+;17e4  b9        cp      c		; <= #04 ?
+	    cmp #4
+;17e5  da6317    jp      c,#1763		; yes, jump back and set collision
+	    bcs :collided
+:check_red mx %11
+;17e8  05        dec     b		; B := #01
+	    dey
+;17e9  3aac4d    ld      a,(#4dac)	; load A with red ghost state
+	    lda |redghost_state
+;17ec  a7        and     a		; is red ghost alive ?
+;17ed  2013      jr      nz,#1802        ; no, skip ahead
+	    bne :red_dead
+;
+;17ef  3a004d    ld      a,(#4d00)	; yes, load A with red ghost Y position
+	    lda |red_ghost_y
+;17f2  dd9600    sub     (ix+#00)	; subtract pacman's Y position
+	    sec
+	    sbc |pacman_y
+;17f5  b9        cp      c		; <= #04 ?
+	    cmp #4
+;17f6  300a      jr      nc,#1802        ; no, skip ahead
+	    bcc :red_dead
+;
+;17f8  3a014d    ld      a,(#4d01)	; yes, load A with red ghost X position
+	    lda |red_ghost_x
+;17fb  dd9601    sub     (ix+#01)	; subtract pacman's X position
+	    sbc |pacman_x
+;17fe  b9        cp      c		; <= #04 ?
+	    cmp #4
+;17ff  da6317    jp      c,#1763		; yes, jump back and set collision
+	    bcs :collided
+:red_dead
+;1802  05        dec     b		; else no collision ; B := #00
+	    dey
+;1803  c36317    jp      #1763		; jump back and set collision
+:collided
+	    rep #$31
+	    jmp ghost_collided
+
+	; end of blue ghost collision detection
 
 ;------------------------------------------------------------------------------
 ; called from #10C0 and several other places
