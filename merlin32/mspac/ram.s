@@ -268,23 +268,40 @@ current_try_orientation dw 0
 
 ;	4d46-4d85 	speed bit patterns (difficulty dependant)
 ;	4D46-4D49       speed bit patterns for pacman in normal state
+speedbit_normal ds 4
 ;	4D4A-4D4D       speed bit patterns for pacman in big pill state
+speedbit_bigpill ds 4
 ;	4D4E-4D51       speed bit patterns for second difficulty flag
+speedbit_difficult2 ds 4
 ;	4D52-4D55       speed bit patterns for first difficulty flag
+speedbit_difficult ds 4
 ;	4D56-4D59       speed bit patterns for red ghost normal state
+speedbit_red_normal ds 4
 ;	4D5A-4D5D       speed bit patterns for red ghost blue state
+speedbit_red_blue ds 4
 ;	4D5E-4D61       speed bit patterns for red ghost tunnel areas
+speedbit_red_tunnel ds 4
 ;	4D62-4D65       speed bit patterns for pink ghost normal state
+speedbit_pink_normal ds 4
 ;	4D66-4D69       speed bit patterns for pink ghost blue state
+speedbit_pink_blue ds 4
 ;	4D6A-4D6D       speed bit patterns for pink ghost tunnel areas
+speedbit_pink_tunnel ds 4
 ;	4D6E-4D71       speed bit patterns for blue ghost normal state
+speedbit_blue_normal ds 4
 ;	4D72-4D75       speed bit patterns for blue ghost blue state
+speedbit_blue_blue ds 4
 ;	4D76-4D79       speed bit patterns for blue ghost tunnel areas
+speedbit_blue_tunnel ds 4
 ;	4D7A-4D7D       speed bit patterns for orange ghost normal state
+speedbit_orange_normal ds 4
 ;	4D7E-4D81       speed bit patterns for orange ghost blue state
+speedbit_orange_blue ds 4
 ;	4D82-4D83       speed bit patterns for orange ghost tunnel areas
+speedbit_orange_tunnel ds 4
 ;
 ;	4d86-4d93
+orientation_changes ds 8*2
 ;	    Difficulty related table. Each entry is 2 bytes, and
 ;	    contains a counter value.  when the counter at 4DC2
 ;	    reaches each entry value, the ghosts changes their
@@ -313,6 +330,8 @@ home_counter4 dw 0  ;4d98
 ;		0x01	when eating pill
 ;		0x06	when eating big pill
 ;		0xff	when not eating a pill
+move_delay dw 0
+
 ;	4d9e	related to number of pills eaten before last pacman move
 RTNOPEBLPM dw 0
 ;	4d9f	eaten pills counter after pacman has died in a level
@@ -400,14 +419,18 @@ pacman_change_dir dw 0
 ;	4dbd-4dbe Time the ghosts stay blue when pacman eats a big pill
 ;
 ;	4dbf	1=pacman about to enter a tunnel, otherwise 0
-;
+pacman_enter_tunnel dw 0
 ; Counters
 ;
 ;	4dc0	changes every 8 frames; used for ghost animations
+ghost_anim_counter dw 0
 ;	4dc1	orientation changes index [0..7]. used to get value 4d86-4d93
+orientation_changes_index dw 0
 ;		0: random ghost movement, 1: normal movement (?)
 ;	4dc2-4dc3 counter related to ghost orientation changes
+ghost_orientation_counter dw 0
 ;	4dc4	counter 0..8 to handle things once every 8 times
+counter8 dw 0
 ;	4dc5-4dc6 counter started after pacman killed
 pacman_dead_counter dw 0
 
@@ -632,4 +655,29 @@ CH1_W_VOL       EQU     4edb
 ;	4FF0-4FFF	Sprite RAM
 
 
+;	5000	IN0	; When Nothing pressed 			#FF
+;			; Joystick 1 UP clears bit 0		#FE
+;			; Joystick 1 LEFT clears bit 1		#FD
+;			; Joystick 1 RIGHT clears bit 2		#FB
+;			; Joystick 1 DOWN clears bit 3		#F7
+;			; Rack test clears bit 4		#EF
+;			; Coin 1 inserted clears bit 5		#DF
+;			; Coin 2 inserted clears bit 6		#BF
+;			; Service 1 pressed clears bit 7	#7F
+IN0	dw $FFFF
+
+;	5040	IN1	; When Nothing pressed			#FF
+;			; Joystick 2 UP clears bit 0		#FE
+;			; Joystick 2 LEFT clears bit 1		#FD
+;			; Joystick 2 RIGHT clears bit 2		#FB
+;			; Joystick 2 DOWN clears bit 3		#F7
+;			; service mode switch clears bit 4	#EF
+;			; Player 1 start button clears bit 5	#DF
+;			; Player 2 start button clears bit 6	#BF
+;			; Cocktail cabinet DIP clears bit 7	#7F
+IN1 dw $FFFF
+
+;	5080	DSW 1	; controls free play/coins per credit, # of lives per game, 
+;			; points needed for bonus, rack test, game freeze
+DSW1 dw 0
 

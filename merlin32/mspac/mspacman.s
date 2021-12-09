@@ -2977,10 +2977,13 @@ pm1017      mx %00
 ;103c  cd8917    call    #1789		; check for collision with blue ghosts
 	    jsr blue_ghost_collide
 ;103f  3aa44d    ld      a,(#4da4)	; load A with # of ghost killed but no collision for yet [0..4]
+	    lda |num_ghosts_killed
 ;1042  a7        and     a		; is there a collsion ?
 ;1043  c0        ret     nz		; yes, return
+	    beq :rts
 ;
 ;1044  cd0618    call    #1806		; handle all pac-man movement
+	    jsr pacman_movement
 ;1047  cd361b    call    #1b36		; control movement for red ghost
 ;104a  cd4b1c    call    #1c4b		; control movement for pink ghost
 ;104d  cd221d    call    #1d22		; control movement for blue ghost (inky)
@@ -2993,7 +2996,7 @@ pm1017      mx %00
 ;105c  cd6920    call    #2069		; check for pink ghost to leave the ghost house
 ;105f  cd8c20    call    #208c		; check for blue ghost (inky) to leave the ghost house
 ;1062  cdaf20    call    #20af		; check for orange ghost to leave the ghost house
-
+:rts
 	    rts
 
 ;------------------------------------------------------------------------------
@@ -4012,6 +4015,621 @@ blue_ghost_collide mx %00
 	    jmp ghost_collided
 
 	; end of blue ghost collision detection
+
+;------------------------------------------------------------------------------
+; called from #1044
+;1806
+pacman_movement mx %00
+;1806  219d4d    ld      hl,#4d9d	; load HL with address of delay to update pacman movement
+;1809  3eff      ld      a,#ff		; A := #FF = code for no delay
+	    lda |move_delay
+
+
+	; Hack code:
+	; 1809  c3c01f	jp	#1fc0		; Intermission fast fix ; HACK8 (1 of 3)
+	; 1809  c3d01f	jp	#1fd0		; P1P2 cheat  ; HACK3
+	; 1809  c34c0f	jp	#0f4c		; pause cheat ; HACK5
+	; end hack code
+
+
+;180b  be        cp      (hl)		; is pacman slow due to the eating of a pill ?
+	    cmp #$ffff
+
+	; Hack code
+	; set 0xbe to 0x01 for fast cheat.	; HACK2 (1 of 2)
+	; 180b  01
+	;		i'm not entirely sure how this works.  it mangles
+	;		the opcodes starting at 180b to be:
+	;
+	;	    080b 01ca11    ld      bc,11cah
+	;	    080e 1835      jr      1845h
+	;	    0810 c9        ret     
+	;
+	;	which makes little to no sense, but it works
+
+
+	; end hack code
+
+;180c  ca1118    jp      z,#1811		; no, skip ahead
+	    beq :no_delay
+;180f  35        dec     (hl)		; yes, decrement the counter to delay pacman movement
+	    dec
+	    sta |move_delay
+:rts
+;1810  c9        ret     		; return without movement
+	    rts
+:no_delay
+;1811  3aa64d    ld      a,(#4da6)	; load A with power pill effect (1=active, 0=no effect)
+	    lda |powerpill
+;1814  a7        and     a		; is a power pill active ?
+;1815  ca2f18    jp      z,#182f		; no, skip ahead
+	    beq :no_powerpill
+
+; movement when power pill active
+
+;1818  2a4c4d    ld      hl,(#4d4c)	; yes, load HL with speed bit patterns for pacman in power pill state (low bytes)
+	    lda |speedbit_bigpill+2
+;181b  29        add     hl,hl		; double
+	    asl
+;181c  224c4d    ld      (#4d4c),hl	; store result
+	    sta |speedbit_bigpill+2
+;181f  2a4a4d    ld      hl,(#4d4a)	; load HL with speed bit patterns for pacman in power pill state (high bytes)
+	    lda |speedbit_bigpill
+;1822  ed6a      adc     hl,hl		; double, with the carry = we have doubled the speed
+	    asl
+;1824  224a4d    ld      (#4d4a),hl	; store result. have we reached the threshold ?
+	    sta |speedbit_bigpill
+;1827  d0        ret     nc		; no, return
+	    bcc :rts
+
+;1828  214c4d    ld      hl,#4d4c	; yes, load HL with speed bit patterns for pacman in power pill state (low bytes)
+;182b  34        inc     (hl)		; increase
+	    inc |speedbit_bigpill+2
+;182c  c34318    jp      #1843		; skip ahead to move pacman
+	    bra  :all_pac_move
+
+; movement when power pill not active
+:no_powerpill
+;182f  2a484d    ld      hl,(#4d48)	; load HL with speed for pacman in normal state (low bytes)
+	    lda |speedbit_normal+2
+;1832  29        add     hl,hl		; double
+	    asl
+;1833  22484d    ld      (#4d48),hl	; store result
+	    sta |speedbit_normal+2
+;1836  2a464d    ld      hl,(#4d46)	; load HL with speed for pacman in normal state (high bytes)
+	    lda |speedbit_normal
+;1839  ed6a      adc     hl,hl		; double with carry
+	    asl
+;183b  22464d    ld      (#4d46),hl	; store result.  is it time for pacman to move?
+	    sta |speedbit_normal
+;183e  d0        ret     nc		; no, return.  pacman will be idle this time.
+	    bcc :rts
+
+;183f  21484d    ld      hl,#4d48	; yes, load HL with speed for pacman in normal state (low byte)
+;1842  34        inc     (hl)		; increase by one
+	    inc |speedbit_normal+2
+
+; all pacman movement
+:all_pac_move
+;1843  3a0e4e    ld      a,(#4e0e)	; load A with number of pills eaten in this level
+	    lda |dotseat
+;1846  329e4d    ld      (#4d9e),a	; store into counter related to number of pills eaten before last pacman move
+	    sta |RTNOPEBLPM
+;1849  3a724e    ld      a,(#4e72)	; load A with cocktail mode (0=no, 1=yes)
+;184c  4f        ld      c,a		; copy to C
+;184d  3a094e    ld      a,(#4e09)	; load A with current player number:  0=P1, 1=P2
+;1850  a1        and     c		; mix together
+;1851  4f        ld      c,a		; copy to C.  This is checked at #1879 and #18BB
+;1852  213a4d    ld      hl,#4d3a	; load HL with address of pacman X tile position 
+;1855  7e        ld      a,(hl)		; load A with pacman X tile position
+	    lda |pacman_tile_pos_x
+	    and #$FF
+;1856  0621      ld      b,#21		; B := #21
+;1858  90        sub     b		; subtract.  is pacman past the right edge of the screen?
+	    cmp #$21
+;1859  3809      jr      c,#1864         ; yes, skip ahead to handle tunnel movement
+	    bcs :yes_tunnel
+
+;185b  7e        ld      a,(hl)		; load A with pacman X tile position
+	    lda |pacman_tile_pos_x
+	    and #$FF
+;185c  063b      ld      b,#3b		; B := #3B
+;185e  90        sub     b		; subtract. is pacman pas the left edge of the screen?
+	    cmp #$3B
+;185f  3003      jr      nc,#1864        ; yes, skip ahead to handle tunnel movement
+	    ;bcc :yes_tunnel
+;1861  c3ab18    jp      #18ab		; no tunnel movement.  jump ahead to handle normal movement
+	    bcs :normal_move
+
+; this sub is only called while player is in a tunnel
+:yes_tunnel
+;1864  3e01      ld      a,#01		; A := #01
+	    lda #1
+;1866  32bf4d    ld      (#4dbf),a	; store into pacman about to enter a tunnel flag
+	    sta |pacman_enter_tunnel
+
+;1869  3a004e    ld      a,(#4e00)	; load A with game state
+	    lda |mainstate
+;186c  fe01      cp      #01		; are we in demo mode ?
+	    cmp #1
+;186e  ca191a    jp      z,#1a19		; yes, skip ahead [ zero this instruction to NOP's to enable playing in demo mode (part 1/2) ] 
+	    beq :demo_mode
+
+;1871  3a044e    ld      a,(#4e04)	; else load A with subroutine #
+	    lda |levelstate
+;1874  fe10      cp      #10		; <=#10 ?
+	    cmp #$10
+;1876  d2191a    jp      nc,#1a19	; no, skip ahead
+	    ;bcc :continue
+	    bcs :demo_mode
+
+;1879  79        ld      a,c		; load A with mix of cocktail mode and player number, created above at #1849-#1851
+;187a  a7        and     a		; is this player 2 and cocktail mode ?
+;187b  2806      jr      z,#1883         ; No, skip ahead and check IN0
+
+; check player 1 or player 2 input
+; the program jumps to one of two locations to check
+; player input based on whether it's player 1 or player 2 currently playing, and cocktail mode is enabled
+; if player 2 is playing and cocktail mode enabled, 187b will fall through to 187d.
+; if player 1 is playing or cocktail mode is disabled, 187b will jump to 1883 
+
+;187d  3a4050    ld      a,(#5040)	; else load A with IN1 (player 2)
+;1880  c38618    jp      #1886		; skip ahead
+
+;1883  3a0050    ld      a,(#5000)	; load A with IN0 (player 1)
+		lda |IN1
+;1886  cb4f      bit     1,a		; is joystick pushed to left?
+		bit #$0001
+;1888  c29918    jp      nz,#1899	; no, skip ahead
+		bne :not_left
+
+;188b  2a0333    ld      hl,(#3303)	; yes, load HL with move left tile change
+		ldx |move_left
+;188e  3e02      ld      a,#02		; A := #02
+		lda #2
+;1890  32304d    ld      (#4d30),a	; store into pac orientation
+		sta |pacman_dir
+;1893  221c4d    ld      (#4d1c),hl	; store HL into pacman Y tile changes (A)
+		stx |pacman_tchangeA_y
+;1896  c35019    jp      #1950		; jump back to program
+		bra :do_move
+
+:not_left
+;1899  cb57      bit     2,a		; is joystick pushed to right?
+;189b  c25019    jp      nz,#1950	; no, skip ahead
+
+;189e  2aff32    ld      hl,(#32ff)	; load HL with move right tile change
+;18a1  af        xor     a		; A := #00
+;18a2  32304d    ld      (#4d30),a	; store into pac orientation
+;18a5  221c4d    ld      (#4d1c),hl	; store HL into pacman Y tile changes (A)
+;18a8  c35019    jp      #1950		; jump back to program
+
+; arrive here via #1861, this handles normal (not tunnel) movement
+:normal_move
+;18ab  3a004e    ld      a,(#4e00)	; load A with game state
+;18ae  fe01      cp      #01		; are we in demo mode ?
+;18b0  ca191a    jp      z,#1a19		; yes, skip ahead [ zero this instruction into NOP's to enable playable demo mode, (part 2/2) ]
+
+;18b3  3a044e    ld      a,(#4e04)	; else load A with subroutine #
+;18b6  fe10      cp      #10		; <= #10 ?
+;18b8  d2191a    jp      nc,#1a19	; no, skip ahead
+
+;18bb  79        ld      a,c		; A := C
+;18bc  a7        and     a		; is this player 2 and cocktail mode ?
+;18bd  2806      jr      z,#18c5         ; yes, skip next 2 steps
+
+; p1/p2 check.  see 187b above for info.
+
+	; p2 movement check
+
+;18bf  3a4050    ld      a,(#5040)	; load A with IN1
+;18c2  c3c818    jp      #18c8		; skip next step
+
+	; p1 movement check
+
+;18c5  3a0050    ld      a,(#5000)	; load A with IN0
+
+;18c8  cb4f      bit     1,a		; joystick pressed left?
+;18ca  cac91a    jp      z,#1ac9		; yes, jump to process
+
+;18cd  cb57      bit     2,a		; joystick pressed right?
+;18cf  cad91a    jp      z,#1ad9		; yes, jump to process
+
+;18d2  cb47      bit     0,a		; joystick pressed up?
+;18d4  cae81a    jp      z,#1ae8		; yes, jump to process
+
+;18d7  cb5f      bit     3,a		; joystick pressed down?
+;18d9  caf81a    jp      z,#1af8		; yes, jump to process
+
+	; no change in movement - joystick is centered
+
+;18dc  2a1c4d    ld      hl,(#4d1c)	; load HL with pacman tile change
+;18df  22264d    ld      (#4d26),hl	; store into wanted pacman tile changes
+;18e2  0601      ld      b,#01		; B := #01 - this codes that the joystick was not moved
+
+	; movement checks return to here
+
+;18e4  dd21264d  ld      ix,#4d26	; load IX with wanted pacman tile changes
+;18e8  fd21394d  ld      iy,#4d39	; load IY with pacman tile position
+;18ec  cd0f20    call    #200f		; load A with screen value of position computed in (IX) + (IY)
+;18ef  e6c0      and     #c0		; mask bits
+;18f1  d6c0      sub     #c0		; subtract.  is the maze blocking pacman from moving this way?
+;18f3  204b      jr      nz,#1940        ; no, skip ahead
+
+;18f5  05        dec     b		; yes, was the joystick moved ?
+;18f6  c21619    jp      nz,#1916	; yes, skip ahead
+
+;18f9  3a304d    ld      a,(#4d30)	; no, load A with pacman orientation
+;18fc  0f        rrca    		; roll right with carry.  is pacman moving either up or down?
+;18fd  da0b19    jp      c,#190b		; yes, skip next 5 steps
+
+;1900  3a094d    ld      a,(#4d09)	; no, load A with pacman X position
+;1903  e607      and     #07		; mask bits, now between 0 and 7
+;1905  fe04      cp      #04		; == #04 ?  (In center of tile ?)
+;1907  c8        ret     z		; yes, return
+
+;1908  c34019    jp      #1940		; else skip ahead
+
+;190b  3a084d    ld      a,(#4d08)	; load A with pacman Y position
+;190e  e607      and     #07		; mask bits, now between 0 and 7
+;1910  fe04      cp      #04		; == #04 ? (In center of tile ?)
+;1912  c8        ret     z		; yes, return
+
+;1913  c34019    jp      #1940		; no, skip ahead
+
+;1916  dd211c4d  ld      ix,#4d1c	; load IX with pacman Y,X tile changes 
+;191a  cd0f20    call    #200f		; load A with screen value of position computed in (IX) + (IY)
+;191d  e6c0      and     #c0		; mask bits
+;191f  d6c0      sub     #c0		; subtract.  is the maze blocking pacman from moving this way?
+;1921  202d      jr      nz,#1950        ; no, skip ahead
+
+; code seems to be why pacman turns corners fast.  it gives an extra boost to the new direction
+
+;1923  3a304d    ld      a,(#4d30)	; yes, load A with pacman orientation
+;1926  0f        rrca    		; roll right with carry.  is pacman moving either up or down ?
+;1927  da3519    jp      c,#1935		; yes, skip next 5 steps
+
+;192a  3a094d    ld      a,(#4d09)	; no, load A with pacman X position
+;192d  e607      and     #07		; mask bits, now between 0 and 7
+;192f  fe04      cp      #04		; == #04 ? ( In center of tile ? )
+;1931  c8        ret     z		; yes, return
+
+;1932  c35019    jp      #1950		; no, skip ahead
+
+;1935  3a084d    ld      a,(#4d08)	; load A with pacman Y position
+;1938  e607      and     #07		; mask bits, now between 0 and 7
+;193a  fe04      cp      #04		; == #04 ( In center of tile?)
+;193c  c8        ret     z		; yes, return
+
+;193d  c35019    jp      #1950		; no, jump ahead
+
+; arrive when changing direction (???)
+
+;1940  2a264d    ld      hl,(#4d26)	; load HL with wanted pacman tile changes
+;1943  221c4d    ld      (#4d1c),hl	; store into pacman tile changes
+;1946  05        dec     b		; was the joystick moved?
+;1947  ca5019    jp      z,#1950		; no, skip ahead
+
+;194a  3a3c4d    ld      a,(#4d3c)	; yes, load A with wanted pacman orientation
+;194d  32304d    ld      (#4d30),a	; store into pacman orientation
+:do_move
+;1950  dd211c4d  ld      ix,#4d1c	; load IX with pacman Y,X tile changes
+;1954  fd21084d  ld      iy,#4d08	; load IY with pacman position
+;1958  cd0020    call    #2000		; HL := (IX) + (IY)
+;195b  3a304d    ld      a,(#4d30)	; load A with pacman orientation
+;195e  0f        rrca    		; roll right, is pacman moving either up or down ?
+;195f  da7519    jp      c,#1975		; yes, skip ahead
+
+;1962  7d        ld      a,l		; load A with X position of new location
+;1963  e607      and     #07		; mask bits, now between 0 and 7
+;1965  fe04      cp      #04		; == #04 ( in center of tile ?)
+;1967  ca8519    jp      z,#1985		; yes, skip ahead
+
+;196a  da7119    jp      c,#1971		; was the last comparison less than #04 ?, if yes, skip next 2 steps
+
+; cornering up to the left or up to the right
+
+;196d  2d        dec     l		; lower the X position
+;196e  c38519    jp      #1985		; skip ahead
+
+; cornering right from down , cornering left from down
+
+;1971  2c        inc     l		; else increase the X position
+;1972  c38519    jp      #1985		; skip ahead
+
+; handle up/down movement turns
+
+;1975  7c        ld      a,h		; load A with Y position of new loctaion
+;1976  e607      and     #07		; mask bits, now between 0 and 7
+;1978  fe04      cp      #04		; == #04 ( in center of tile ?)
+;197a  ca8519    jp      z,#1985		; yes, skip ahead
+
+;197d  da8419    jp      c,#1984		; was the last comparison less than #04 ?, if yes, skip next 2 steps
+
+; cornering up from the left side, or down from the left side
+
+;1980  25        dec     h		; else lower the Y position 
+;1981  c38519    jp      #1985		; skip ahead
+
+; arrive here when cornering up from the right side
+; or when cornering down from the right side
+
+;1984  24        inc     h		; increase the Y position
+
+; arrive here from several locations
+; HL has the expected new position of a sprite
+
+;1985  22084d    ld      (#4d08),hl	; store the new sprite position into pacman position
+;1988  cd1820    call    #2018		; convert sprite position into a tile position
+;198b  22394d    ld      (#4d39),hl	; store tile position into pacman's tile position
+;198e  dd21bf4d  ld      ix,#4dbf	; load IX with tunnel indicator address
+;1992  dd7e00    ld      a,(ix+#00)	; load A with tunnel indiacator.  1=pacman in a tunnel
+;1995  dd360000  ld      (ix+#00),#00	; clear the tunnel indicator
+;1999  a7        and     a		; is pacman in a tunnel ?
+;199a  c0        ret     nz		; yes, return
+
+; check for items eaten
+
+;199B: 3A D2 4D	ld	a,(#4DD2)	; load A with fruit position
+;199E: A7	and	a		; == #00 ?
+;199F: 28 2C	jr	z,#19CD		; yes, skip ahead
+
+;19A1: 3A D4 4D	ld	a,(#4DD4)	; else load A with entry to fruit points, or 0 if no fruit
+;19A4: A7	and	a		; == #00 ?
+;19A5: 28 26	jr	z,#19CD		; yes, skip ahead
+
+; else check for fruit to be eaten
+
+;19A7: 2A 08 4D	ld	hl,(#4D08)	; load HL with pacman Y position
+;19AA: 11 94 80	ld	de,#8094	; load DE with #8094 (why?  on jump DE is loaded with new values.  this is junk from pac-man)
+
+; OTTOPATCH
+;PATCH TO MAKE THE PACMAN AWARE OF THE CHANGING POSITION OF THE FRUIT
+;ORG 19ADH
+;JP EATFRUIT
+;19AD: C3 18 88	jp	#8818		; MS Pac-man patch. jump to check for fruit being eaten
+
+;19B0: 20 1B	jr	nz,#19CD	; junk from pac-man
+
+; arrive here when fruit is eaten
+
+;19B2: 06 19	ld	b,#19		; else a fruit is eaten.  load B with task #19
+;19B4: 4F	ld	c,a		; load C with task from A register
+;19B5: CD 42 00	call	#0042		; set task #19 with parameter variable A.  updates score.  B has code for items scored, draw score on screen, check for high score and extra lives
+;19B8: CD 00 10	call	#1000		; clear fruit.  clears #4DD4 and returns
+;19BB: 18 07	jr	#19C4		; skip ahead.  a fruit has been eaten
+
+; Pac man code:
+; 19b8  0e15      ld      c,#15
+; 19ba  81        add     a,c
+; 19bb  4f        ld      c,a
+; 19bc  061c      ld      b,#1c
+; end pac-man code
+
+
+;19BD: 1C				; junk from pac-man
+;19BE: CD 42 00	call	#0042		; pac-man only
+;19C1: CD 04 10	call	#1004		; pac-man only
+
+;19C4: F7	rst	#30		; set timed task to clear the fruit score sprite
+;19C5: 54 05 00				; timer=54, task=5, param=0
+
+;19C8: 21 BC 4E	ld	hl,#4EBC	; load HL with voice 3 address
+;19CB: CB D6	set	2,(hl)		; set up fruit eating sound.
+
+; arrive here when no fruit eaten from fruit eating check subroutine
+
+;19CD: 3E FF	ld	a,#FF		; load A with #FF
+;19CF: 32 9D 4D	ld	(#4D9D),a	; store into delay to update pacman movement
+;19D2: 2A 39 4D	ld	hl,(#4D39)	; load HL with pacman's position
+;19D5: CD 65 00	call	#0065		; load HL with pacman's grid position
+;19D8: 7E	ld	a,(hl)		; load A with item on grid
+;19D9: FE 10	cp	#10		; is a dot being eaten ?
+;19DB: 28 03	jr	z,#19E0		; yes, skip ahead
+
+;19DD: FE 14	cp	#14		; else is an energizer being eaten?
+;19DF: C0	ret	nz		; no, return
+
+; arrive here when a dot or energizer has been eaten
+; A has either #10 or #14 loaded
+
+;19E0: DD210E4E	ld	ix,#4E0E	; else load number of pills eaten in this level
+;19E4: DD 34 00	inc	(ix+#00)	; increase
+;19E7: E6 0F	and	#0F		; mask bits.  If a dot is eaten, A is now #00.  Energizer, A is now #04
+;19E9: CB 3F	srl	a		; shift right (div by 2)
+;19EB: 06 40	ld	b,#40		; load B with #40 (clear graphic)
+;19ED: 70	ld	(hl),b		; update maze to clear the dot that has been eaten
+;19EE: 06 19	ld	b,#19		; load B with #19 for task call below
+;19F0: 4F	ld	c,a		; load C with A (either #00 or #02)
+;19F1: CB 39	srl	c		; shift right (div by 2).  now C is either #00 or #01
+;19F3: CD 42 00	call	#0042		; set task #19 with variable parameter
+
+; task #19 will update score.  B has code for items scored, draw score on screen, check for high score and extra lives
+
+;19F6: 3C	inc	a		; A := A + 1.  A is now either 1 or 3
+;19F7: FE 01	cp	#01		; was a dot just eaten?
+;19F9: CA FD 19	jp	z,#19FD		; yes, skip next step
+
+;19FC: 87	add  a,a		; else it was an energizer. double A to 6
+
+;19FD: 32 9D 4D	ld	(#4D9D),a	; store A to delay update pacman movement
+;1A00: CD 08 1B	call	#1B08		; update timers for ghosts to leave ghost house
+;1A03: CD 6A 1A	call	#1A6A		; check for energizer eaten
+;1A06: 21 BC 4E	ld	hl,#4EBC	; load HL with sound #3
+;1A09: 3A 0E 4E	ld	a,(#4E0E)	; load A with number of pills eaten in this level
+;1A0C: 0F	rrca			; roll right
+;1A0D: 38 05	jr	c,#1A14		; if carry then use other sound pattern
+
+;1A0F: CB C6	set	0,(hl)		; else set sound bit 0
+;1A11: CB 8E	res	1,(hl)		; clear sound bit 1
+;1A13: C9	ret			; return
+	    rts
+;1A14: CB 86	res	0,(hl)		; clear sound bit 0
+;1A16: CB CE	set	1,(hl)		; set sound bit 1
+;1A18: C9	ret			; return     
+	    rts
+; arrive here from #18b0 when game is in demo mode
+;1A19
+:demo_mode
+;1a19  211c4d    ld      hl,#4d1c	; load HL with pacman Y tile changes (A) location
+;1a1c  7e        ld      a,(hl)		; load A pacman Y tile changes (A)
+;1a1d  a7        and     a		; == #00 ?  is pacman moving left-right ?
+;1a1e  ca2e1a    jp      z,#1a2e		; yes, skip ahead
+;
+;1a21  3a084d    ld      a,(#4d08)	; else load A with pacman Y position
+;1a24  e607      and     #07		; mask bits, now between 0 and 7
+;1a26  fe04      cp      #04		; == #04?
+;1a28  ca381a    jp      z,#1a38		; yes, skip ahead
+;1a2b  c35c1a    jp      #1a5c		; else jump ahead
+;
+;1a2e  3a094d    ld      a,(#4d09)	; load A with pacman X position
+;1a31  e607      and     #07		; mask bits, now between 0 and 7
+;1a33  fe04      cp      #04		; == #04 ?
+;1a35  c25c1a    jp      nz,#1a5c	; no, skip ahead
+;
+;1a38  3e05      ld      a,#05		; yes, A := #05. sets up call below to check if pacman is using tunnel in demo
+;1a3a  cdd01e    call    #1ed0		; if using tunnel, set carry flag
+;1a3d  3803      jr      c,#1a42		; is pacman in tunnel?  no, skip next 2 steps
+;1a3f  ef        rst     #28		; insert task to control pacman AI during demo mode.
+;1a40  17 00				; task #17, parameter #00
+;
+;1a42  dd21264d  ld      ix,#4d26	; load IX with wanted pacman tile changes
+;1a46  fd21124d  ld      iy,#4d12	; load IY with pacman tile pos in demo and cut scenes
+;1a4a  cd0020    call    #2000		; load HL with new position of pacman
+;1a4d  22124d    ld      (#4d12),hl	; store new position into pacman tile position in demo and cut scenes
+;1a50  2a264d    ld      hl,(#4d26)	; load HL with wanted pacman tile changes
+;1a53  221c4d    ld      (#4d1c),hl	; store into pacman tile changes (Y,X)
+;1a56  3a3c4d    ld      a,(#4d3c)	; load A with wanted pacman orientation
+;1a59  32304d    ld      (#4d30),a	; store into pacman orientation
+;
+;1a5c  dd211c4d  ld      ix,#4d1c	; load IX with pacman tile changes (Y,X)
+;1a60  fd21084d  ld      iy,#4d08	; load IY with pacman position (Y,X) address
+;1a64  cd0020    call    #2000		; load HL with new position of pacman
+;1a67  c38519    jp      #1985		; jump to movement check
+;
+;; called from #1A03 after a dot has been eaten
+;
+;1a6a  3a9d4d    ld      a,(#4d9d)	; load A with dot just eaten
+;1a6d  fe06      cp      #06		; was it an energizer?
+;1a6f  c0        ret     nz		; no, return
+;
+;; else an engergizer has been eaten
+;; this is also called even on boards where energizers have "no effect"
+;
+;1A70: 2A BD 4D	ld	hl,(#4DBD)	; load HL with time the ghosts stay blue when pacman eats a big pill
+;1a73  22cb4d    ld      (#4dcb),hl	; store into counter used while ghosts are blue
+;1a76  3e01      ld      a,#01		; A := #01
+;1a78  32a64d    ld      (#4da6),a	; set power pill to active
+;1a7b  32a74d    ld      (#4da7),a	; set red ghost blue flag
+;1a7e  32a84d    ld      (#4da8),a	; set pink ghost blue flag
+;1a81  32a94d    ld      (#4da9),a	; set inky blue flag
+;1a84  32aa4d    ld      (#4daa),a	; set orange ghost blue flag
+;1a87  32b14d    ld      (#4db1),a	; set red ghost change orientation flag
+;1a8a  32b24d    ld      (#4db2),a	; set pink ghost change orientation flag
+;1a8d  32b34d    ld      (#4db3),a	; set blue ghost (inky) change orientation flag
+;1a90  32b44d    ld      (#4db4),a	; set orange ghost change orientation flag
+;1a93  32b54d    ld      (#4db5),a	; set pacman change orientation flag (?)
+;1a96  af        xor     a		; A := #00
+;1a97  32c84d    ld      (#4dc8),a	; clear counter used to change ghost colors under big pill effects
+;1a9a  32d04d    ld      (#4dd0),a	; clear current number of killed ghosts (used for scoring)
+;1a9d  dd21004c  ld      ix,#4c00	; load IX with start of sprites address
+;1aa1  dd36021c  ld      (ix+#02),#1c	; set red ghost sprite to edible
+;1aa5  dd36041c  ld      (ix+#04),#1c	; set pink ghost sprite to edible
+;1aa9  dd36061c  ld      (ix+#06),#1c	; set inky sprite to edible
+;1aad  dd36081c  ld      (ix+#08),#1c	; set orange ghost sprite to edible
+;
+;1ab1  dd360311  ld      (ix+#03),#11	; set red ghost color to blue
+;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Patch to fix the green-eye bug
+;; by Don Hodges 1/19/2009
+;; part 1/2 (rest at #1FB0):
+;;
+;; 1AB1 C3B01F	JP	#1FB0		; jump to new sub to only color ghosts when enough time
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+;
+;1ab5  dd360511  ld      (ix+#05),#11	; set pink ghost color to blue
+;1ab9  dd360711  ld      (ix+#07),#11	; set inky color to blue
+;1abd  dd360911  ld      (ix+#09),#11	; set orange ghost color to blue
+;
+;1AC1: 21 AC 4E	ld	hl,#4EAC	; load HL with sound channel 2
+;1AC4: CB EE	set	5,(hl)		; play sound bit 5
+;1AC6: CB BE	res	7,(hl)		; clear sound bit 7
+;1AC8: C9	ret			; return
+;
+;	; Player move Left
+;
+;1ac9  2a0333    ld      hl,(#3303)	; load HL with tile movement left
+;1acc  3e02      ld      a,#02		; load A with code for moving left
+;1ace  323c4d    ld      (#4d3c),a	; store into wanted pacman orientation
+;1ad1  22264d    ld      (#4d26),hl	; store into wanted pacman tile changes
+;1ad4  0600      ld      b,#00		; B := #00
+;1ad6  c3e418    jp      #18e4		; return to program
+;
+;	; player move Right
+;
+;1ad9  2aff32    ld      hl,(#32ff)	; load HL with tile movement right
+;1adc  af        xor     a		; A := #00, code for moving right
+;1add  323c4d    ld      (#4d3c),a	; store into wanted pacman orientation
+;1ae0  22264d    ld      (#4d26),hl	; store into wanted pacman tile changes 
+;1ae3  0600      ld      b,#00		; B := #00
+;1ae5  c3e418    jp      #18e4		; return to program
+;
+;	; player move Up
+;
+;1ae8  2a0533    ld      hl,(#3305)	; load HL with tile movement up
+;1aeb  3e03      ld      a,#03		; load A with code for moving up
+;1aed  323c4d    ld      (#4d3c),a	; store into wanted pacman orientation
+;1af0  22264d    ld      (#4d26),hl	; store into wanted pacman tile changes
+;1af3  0600      ld      b,#00		; B := #00
+;1af5  c3e418    jp      #18e4		; return to program
+;
+;	; player move Down
+;
+;1af8  2a0133    ld      hl,(#3301)	; load HL with tile movement down
+;1afb  3e01      ld      a,#01		; load A with code for moving down
+;1afd  323c4d    ld      (#4d3c),a	; store into wanted pacman orientation
+;1b00  22264d    ld      (#4d26),hl	; store into wanted pacman tile changes
+;1b03  0600      ld      b,#00		; B := #00
+;1b05  c3e418    jp      #18e4		; return to program
+;
+;; called from #1A00
+;
+;1b08  3a124e    ld      a,(#4e12)	; load A with flag set to 1 after dying in a level, reset to 0 if ghosts have left home
+;1b0b  a7        and     a		; has pacman died this level?  (or has this flag been reset after eating enough dots after death) ?
+;1b0c  ca141b    jp      z,#1b14		; no, skip ahead
+;
+;1b0f  219f4d    ld      hl,#4d9f	; no, load HL with eaten pills counter after pacman has died in a level
+;1b12  34        inc     (hl)		; increase
+;1b13  c9        ret     		; return
+;
+;1b14  3aa34d    ld      a,(#4da3)	; load A with orange ghost substate
+;1b17  a7        and     a		; is orange ghost at home ?
+;1b18  c0        ret     nz		; no, return
+;
+;1b19  3aa24d    ld      a,(#4da2)	; yes, load A with inky substate
+;1b1c  a7        and     a		; is inky at home ?
+;1b1d  ca251b    jp      z,#1b25		; yes, skip ahead
+;
+;1b20  21114e    ld      hl,#4e11	; no, load HL with counter incremented if orange ghost is home but inky is not
+;1b23  34        inc     (hl)		; increase counter
+;1b24  c9        ret     		; return
+;
+;1b25  3aa14d    ld      a,(#4da1)	; load A with pink ghost substate
+;1b28  a7        and     a		; is pink ghost at home ?
+;1b29  ca311b    jp      z,#1b31		; yes, skip ahead
+;
+;1b2c  21104e    ld      hl,#4e10	; no, load HL with counter incremented if inky and orange ghost are home but pinky is not
+;1b2f  34        inc     (hl)		; increase counter
+;1b30  c9        ret     		; return
+;
+;1b31  210f4e    ld      hl,#4e0f	; load HL with counter incremented if pink ghost is home
+;1b34  34        inc     (hl)		; increase counter
+;1b35  c9        ret     		; return
+	    rts
 
 ;------------------------------------------------------------------------------
 ; called from #10C0 and several other places
