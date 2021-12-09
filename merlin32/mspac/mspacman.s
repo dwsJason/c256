@@ -4179,7 +4179,7 @@ pacman_movement mx %00
 ;1883  3a0050    ld      a,(#5000)	; load A with IN0 (player 1)
 		lda |IN1
 ;1886  cb4f      bit     1,a		; is joystick pushed to left?
-		bit #$0001
+		bit #$0002
 ;1888  c29918    jp      nz,#1899	; no, skip ahead
 		bne :not_left
 
@@ -4196,23 +4196,35 @@ pacman_movement mx %00
 
 :not_left
 ;1899  cb57      bit     2,a		; is joystick pushed to right?
+		bit #$0004
 ;189b  c25019    jp      nz,#1950	; no, skip ahead
+		bne :not_right
 
 ;189e  2aff32    ld      hl,(#32ff)	; load HL with move right tile change
+		ldx |move_right
 ;18a1  af        xor     a		; A := #00
 ;18a2  32304d    ld      (#4d30),a	; store into pac orientation
+		stz |pacman_dir
 ;18a5  221c4d    ld      (#4d1c),hl	; store HL into pacman Y tile changes (A)
+		stx |pacman_tchangeA_y
 ;18a8  c35019    jp      #1950		; jump back to program
+		bra :do_move
 
 ; arrive here via #1861, this handles normal (not tunnel) movement
 :normal_move
 ;18ab  3a004e    ld      a,(#4e00)	; load A with game state
+		lda |mainstate
 ;18ae  fe01      cp      #01		; are we in demo mode ?
+		cmp #1
 ;18b0  ca191a    jp      z,#1a19		; yes, skip ahead [ zero this instruction into NOP's to enable playable demo mode, (part 2/2) ]
+		beq :demo_mode
 
 ;18b3  3a044e    ld      a,(#4e04)	; else load A with subroutine #
+		lda |levelstate
 ;18b6  fe10      cp      #10		; <= #10 ?
+		cmp #$10
 ;18b8  d2191a    jp      nc,#1a19	; no, skip ahead
+		bcc :demo_mode
 
 ;18bb  79        ld      a,c		; A := C
 ;18bc  a7        and     a		; is this player 2 and cocktail mode ?
@@ -4228,34 +4240,50 @@ pacman_movement mx %00
 	; p1 movement check
 
 ;18c5  3a0050    ld      a,(#5000)	; load A with IN0
-
+		lda |IN0
 ;18c8  cb4f      bit     1,a		; joystick pressed left?
+		bit #2
 ;18ca  cac91a    jp      z,#1ac9		; yes, jump to process
+		beq :player_move_left
 
 ;18cd  cb57      bit     2,a		; joystick pressed right?
+		bit #4
 ;18cf  cad91a    jp      z,#1ad9		; yes, jump to process
+		beq :player_move_right
 
 ;18d2  cb47      bit     0,a		; joystick pressed up?
+		bit #1
 ;18d4  cae81a    jp      z,#1ae8		; yes, jump to process
+		beq :player_move_up
 
 ;18d7  cb5f      bit     3,a		; joystick pressed down?
+		bit #8
 ;18d9  caf81a    jp      z,#1af8		; yes, jump to process
+		beq :player_move_down
 
 	; no change in movement - joystick is centered
 
 ;18dc  2a1c4d    ld      hl,(#4d1c)	; load HL with pacman tile change
+		ldx |pacman_tchangeA_y
 ;18df  22264d    ld      (#4d26),hl	; store into wanted pacman tile changes
+		stx |wanted_pacman_tile_y
 ;18e2  0601      ld      b,#01		; B := #01 - this codes that the joystick was not moved
 
 	; movement checks return to here
 
 ;18e4  dd21264d  ld      ix,#4d26	; load IX with wanted pacman tile changes
+		ldx #wanted_pacman_tile_y
 ;18e8  fd21394d  ld      iy,#4d39	; load IY with pacman tile position
+		ldy #pacman_tile_pos_y
 ;18ec  cd0f20    call    #200f		; load A with screen value of position computed in (IX) + (IY)
+		jsr screen_xy
 ;18ef  e6c0      and     #c0		; mask bits
+		and #$C0
 ;18f1  d6c0      sub     #c0		; subtract.  is the maze blocking pacman from moving this way?
+		sec
+		sbc #$c0
 ;18f3  204b      jr      nz,#1940        ; no, skip ahead
-
+		bne :not_blocked
 ;18f5  05        dec     b		; yes, was the joystick moved ?
 ;18f6  c21619    jp      nz,#1916	; yes, skip ahead
 
@@ -4304,7 +4332,7 @@ pacman_movement mx %00
 ;193d  c35019    jp      #1950		; no, jump ahead
 
 ; arrive when changing direction (???)
-
+:not_blocked
 ;1940  2a264d    ld      hl,(#4d26)	; load HL with wanted pacman tile changes
 ;1943  221c4d    ld      (#4d1c),hl	; store into pacman tile changes
 ;1946  05        dec     b		; was the joystick moved?
@@ -4312,6 +4340,7 @@ pacman_movement mx %00
 
 ;194a  3a3c4d    ld      a,(#4d3c)	; yes, load A with wanted pacman orientation
 ;194d  32304d    ld      (#4d30),a	; store into pacman orientation
+:not_right
 :do_move
 ;1950  dd211c4d  ld      ix,#4d1c	; load IX with pacman Y,X tile changes
 ;1954  fd21084d  ld      iy,#4d08	; load IY with pacman position
@@ -4561,7 +4590,7 @@ pacman_movement mx %00
 ;1AC8: C9	ret			; return
 ;
 ;	; Player move Left
-;
+:player_move_left
 ;1ac9  2a0333    ld      hl,(#3303)	; load HL with tile movement left
 ;1acc  3e02      ld      a,#02		; load A with code for moving left
 ;1ace  323c4d    ld      (#4d3c),a	; store into wanted pacman orientation
@@ -4570,7 +4599,7 @@ pacman_movement mx %00
 ;1ad6  c3e418    jp      #18e4		; return to program
 ;
 ;	; player move Right
-;
+:player_move_right
 ;1ad9  2aff32    ld      hl,(#32ff)	; load HL with tile movement right
 ;1adc  af        xor     a		; A := #00, code for moving right
 ;1add  323c4d    ld      (#4d3c),a	; store into wanted pacman orientation
@@ -4579,7 +4608,7 @@ pacman_movement mx %00
 ;1ae5  c3e418    jp      #18e4		; return to program
 ;
 ;	; player move Up
-;
+:player_move_up
 ;1ae8  2a0533    ld      hl,(#3305)	; load HL with tile movement up
 ;1aeb  3e03      ld      a,#03		; load A with code for moving up
 ;1aed  323c4d    ld      (#4d3c),a	; store into wanted pacman orientation
@@ -4588,7 +4617,7 @@ pacman_movement mx %00
 ;1af5  c3e418    jp      #18e4		; return to program
 ;
 ;	; player move Down
-;
+:player_move_down
 ;1af8  2a0133    ld      hl,(#3301)	; load HL with tile movement down
 ;1afb  3e01      ld      a,#01		; load A with code for moving down
 ;1afd  323c4d    ld      (#4d3c),a	; store into wanted pacman orientation
@@ -5469,11 +5498,19 @@ double_add  mx %00
 ;------------------------------------------------------------------------------
 ; load A with screen value of position computed in (IX) + (IY)
 ;200f
+screen_xy mx %00
 ;200f  cd0020    call    #2000		; HL := (IX) + (IY)
+	    jsr double_add
 ;2012  cd6500    call    #0065		; convert to screen position
+	    jsr yx_to_screen
+
 ;2015  7e        ld      a,(hl)		; load A with the value in this screen position
+	    tax
+	    lda |0,x
 ;2016  a7        and     a		; clear flags
+	    clc
 ;2017  c9        ret     		; return
+	    rts
 
 ;------------------------------------------------------------------------------
 ; converts a sprite position into a tile position
