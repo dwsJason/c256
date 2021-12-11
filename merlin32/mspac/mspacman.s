@@ -4415,71 +4415,108 @@ pacman_movement mx %00
 		ldy #pacman_y
 ;1958  cd0020    call    #2000		; HL := (IX) + (IY)
 		jsr double_add
+		sta <temp0
 ;195b  3a304d    ld      a,(#4d30)	; load A with pacman orientation
+		lda |pacman_dir
 ;195e  0f        rrca    		; roll right, is pacman moving either up or down ?
+		ror
 ;195f  da7519    jp      c,#1975		; yes, skip ahead
+		bcs :handle_updown
 
 ;1962  7d        ld      a,l		; load A with X position of new location
+					; this comment is wrong, it's Y position
+		lda <temp0
+
 ;1963  e607      and     #07		; mask bits, now between 0 and 7
+		and #7
 ;1965  fe04      cp      #04		; == #04 ( in center of tile ?)
+		cmp #4
 ;1967  ca8519    jp      z,#1985		; yes, skip ahead
+		beq :skip_center
 
 ;196a  da7119    jp      c,#1971		; was the last comparison less than #04 ?, if yes, skip next 2 steps
+		bcs :corner_from_down
 
 ; cornering up to the left or up to the right
 
 ;196d  2d        dec     l		; lower the X position
+		dec <temp0
 ;196e  c38519    jp      #1985		; skip ahead
+		bra :skip_center
 
 ; cornering right from down , cornering left from down
+:corner_from_down
 
 ;1971  2c        inc     l		; else increase the X position
+		inc <temp0
 ;1972  c38519    jp      #1985		; skip ahead
+		bra :skip_center
 
 ; handle up/down movement turns
-
-;1975  7c        ld      a,h		; load A with Y position of new loctaion
+:handle_updown
+;1975  7c        ld      a,h		; load A with Y position of new location
+		lda <temp0+1
 ;1976  e607      and     #07		; mask bits, now between 0 and 7
+		and #7
 ;1978  fe04      cp      #04		; == #04 ( in center of tile ?)
+		cmp #4
 ;197a  ca8519    jp      z,#1985		; yes, skip ahead
+		beq :skip_center
 
 ;197d  da8419    jp      c,#1984		; was the last comparison less than #04 ?, if yes, skip next 2 steps
+		bcs :corner_from_right
 
 ; cornering up from the left side, or down from the left side
 
 ;1980  25        dec     h		; else lower the Y position 
+		dec <temp0+1
 ;1981  c38519    jp      #1985		; skip ahead
+		bra :skip_center
 
 ; arrive here when cornering up from the right side
 ; or when cornering down from the right side
-
+:corner_from_right
 ;1984  24        inc     h		; increase the Y position
+		inc <temp0+1
 
 ; arrive here from several locations
 ; HL has the expected new position of a sprite
-
+:skip_center
 ;1985  22084d    ld      (#4d08),hl	; store the new sprite position into pacman position
+		lda <temp0
+		sta |pacman_y
 ;1988  cd1820    call    #2018		; convert sprite position into a tile position
+		jsr spr_to_tile
 ;198b  22394d    ld      (#4d39),hl	; store tile position into pacman's tile position
+		sta |pacman_tile_pos_y
 ;198e  dd21bf4d  ld      ix,#4dbf	; load IX with tunnel indicator address
 ;1992  dd7e00    ld      a,(ix+#00)	; load A with tunnel indiacator.  1=pacman in a tunnel
+		lda |pacman_enter_tunnel
 ;1995  dd360000  ld      (ix+#00),#00	; clear the tunnel indicator
+		stz |pacman_enter_tunnel
 ;1999  a7        and     a		; is pacman in a tunnel ?
 ;199a  c0        ret     nz		; yes, return
+		beq :check_item_eat
+		rts
 
 ; check for items eaten
-
+:check_item_eat
 ;199B: 3A D2 4D	ld	a,(#4DD2)	; load A with fruit position
+		lda |FRUITP
 ;199E: A7	and	a		; == #00 ?
 ;199F: 28 2C	jr	z,#19CD		; yes, skip ahead
+		beq :no_fruit_eaten
 
 ;19A1: 3A D4 4D	ld	a,(#4DD4)	; else load A with entry to fruit points, or 0 if no fruit
+		lda |FVALUE
 ;19A4: A7	and	a		; == #00 ?
 ;19A5: 28 26	jr	z,#19CD		; yes, skip ahead
+		beq :no_fruit_eaten
 
 ; else check for fruit to be eaten
 
 ;19A7: 2A 08 4D	ld	hl,(#4D08)	; load HL with pacman Y position
+		lda |pacman_y
 ;19AA: 11 94 80	ld	de,#8094	; load DE with #8094 (why?  on jump DE is loaded with new values.  this is junk from pac-man)
 
 ; OTTOPATCH
@@ -4487,6 +4524,39 @@ pacman_movement mx %00
 ;ORG 19ADH
 ;JP EATFRUIT
 ;19AD: C3 18 88	jp	#8818		; MS Pac-man patch. jump to check for fruit being eaten
+
+; check for fruit being eaten ... jumped from #19AD
+; HL has pacman X,Y
+
+;8818: F5	push	af		; Save AF
+	    pha
+;8819: ED5BD24D	ld	de,(#4DD2)	; load fruit X position into D, fruit Y position into E
+;881D: 7C	ld	a,h		; load A with pacman X position
+;881E: 92	sub	d		; subtract fruit X position
+;881F: C6 03	add	a,#03		; add margin of error == #03
+;8821: FE 06	cp	#06		; X values match within margin ?
+;8823: 30 18	jr	nc,#883D	; no , jump back to program
+
+;8825: 7D	ld	a,l		; else load A with pacman Y values
+;8826: 93	sub	e		; subtract fruit Y position
+;8827: C6 03	add	a,#03		; add margin of error
+;8829: FE 06	cp	#06		; Y values match within margin?
+;882B: 30 10	jr	nc,#883D	; no, jump back to program
+
+; else a fruit is being eaten
+
+;882D: 3E 01	ld	a,#01		; load A with #01
+;882F: 32 0D 4C	ld	(#4C0D),a	; store into fruit sprite entry
+;8832: F1	pop	af		; Restore AF
+;8833: C6 02	add	a,#02		; add 2 to A
+;8835: 32 0C 4C	ld	(#4C0C),a	; store into fruit sprite number
+;8838: D6 02	sub	#02		; sub 2 from A, make A the same as it was
+;883A: C3 B2 19	jp	#19B2		; jump back to program for fruit being eaten
+
+;883D: F1	pop	af		; Restore AF
+	    pla
+;883E: C3 CD 19	jp	#19CD		; jump back to program with no fruit eaten
+
 
 ;19B0: 20 1B	jr	nz,#19CD	; junk from pac-man
 
@@ -4517,7 +4587,7 @@ pacman_movement mx %00
 ;19CB: CB D6	set	2,(hl)		; set up fruit eating sound.
 
 ; arrive here when no fruit eaten from fruit eating check subroutine
-
+:no_fruit_eaten
 ;19CD: 3E FF	ld	a,#FF		; load A with #FF
 ;19CF: 32 9D 4D	ld	(#4D9D),a	; store into delay to update pacman movement
 ;19D2: 2A 39 4D	ld	hl,(#4D39)	; load HL with pacman's position

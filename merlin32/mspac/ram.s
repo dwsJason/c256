@@ -100,11 +100,17 @@ fruitspritecolor	dw 0	;	4c0d	fruit sprite entry
 ; ** note - need to be sorted
 ;
 ;   4DD2    FRUITP  fruit position
+FRUITP dw 0
 ;   4DD4    FVALUE  value of the current fruit (0=no fruit)
+FVALUE dw 0
 ;   4C40    COUNT current place in fruit path
+COUNT dw 0
 ;   4E0C    FIRSTF  flag to indicate that first fruit has been released
+FIRSTF dw 0
 ;   4E0D    SECONDF flag to indicate that second fruit has been eaten
+SECONDF dw 0
 ;   4C41    BCNT    current place within bounce
+BCNT dw 0
 ;   4C42    PATH    pointer to the path the fruit is currently following
 ;   4E0E    DOTSEAT how many dots the current player has eaten
 ;   4EBC    BNOISE  set bit 5 of BNOISE to make the bounce sound
