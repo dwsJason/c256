@@ -4247,7 +4247,7 @@ pacman_movement mx %00
 ;18b6  fe10      cp      #10		; <= #10 ?
 		cmp #$10
 ;18b8  d2191a    jp      nc,#1a19	; no, skip ahead
-		bcc :demo_mode
+		bccl :demo_mode
 
 ;18bb  79        ld      a,c		; A := C
 ;18bc  a7        and     a		; is this player 2 and cocktail mode ?
@@ -4267,22 +4267,22 @@ pacman_movement mx %00
 ;18c8  cb4f      bit     1,a		; joystick pressed left?
 		bit #2
 ;18ca  cac91a    jp      z,#1ac9		; yes, jump to process
-		beq :player_move_left
+		beql :player_move_left
 
 ;18cd  cb57      bit     2,a		; joystick pressed right?
 		bit #4
 ;18cf  cad91a    jp      z,#1ad9		; yes, jump to process
-		beq :player_move_right
+		beql :player_move_right
 
 ;18d2  cb47      bit     0,a		; joystick pressed up?
 		bit #1
 ;18d4  cae81a    jp      z,#1ae8		; yes, jump to process
-		beq :player_move_up
+		beql :player_move_up
 
 ;18d7  cb5f      bit     3,a		; joystick pressed down?
 		bit #8
 ;18d9  caf81a    jp      z,#1af8		; yes, jump to process
-		beq :player_move_down
+		beql :player_move_down
 
 	; no change in movement - joystick is centered
 
