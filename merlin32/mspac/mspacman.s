@@ -16,6 +16,30 @@
 
         use Util.Macs
 
+beql mac
+    bne skip@
+    jmp ]1
+skip@
+    <<<
+
+bnel mac
+    beq skip@
+    jmp ]1
+skip@
+    <<<
+
+bccl mac
+    bcs skip@
+    jmp ]1
+skip@
+    <<<
+
+bcsl mac
+    bcc skip@
+    jmp ]1
+skip@
+    <<<
+
 ; External Addresses
 
 		ext title_pic
@@ -4153,15 +4177,14 @@ pacman_movement mx %00
 ;186c  fe01      cp      #01		; are we in demo mode ?
 	    cmp #1
 ;186e  ca191a    jp      z,#1a19		; yes, skip ahead [ zero this instruction to NOP's to enable playing in demo mode (part 1/2) ] 
-	    beq :demo_mode
-
+	    beql :demo_mode
 ;1871  3a044e    ld      a,(#4e04)	; else load A with subroutine #
 	    lda |levelstate
 ;1874  fe10      cp      #10		; <=#10 ?
 	    cmp #$10
 ;1876  d2191a    jp      nc,#1a19	; no, skip ahead
 	    ;bcc :continue
-	    bcs :demo_mode
+	    bcsl :demo_mode
 
 ;1879  79        ld      a,c		; load A with mix of cocktail mode and player number, created above at #1849-#1851
 ;187a  a7        and     a		; is this player 2 and cocktail mode ?
@@ -4192,13 +4215,13 @@ pacman_movement mx %00
 ;1893  221c4d    ld      (#4d1c),hl	; store HL into pacman Y tile changes (A)
 		stx |pacman_tchangeA_y
 ;1896  c35019    jp      #1950		; jump back to program
-		bra :do_move
+		jmp :do_move
 
 :not_left
 ;1899  cb57      bit     2,a		; is joystick pushed to right?
 		bit #$0004
 ;189b  c25019    jp      nz,#1950	; no, skip ahead
-		bne :not_right
+		bnel :not_right
 
 ;189e  2aff32    ld      hl,(#32ff)	; load HL with move right tile change
 		ldx |move_right
@@ -4208,7 +4231,7 @@ pacman_movement mx %00
 ;18a5  221c4d    ld      (#4d1c),hl	; store HL into pacman Y tile changes (A)
 		stx |pacman_tchangeA_y
 ;18a8  c35019    jp      #1950		; jump back to program
-		bra :do_move
+		jmp :do_move
 
 ; arrive here via #1861, this handles normal (not tunnel) movement
 :normal_move
@@ -4217,7 +4240,7 @@ pacman_movement mx %00
 ;18ae  fe01      cp      #01		; are we in demo mode ?
 		cmp #1
 ;18b0  ca191a    jp      z,#1a19		; yes, skip ahead [ zero this instruction into NOP's to enable playable demo mode, (part 2/2) ]
-		beq :demo_mode
+		beql :demo_mode
 
 ;18b3  3a044e    ld      a,(#4e04)	; else load A with subroutine #
 		lda |levelstate
@@ -4285,66 +4308,113 @@ pacman_movement mx %00
 ;18f3  204b      jr      nz,#1940        ; no, skip ahead
 		bne :not_blocked
 ;18f5  05        dec     b		; yes, was the joystick moved ?
+		lda |IN0
+		and #$F
+		cmp #$F
 ;18f6  c21619    jp      nz,#1916	; yes, skip ahead
+		bne :yes_moved
 
 ;18f9  3a304d    ld      a,(#4d30)	; no, load A with pacman orientation
+		lda |pacman_dir
 ;18fc  0f        rrca    		; roll right with carry.  is pacman moving either up or down?
+		ror
 ;18fd  da0b19    jp      c,#190b		; yes, skip next 5 steps
+		bcs :updown
 
 ;1900  3a094d    ld      a,(#4d09)	; no, load A with pacman X position
+		lda |pacman_x
 ;1903  e607      and     #07		; mask bits, now between 0 and 7
+		and #$7
 ;1905  fe04      cp      #04		; == #04 ?  (In center of tile ?)
+		cmp #4
 ;1907  c8        ret     z		; yes, return
+		beq :rts2
 
 ;1908  c34019    jp      #1940		; else skip ahead
-
+		bra :not_blocked
+:updown
 ;190b  3a084d    ld      a,(#4d08)	; load A with pacman Y position
+		lda |pacman_y
 ;190e  e607      and     #07		; mask bits, now between 0 and 7
+		and #$7
 ;1910  fe04      cp      #04		; == #04 ? (In center of tile ?)
+		cmp #4
 ;1912  c8        ret     z		; yes, return
+		beq :rts2
 
 ;1913  c34019    jp      #1940		; no, skip ahead
-
+		bra :not_blocked
+:not_moved
+:yes_moved
 ;1916  dd211c4d  ld      ix,#4d1c	; load IX with pacman Y,X tile changes 
+		; amazingly y should be preserved in the above functions
+		ldx #pacman_tchangeA_y
 ;191a  cd0f20    call    #200f		; load A with screen value of position computed in (IX) + (IY)
+		jsr screen_xy
 ;191d  e6c0      and     #c0		; mask bits
+		and #$C0
 ;191f  d6c0      sub     #c0		; subtract.  is the maze blocking pacman from moving this way?
+		sec
+		sbc #$C0
 ;1921  202d      jr      nz,#1950        ; no, skip ahead
+		bne :do_move
 
 ; code seems to be why pacman turns corners fast.  it gives an extra boost to the new direction
 
 ;1923  3a304d    ld      a,(#4d30)	; yes, load A with pacman orientation
+		lda |pacman_dir
 ;1926  0f        rrca    		; roll right with carry.  is pacman moving either up or down ?
+		ror
 ;1927  da3519    jp      c,#1935		; yes, skip next 5 steps
+		bcs :isupdown
 
 ;192a  3a094d    ld      a,(#4d09)	; no, load A with pacman X position
+		lda |pacman_x
 ;192d  e607      and     #07		; mask bits, now between 0 and 7
+		and #7
 ;192f  fe04      cp      #04		; == #04 ? ( In center of tile ? )
+		cmp #4
 ;1931  c8        ret     z		; yes, return
-
+		bne :do_move
 ;1932  c35019    jp      #1950		; no, skip ahead
-
+:rts2		rts
+:isupdown
 ;1935  3a084d    ld      a,(#4d08)	; load A with pacman Y position
+		lda |pacman_y
 ;1938  e607      and     #07		; mask bits, now between 0 and 7
+		and #7
 ;193a  fe04      cp      #04		; == #04 ( In center of tile?)
+		cmp #4
 ;193c  c8        ret     z		; yes, return
-
+		bne :do_move
 ;193d  c35019    jp      #1950		; no, jump ahead
+		rts
 
 ; arrive when changing direction (???)
 :not_blocked
 ;1940  2a264d    ld      hl,(#4d26)	; load HL with wanted pacman tile changes
+		lda |wanted_pacman_tile_y
 ;1943  221c4d    ld      (#4d1c),hl	; store into pacman tile changes
+		sta |pacman_tchangeA_y
 ;1946  05        dec     b		; was the joystick moved?
+		lda |IN0
+		and #$F
+		cmp #$F
 ;1947  ca5019    jp      z,#1950		; no, skip ahead
+		beq :do_move
 
 ;194a  3a3c4d    ld      a,(#4d3c)	; yes, load A with wanted pacman orientation
+		lda |wanted_pacman_orientation
 ;194d  32304d    ld      (#4d30),a	; store into pacman orientation
+		sta |pacman_dir
 :not_right
 :do_move
 ;1950  dd211c4d  ld      ix,#4d1c	; load IX with pacman Y,X tile changes
+		ldx #pacman_tchangeA_y
 ;1954  fd21084d  ld      iy,#4d08	; load IY with pacman position
+		ldy #pacman_y
 ;1958  cd0020    call    #2000		; HL := (IX) + (IY)
+		jsr double_add
 ;195b  3a304d    ld      a,(#4d30)	; load A with pacman orientation
 ;195e  0f        rrca    		; roll right, is pacman moving either up or down ?
 ;195f  da7519    jp      c,#1975		; yes, skip ahead
