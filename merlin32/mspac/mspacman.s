@@ -3019,6 +3019,7 @@ pm1017      mx %00
 ;104a  cd4b1c    call    #1c4b		; control movement for pink ghost
 	    jsr control_pink
 ;104d  cd221d    call    #1d22		; control movement for blue ghost (inky)
+	    jsr control_inky
 ;1050  cdf91d    call    #1df9		; control movement for orange ghost
 ;1053  3a044e    ld      a,(#4e04)	; load A with level state subroutine #
 ;1056  fe03      cp      #03		; is a game being played ?
@@ -5442,61 +5443,89 @@ pink_ghost_move mx %00
 ;------------------------------------------------------------------------------
 ; check movement patterns for inky
 ; called from #104D
-
+;1d22
+control_inky mx %00
 ;1d22  3aa24d    ld      a,(#4da2)	; load A with blue ghost (inky) substate
+	    lda |blue_substate
 ;1d25  fe01      cp      #01		; is blue ghost at home ?
+	    cmp #1
 ;1d27  c0        ret     nz		; yes, return
-
+	    beq :stay
+:rts
+	    rts
+:stay
 ;1d28  3aae4d    ld      a,(#4dae)	; else load A with blue ghost (inky) state
+	    lda |blueghost_state
 ;1d2b  a7        and     a		; is inky alive ?
 ;1d2c  c0        ret     nz		; no, return
+	    bne :rts
 
 ;1d2d  2a354d    ld      hl,(#4d35)	; load HL with inky tile position 2
+	    lda |blue_tile_y_2
 ;1d30  019b4d    ld      bc,#4d9b	; load BC with address of aux var used by inky to check positions
+	    ldy #blue_aux
 ;1d33  cd5a20    call    #205a		; check to see if inky has entered a tunnel slowdown area
+	    jsr check_slow
 ;1d36  3a9b4d    ld      a,(#4d9b)	; load A with aux var used by inky to check positions
+	    lda |blue_aux
 ;1d39  a7        and     a		; is inky in a tunnel slowdown area?
 ;1d3a  ca541d    jp      z,#1d54		; no, skip ahead
+	    beq :not_slow
 
 ;1d3d  2a784d    ld      hl,(#4d78)	; yes, load HL with speed bit patterns for inky tunnel areas
 ;1d40  29        add     hl,hl		; double it
 ;1d41  22784d    ld      (#4d78),hl	; store result
+	    asl |speedbit_blue_tunnel+2
 ;1d44  2a764d    ld      hl,(#4d76)	; load HL with speed bit patterns for inky tunnel areas
 ;1d47  ed6a      adc     hl,hl		; double it
 ;1d49  22764d    ld      (#4d76),hl	; store result.  have we exceeded the threshold?
+	    asl |speedbit_blue_tunnel
 ;1d4c  d0        ret     nc		; no, return
+	    bcc :rts
 
 ;1d4d  21784d    ld      hl,#4d78	; yes, load HL with address of speed bit patterns for inky tunnel areas
 ;1d50  34        inc     (hl)		; increase
+	    inc |speedbit_blue_tunnel+2
 ;1d51  c3861d    jp      #1d86		; skip ahead
-
+	    bra inky_ghost_move
+:not_slow
 ;1d54  3aa94d    ld      a,(#4da9)	; load A with inky blue flag
+	    lda |blueghost_blue
 ;1d57  a7        and     a		; is inky edible ?
 ;1d58  ca721d    jp      z,#1d72		; no, skip ahead
+	    beq :not_blue
 
 ;1d5b  2a744d    ld      hl,(#4d74)	; yes, load HL with speed bit patterns for inky in blue state
 ;1d5e  29        add     hl,hl		; double it
 ;1d5f  22744d    ld      (#4d74),hl	; store result
+	    asl |speedbit_blue_blue+2
 ;1d62  2a724d    ld      hl,(#4d72)	; load HL with speed bit patterns for inky in blue state
 ;1d65  ed6a      adc     hl,hl		; double it
 ;1d67  22724d    ld      (#4d72),hl	; store result.  have we exceeded the threshold?
+	    asl |speedbit_blue_blue
 ;1d6a  d0        ret     nc		; no, return
+	    bcc :rts
 
 ;1d6b  21744d    ld      hl,#4d74	; yes, load HL with speed bit patterns for inky in blue state
 ;1d6e  34        inc     (hl)		; increase
+	    inc |speedbit_blue_blue+2
 ;1d6f  c3861d    jp      #1d86		; jump ahead
-
+	    bra inky_ghost_move
+:not_blue
 ;1d72  2a704d    ld      hl,(#4d70)	; load HL with speed bit patterns for inky normal state
 ;1d75  29        add     hl,hl		; double it
 ;1d76  22704d    ld      (#4d70),hl	; store result
+	    asl |speedbit_blue_normal+2
 ;1d79  2a6e4d    ld      hl,(#4d6e)	; load HL with speed bit patterns for inky normal state
 ;1d7c  ed6a      adc     hl,hl		; double it
 ;1d7e  226e4d    ld      (#4d6e),hl	; store result. have we exceeded the threshold ?
+	    asl |speedbit_blue_normal
 ;1d81  d0        ret     nc		; no, return
+	    bcc :rts
 
 ;1d82  21704d    ld      hl,#4d70	; yes, load HL with speed bit patterns for inky normal state
 ;1d85  34        inc     (hl)		; increase
-
+	    inc |speedbit_blue_normal+2
 
 inky_ghost_move	mx %00
 ;1d86  21184d    ld      hl,#4d18	; load HL with address of inky Y tile changes
