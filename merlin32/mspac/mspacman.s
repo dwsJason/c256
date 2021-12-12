@@ -4530,38 +4530,65 @@ pacman_movement mx %00
 
 ;8818: F5	push	af		; Save AF
 	    pha
+	    sep #$21
 ;8819: ED5BD24D	ld	de,(#4DD2)	; load fruit X position into D, fruit Y position into E
 ;881D: 7C	ld	a,h		; load A with pacman X position
+	    xba
 ;881E: 92	sub	d		; subtract fruit X position
+	    sbc |FRUITP+1
 ;881F: C6 03	add	a,#03		; add margin of error == #03
+	    clc
+	    adc #3
 ;8821: FE 06	cp	#06		; X values match within margin ?
+	    cmp #6
 ;8823: 30 18	jr	nc,#883D	; no , jump back to program
+	    bcc :return
 
 ;8825: 7D	ld	a,l		; else load A with pacman Y values
+	    xba
 ;8826: 93	sub	e		; subtract fruit Y position
+	    ;c=1
+	    sbc |FRUITP
 ;8827: C6 03	add	a,#03		; add margin of error
+	    clc
+	    adc #3
 ;8829: FE 06	cp	#06		; Y values match within margin?
+	    cmp #6
 ;882B: 30 10	jr	nc,#883D	; no, jump back to program
+	    bcc :return
 
 ; else a fruit is being eaten
 
 ;882D: 3E 01	ld	a,#01		; load A with #01
 ;882F: 32 0D 4C	ld	(#4C0D),a	; store into fruit sprite entry
+	    lda #1
+	    sta |fruitspritecolor
 ;8832: F1	pop	af		; Restore AF
+	    lda |FVALUE
 ;8833: C6 02	add	a,#02		; add 2 to A
-;8835: 32 0C 4C	ld	(#4C0C),a	; store into fruit sprite number
-;8838: D6 02	sub	#02		; sub 2 from A, make A the same as it was
-;883A: C3 B2 19	jp	#19B2		; jump back to program for fruit being eaten
+	    clc
+	    adc #2
 
+;8835: 32 0C 4C	ld	(#4C0C),a	; store into fruit sprite number
+	    sta |fruitsprite
+
+;8838: D6 02	sub	#02		; sub 2 from A, make A the same as it was
+
+;883A: C3 B2 19	jp	#19B2		; jump back to program for fruit being eaten
+	    rep #$20
+	    pla
+	    bra :fruit_eaten
+:return
 ;883D: F1	pop	af		; Restore AF
+	    rep #$20
 	    pla
 ;883E: C3 CD 19	jp	#19CD		; jump back to program with no fruit eaten
-
+	    bra :no_fruit_eaten
 
 ;19B0: 20 1B	jr	nz,#19CD	; junk from pac-man
 
 ; arrive here when fruit is eaten
-
+:fruit_eaten
 ;19B2: 06 19	ld	b,#19		; else a fruit is eaten.  load B with task #19
 ;19B4: 4F	ld	c,a		; load C with task from A register
 ;19B5: CD 42 00	call	#0042		; set task #19 with parameter variable A.  updates score.  B has code for items scored, draw score on screen, check for high score and extra lives
