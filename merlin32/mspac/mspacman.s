@@ -4589,10 +4589,15 @@ pacman_movement mx %00
 
 ; arrive here when fruit is eaten
 :fruit_eaten
+	    ;$$JGA TODO - this needs converted, make this future Jason's problem
 ;19B2: 06 19	ld	b,#19		; else a fruit is eaten.  load B with task #19
 ;19B4: 4F	ld	c,a		; load C with task from A register
 ;19B5: CD 42 00	call	#0042		; set task #19 with parameter variable A.  updates score.  B has code for items scored, draw score on screen, check for high score and extra lives
+	    ;$$JGA TODO
+
 ;19B8: CD 00 10	call	#1000		; clear fruit.  clears #4DD4 and returns
+	    stz |FVALUE
+
 ;19BB: 18 07	jr	#19C4		; skip ahead.  a fruit has been eaten
 
 ; Pac man code:
@@ -4609,32 +4614,58 @@ pacman_movement mx %00
 
 ;19C4: F7	rst	#30		; set timed task to clear the fruit score sprite
 ;19C5: 54 05 00				; timer=54, task=5, param=0
+	    lda #$0554
+	    ldy #0
+	    jsr rst30
 
 ;19C8: 21 BC 4E	ld	hl,#4EBC	; load HL with voice 3 address
 ;19CB: CB D6	set	2,(hl)		; set up fruit eating sound.
+	    lda #$0004
+	    tsb |bnoise
 
 ; arrive here when no fruit eaten from fruit eating check subroutine
 :no_fruit_eaten
 ;19CD: 3E FF	ld	a,#FF		; load A with #FF
+	    lda #$FFFF
 ;19CF: 32 9D 4D	ld	(#4D9D),a	; store into delay to update pacman movement
+	    sta |move_delay
 ;19D2: 2A 39 4D	ld	hl,(#4D39)	; load HL with pacman's position
+	    lda |pacman_tile_pos_y
 ;19D5: CD 65 00	call	#0065		; load HL with pacman's grid position
+	    jsr yx_to_screen
+
 ;19D8: 7E	ld	a,(hl)		; load A with item on grid
+	    tax
+	    lda |0,x
+	    and #$00FF
 ;19D9: FE 10	cp	#10		; is a dot being eaten ?
+	    cmp #$10
 ;19DB: 28 03	jr	z,#19E0		; yes, skip ahead
+	    beq :eat_dot
 
 ;19DD: FE 14	cp	#14		; else is an energizer being eaten?
+	    cmp #$14
 ;19DF: C0	ret	nz		; no, return
+	    beq :eat_dot
+	    rts
 
 ; arrive here when a dot or energizer has been eaten
 ; A has either #10 or #14 loaded
-
+:eat_dot
 ;19E0: DD210E4E	ld	ix,#4E0E	; else load number of pills eaten in this level
 ;19E4: DD 34 00	inc	(ix+#00)	; increase
+	    inc |dotseat
 ;19E7: E6 0F	and	#0F		; mask bits.  If a dot is eaten, A is now #00.  Energizer, A is now #04
+	    and #$0F
 ;19E9: CB 3F	srl	a		; shift right (div by 2)
+	    lsr
 ;19EB: 06 40	ld	b,#40		; load B with #40 (clear graphic)
 ;19ED: 70	ld	(hl),b		; update maze to clear the dot that has been eaten
+	    sep #$20
+	    lda #$40
+	    sta |0,x
+	    rep #$20
+
 ;19EE: 06 19	ld	b,#19		; load B with #19 for task call below
 ;19F0: 4F	ld	c,a		; load C with A (either #00 or #02)
 ;19F1: CB 39	srl	c		; shift right (div by 2).  now C is either #00 or #01
@@ -5674,6 +5705,7 @@ screen_xy mx %00
 ;2015  7e        ld      a,(hl)		; load A with the value in this screen position
 	    tax
 	    lda |0,x
+	    and #$00FF
 ;2016  a7        and     a		; clear flags
 	    clc
 ;2017  c9        ret     		; return

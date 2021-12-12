@@ -112,7 +112,6 @@ SECONDF dw 0
 ;   4C41    BCNT    current place within bounce
 BCNT dw 0
 ;   4C42    PATH    pointer to the path the fruit is currently following
-;   4E0E    DOTSEAT how many dots the current player has eaten
 ;   4EBC    BNOISE  set bit 5 of BNOISE to make the bounce sound
 bnoise dw 0
 
