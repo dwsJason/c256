@@ -4299,6 +4299,7 @@ pacman_movement mx %00
 ;18e2  0601      ld      b,#01		; B := #01 - this codes that the joystick was not moved
 
 	; movement checks return to here
+mc_return equ *
 
 ;18e4  dd21264d  ld      ix,#4d26	; load IX with wanted pacman tile changes
 		ldx #wanted_pacman_tile_y
@@ -4488,6 +4489,7 @@ pacman_movement mx %00
 ; arrive here from several locations
 ; HL has the expected new position of a sprite
 :skip_center
+movement_check equ *
 ;1985  22084d    ld      (#4d08),hl	; store the new sprite position into pacman position
 		lda <temp0
 		sta |pacman_y
@@ -4706,15 +4708,26 @@ pacman_movement mx %00
 	    jsr check_energizer
 ;1A06: 21 BC 4E	ld	hl,#4EBC	; load HL with sound #3
 ;1A09: 3A 0E 4E	ld	a,(#4E0E)	; load A with number of pills eaten in this level
+	    lda |dotseat
 ;1A0C: 0F	rrca			; roll right
+	    ror
+	    lda |bnoise
 ;1A0D: 38 05	jr	c,#1A14		; if carry then use other sound pattern
+	    bcs :other_sound
 
 ;1A0F: CB C6	set	0,(hl)		; else set sound bit 0
 ;1A11: CB 8E	res	1,(hl)		; clear sound bit 1
+	    ora #1
+	    and #2!$FFFF
+	    sta |bnoise
 ;1A13: C9	ret			; return
 	    rts
+:other_sound
+	    and #1!$FFFF
 ;1A14: CB 86	res	0,(hl)		; clear sound bit 0
+	    ora #2
 ;1A16: CB CE	set	1,(hl)		; set sound bit 1
+	    sta |bnoise
 ;1A18: C9	ret			; return     
 	    rts
 ; arrive here from #18b0 when game is in demo mode
@@ -4722,39 +4735,67 @@ pacman_movement mx %00
 :demo_mode
 ;1a19  211c4d    ld      hl,#4d1c	; load HL with pacman Y tile changes (A) location
 ;1a1c  7e        ld      a,(hl)		; load A pacman Y tile changes (A)
+	    lda |pacman_tchangeA_y
 ;1a1d  a7        and     a		; == #00 ?  is pacman moving left-right ?
 ;1a1e  ca2e1a    jp      z,#1a2e		; yes, skip ahead
+	    beq :left_right
 ;
 ;1a21  3a084d    ld      a,(#4d08)	; else load A with pacman Y position
+	    lda |pacman_y
 ;1a24  e607      and     #07		; mask bits, now between 0 and 7
+	    and #7
 ;1a26  fe04      cp      #04		; == #04?
+	    cmp #4
 ;1a28  ca381a    jp      z,#1a38		; yes, skip ahead
+	    beq :middle
 ;1a2b  c35c1a    jp      #1a5c		; else jump ahead
-;
+	    bra :jump_ahead
+:left_right
 ;1a2e  3a094d    ld      a,(#4d09)	; load A with pacman X position
+	    lda |pacman_x
 ;1a31  e607      and     #07		; mask bits, now between 0 and 7
+	    and #7
 ;1a33  fe04      cp      #04		; == #04 ?
+	    cmp #4
 ;1a35  c25c1a    jp      nz,#1a5c	; no, skip ahead
-;
+	    bne :jump_ahead
+:middle
 ;1a38  3e05      ld      a,#05		; yes, A := #05. sets up call below to check if pacman is using tunnel in demo
+	    lda #5
 ;1a3a  cdd01e    call    #1ed0		; if using tunnel, set carry flag
+	    jsr check_screen_edge
 ;1a3d  3803      jr      c,#1a42		; is pacman in tunnel?  no, skip next 2 steps
+	    bcs  :skip
 ;1a3f  ef        rst     #28		; insert task to control pacman AI during demo mode.
 ;1a40  17 00				; task #17, parameter #00
-;
+	    lda #$0017
+	    jsr rst28
+:skip
 ;1a42  dd21264d  ld      ix,#4d26	; load IX with wanted pacman tile changes
+	    ldx #wanted_pacman_tile_y
 ;1a46  fd21124d  ld      iy,#4d12	; load IY with pacman tile pos in demo and cut scenes
+	    ldy #pacman_demo_tile_y
 ;1a4a  cd0020    call    #2000		; load HL with new position of pacman
+	    jsr double_add
 ;1a4d  22124d    ld      (#4d12),hl	; store new position into pacman tile position in demo and cut scenes
+	    sta |pacman_demo_tile_y
 ;1a50  2a264d    ld      hl,(#4d26)	; load HL with wanted pacman tile changes
+	    lda |wanted_pacman_tile_y
 ;1a53  221c4d    ld      (#4d1c),hl	; store into pacman tile changes (Y,X)
+	    sta |pacman_tchangeA_y
 ;1a56  3a3c4d    ld      a,(#4d3c)	; load A with wanted pacman orientation
+	    lda |wanted_pacman_orientation
 ;1a59  32304d    ld      (#4d30),a	; store into pacman orientation
-;
+	    sta |pacman_dir
+:jump_ahead
 ;1a5c  dd211c4d  ld      ix,#4d1c	; load IX with pacman tile changes (Y,X)
+	    ldx #pacman_tchangeA_y
 ;1a60  fd21084d  ld      iy,#4d08	; load IY with pacman position (Y,X) address
+	    ldy #pacman_y
 ;1a64  cd0020    call    #2000		; load HL with new position of pacman
+	    jsr double_add
 ;1a67  c38519    jp      #1985		; jump to movement check
+	    jmp movement_check
 ;------------------------------------------------------------------------------
 ;; called from #1A03 after a dot has been eaten
 ;1a6a
@@ -4851,35 +4892,58 @@ check_energizer mx %00
 ;1acc  3e02      ld      a,#02		; load A with code for moving left
 ;1ace  323c4d    ld      (#4d3c),a	; store into wanted pacman orientation
 ;1ad1  22264d    ld      (#4d26),hl	; store into wanted pacman tile changes
+	    lda #2
+	    sta |wanted_pacman_orientation
+
+	    lda |move_left
+	    sta |wanted_pacman_tile_y
 ;1ad4  0600      ld      b,#00		; B := #00
+	    ldy #0 ;$$JGA TODO, verify this is what we want
 ;1ad6  c3e418    jp      #18e4		; return to program
-;
+	    jmp mc_return
+
 ;	; player move Right
 :player_move_right
 ;1ad9  2aff32    ld      hl,(#32ff)	; load HL with tile movement right
 ;1adc  af        xor     a		; A := #00, code for moving right
 ;1add  323c4d    ld      (#4d3c),a	; store into wanted pacman orientation
 ;1ae0  22264d    ld      (#4d26),hl	; store into wanted pacman tile changes 
+	    lda |move_right
+	    sta |wanted_pacman_tile_y
+	    stz |wanted_pacman_orientation
 ;1ae3  0600      ld      b,#00		; B := #00
+	    ldy #0 ;$$JGA TODO, verify this is what we want
 ;1ae5  c3e418    jp      #18e4		; return to program
-;
+	    jmp mc_return
 ;	; player move Up
 :player_move_up
 ;1ae8  2a0533    ld      hl,(#3305)	; load HL with tile movement up
 ;1aeb  3e03      ld      a,#03		; load A with code for moving up
 ;1aed  323c4d    ld      (#4d3c),a	; store into wanted pacman orientation
 ;1af0  22264d    ld      (#4d26),hl	; store into wanted pacman tile changes
+	    lda #3
+	    sta |wanted_pacman_orientation
+	    lda |move_up
+	    sta |wanted_pacman_tile_y
 ;1af3  0600      ld      b,#00		; B := #00
+	    ldy #0 ;$$JGA TODO, verify this is what we want
 ;1af5  c3e418    jp      #18e4		; return to program
-;
+	    jmp mc_return
 ;	; player move Down
 :player_move_down
 ;1af8  2a0133    ld      hl,(#3301)	; load HL with tile movement down
 ;1afb  3e01      ld      a,#01		; load A with code for moving down
 ;1afd  323c4d    ld      (#4d3c),a	; store into wanted pacman orientation
 ;1b00  22264d    ld      (#4d26),hl	; store into wanted pacman tile changes
+	    lda #1
+	    sta |wanted_pacman_orientation
+	    lda |move_down
+	    sta |wanted_pacman_tile_y
 ;1b03  0600      ld      b,#00		; B := #00
+	    ldy #0 ;$$JGA TODO, verify this is what we want
 ;1b05  c3e418    jp      #18e4		; return to program
+	    jmp mc_return
+
 ;------------------------------------------------------------------------------
 ;
 ;; called from #1A00
