@@ -326,9 +326,13 @@ home_counter4 dw 0  ;4d98
 ;	    These values are normally 0, but are changed to 1 when a ghost has
 ;	    entered a tunnel slowdown area
 ;	4d99	aux var used by red ghost to check positions
+red_aux dw 0
 ;	4d9a	aux var used by pink ghost to check positions
+pink_aux dw 0
 ;	4d9b	aux var used by blue ghost to check positions
+blue_aux dw 0
 ;	4d9c	aux var used by orange ghost to check positions
+orange_aux dw 0
 ;
 ;	4d9d	delay to update pacman movement
 ;		not 0xff - the game doesn't move pacman, but decrements instead

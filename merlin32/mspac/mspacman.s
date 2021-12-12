@@ -5017,82 +5017,121 @@ control_red mx %00
 	    jsr check_difficulty
 
 ;1b43  2a314d    ld      hl,(#4d31)	; load HL with red ghost Y, X tile position 2
+	    lda |red_tile_y_2
 ;1b46  01994d    ld      bc,#4d99	; load BC with address of aux var used by red ghost to check positions
+	    ldy #red_aux
 ;1b49  cd5a20    call    #205a		; check to see if red ghost has entered a tunnel slowdown area
+	    jsr check_slow
 ;1b4c  3a994d    ld      a,(#4d99)	; load A with aux var used by red ghost to check positions
 ;1b4f  a7        and     a		; is the red ghost in a tunnel slowdown area ?
+	    lda |red_aux
 ;1b50  ca6a1b    jp      z,#1b6a		; no, skip ahead
+	    beq :not_slow
 
 ;1b53  2a604d    ld      hl,(#4d60)	; else load HL with red ghost speed bit patterns for tunnel areas
 ;1b56  29        add     hl,hl		; double it
 ;1b57  22604d    ld      (#4d60),hl	; store result
+	    asl |speedbit_red_tunnel+2
 ;1b5a  2a5e4d    ld      hl,(#4d5e)	; load HL with red ghost speed bit patterns for tunnel areas
 ;1b5d  ed6a      adc     hl,hl		; double it
 ;1b5f  225e4d    ld      (#4d5e),hl	; store result.  have we exceeded the threshold ?
+	    asl |speedbit_red_tunnel
 ;1b62  d0        ret     nc		; no, return
+	    bcs :no_rts
+:rts
+	    rts
+:no_rts
 
 ;1b63  21604d    ld      hl,#4d60	; else load HL with red ghost speed bit patterns for tunnel areas
 ;1b66  34        inc     (hl)		; increase
+	    inc |speedbit_red_tunnel+2
 ;1b67  c3d81b    jp      #1bd8		; skip ahead
-
+	    bra red_ghost_move
+:not_slow
 ;1b6a  3aa74d    ld      a,(#4da7)	; load A with red ghost blue flag (0=not blue)
+	    lda |redghost_blue
 ;1b6d  a7        and     a		; is red ghost blue ?
 ;1b6e  ca881b    jp      z,#1b88		; no, skip ahead
+	    beq :not_blue
 
 ;1b71  2a5c4d    ld      hl,(#4d5c)	; yes, load HL with red ghost speed bit patterns for blue state
 ;1b74  29        add     hl,hl		; double it
 ;1b75  225c4d    ld      (#4d5c),hl	; store result
+	    asl |speedbit_red_blue+2
 ;1b78  2a5a4d    ld      hl,(#4d5a)	; load HL with red ghost speed bit patterns for blue state
 ;1b7b  ed6a      adc     hl,hl		; double it
 ;1b7d  225a4d    ld      (#4d5a),hl	; store result.  have we exceeded the threshold ?
+	    asl |speedbit_red_blue
 ;1b80  d0        ret     nc		; no, return
+	    bcc :rts
 
 ;1b81  215c4d    ld      hl,#4d5c	; yes, load HL with red ghost speed bit patterns for blue state
 ;1b84  34        inc     (hl)		; increase
+	    inc |speedbit_red_blue+2
 ;1b85  c3d81b    jp      #1bd8		; skip ahead
-
+	    bra red_ghost_move
+:not_blue
 ;1b88  3ab74d    ld      a,(#4db7)	; load A with 2nd difficulty flag
+	    lda |red_difficulty1
 ;1b8b  a7        and     a		; is cruise elroy 2 active ?
 ;1b8c  caa61b    jp      z,#1ba6		; no, skip ahead
+	    beq :no_elroy
 
 ;1b8f  2a504d    ld      hl,(#4d50)	; yes, load HL with speed bit patterns for second difficulty flag
 ;1b92  29        add     hl,hl		; double
 ;1b93  22504d    ld      (#4d50),hl	; store result
+	    asl |speedbit_difficult2+2
 ;1b96  2a4e4d    ld      hl,(#4d4e)	; load HL with speed bit patterns for second difficulty flag
 ;1b99  ed6a      adc     hl,hl		; double
 ;1b9b  224e4d    ld      (#4d4e),hl	; store result.  have we exceeded the threshold ?
+	    asl |speedbit_difficult2
 ;1b9e  d0        ret     nc		; no, return
+	    bcc :rts
 
 ;1b9f  21504d    ld      hl,#4d50	; yes, load HL with movement bit patterns for second difficulty flag
 ;1ba2  34        inc     (hl)		; increase
+	    inc |speedbit_difficult2+2
 ;1ba3  c3d81b    jp      #1bd8		; skip ahead
+	    bra red_ghost_move
 
+:no_elroy
 ;1ba6  3ab64d    ld      a,(#4db6)	; load A with 1st difficulty flag
+	    lda |red_difficulty0
 ;1ba9  a7        and     a		; is cruise elroy 1 active?
 ;1baa  cac41b    jp      z,#1bc4		; no, skip ahead
+	    beq :no_elroy2
 
 ;1bad  2a544d    ld      hl,(#4d54)	; yes, load HL with speed bit patterns for first difficulty flag
 ;1bb0  29        add     hl,hl		; double
 ;1bb1  22544d    ld      (#4d54),hl	; store result
+	    asl |speedbit_difficult+2
 ;1bb4  2a524d    ld      hl,(#4d52)	; load HL with speed bit patterns for first difficulty flag
 ;1bb7  ed6a      adc     hl,hl		; double
 ;1bb9  22524d    ld      (#4d52),hl	; store result.  have we exceeded the threshold ?
+	    asl |speedbit_difficult
 ;1bbc  d0        ret     nc		; no, return
+	    bcc :rts
 
 ;1bbd  21544d    ld      hl,#4d54	; yes, load HL with speed bit patterns for first difficulty flag
 ;1bc0  34        inc     (hl)		; increase
+	    inc |speedbit_difficult+2
 ;1bc1  c3d81b    jp      #1bd8		; skip ahead
-
+	    bra red_ghost_move
+:no_elroy2
 ;1bc4  2a584d    ld      hl,(#4d58)	; load HL with speed bit patterns for red ghost normal state
 ;1bc7  29        add     hl,hl		; double
 ;1bc8  22584d    ld      (#4d58),hl	; store result
+	    asl speedbit_red_normal+2
 ;1bcb  2a564d    ld      hl,(#4d56)	; load HL with  speed bit patterns for red ghost normal state
 ;1bce  ed6a      adc     hl,hl		; double
 ;1bd0  22564d    ld      (#4d56),hl	; store result.  have we exceed the threshold ?
+	    asl speedbit_red_normal
 ;1bd3  d0        ret     nc		; no, return
+	    bcc :rts
 
 ;1bd4  21584d    ld      hl,#4d58	; yes, load HL with speed bit patterns for red ghost normal state
 ;1bd7  34        inc     (hl)		; increase
+	    inc |speedbit_red_normal+2
 
 
 ;------------------------------------------------------------------------------
@@ -5999,7 +6038,7 @@ yx_to_screen mx %00
 ;202E: C5            push bc		; save BC
 	    sta <:hl
 ;202F: 7D            ld   a,l		; load A with L.  
-	    sep #$31	; mxc = 111
+	    sep #$21	; mxc = 101
 ;2030: D6 20         sub  #20		; subtract #20.  
 	    sbc #$20
 ;2032: 6F            ld   l,a		; store back into L. 
@@ -6055,6 +6094,57 @@ yx_to_color_addy mx %00
 	    clc
 	    adc #$400	; add 1k offset
 	    rts
+;------------------------------------------------------------------------------
+; checks for ghost entering a slowdown area in a tunnel
+;205a
+check_slow mx %00
+;205a  cd5220    call    #2052		; convert ghost Y,X position in HL to a color screen location
+	    jsr yx_to_color_addy
+;205d  7e        ld      a,(hl)		; load A with the color of the ghost's location
+	    lda |0,y
+	    and #$FF
+;205e  fe1b      cp      #1b		; == #1b ? (code for no change of direction, eg above the ghost home in pac-man)
+ ;           cmp #$1B
+
+; OTTOPATCH
+;PATCH TO MAKE BIT 6 OF THE COLOR MAP INDICATE SLOW AREAS
+;ORG 2060H
+;JP SLOWMAP
+;NOP
+;2060  c36f36    jp      #366f		; jump to new patch for ms. pac man.  if no tunnel match, returns to #2066
+
+; arrive here from #2060 
+; A is loaded with the color of the tile the ghost is on
+
+;366f  cb77      bit     6,a		; test bit 6 of the tile.  is this a slow down zone (tunnel) ?
+	    bit #$40
+;3671  ca6620    jp      z,#2066		; no, jump back and set the var to zero
+	    beq :not_slow
+;3674  3e01      ld      a,#01		; yes, A := #01
+	    lda #1
+;3676  02        ld      (bc),a		; store into ghost tunnel slowdown flag
+	    sta |0,y
+;3677  c9        ret     		; return
+	    rts
+
+;2063  00        nop     		; junk from ms-pac patch
+
+	; original pac-man code:
+	;
+	; 2060: 20 04         jr   nz,$2066	; no, skip ahead
+	; 2062: 3E 01         ld   a,$01	; else A := #01
+	;
+
+;2064  02        ld      (bc),a		; store into ghost tunnel slowdown flag (pac-man only)
+;2065  c9        ret     		; return (pac-man only)
+:not_slow
+;2066  af        xor     a		; A := #00
+;2067  02        ld      (bc),a		; store into ghost tunnel slowdown flag
+	    tyx
+	    stz |0,x
+;2068  c9        ret   ; return
+	    rts
+
 
 ;------------------------------------------------------------------------------
 ; releases pink ghost from the ghost house
