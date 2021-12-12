@@ -3015,6 +3015,7 @@ pm1017      mx %00
 ;1044  cd0618    call    #1806		; handle all pac-man movement
 	    jsr pacman_movement
 ;1047  cd361b    call    #1b36		; control movement for red ghost
+	    jsr control_red
 ;104a  cd4b1c    call    #1c4b		; control movement for pink ghost
 ;104d  cd221d    call    #1d22		; control movement for blue ghost (inky)
 ;1050  cdf91d    call    #1df9		; control movement for orange ghost
@@ -4996,6 +4997,105 @@ ghost_house_timers mx %00
 	    rts
 
 ;------------------------------------------------------------------------------
+; called from several locations
+;1b37
+control_red mx %00
+;1b36  3aa04d    ld      a,(#4da0)	; load A with red ghost substate
+;1b39  a7        and     a		; is red ghost at home ?
+	    lda |red_substate
+;1b3a  c8        ret     z		; yes, return
+	    bne :forward
+:rts	    rts
+:forward
+;1b3b  3aac4d    ld      a,(#4dac)	; else load A with red ghost state
+	    lda |redghost_state
+;1b3e  a7        and     a		; is red ghost alive ?
+;1b3f  c0        ret     nz		; no, return
+	    bne :rts
+
+;1b40  cdd720    call    #20d7		; checks for and sets the difficulty flags based on number of pellets eaten
+	    jsr check_difficulty
+
+;1b43  2a314d    ld      hl,(#4d31)	; load HL with red ghost Y, X tile position 2
+;1b46  01994d    ld      bc,#4d99	; load BC with address of aux var used by red ghost to check positions
+;1b49  cd5a20    call    #205a		; check to see if red ghost has entered a tunnel slowdown area
+;1b4c  3a994d    ld      a,(#4d99)	; load A with aux var used by red ghost to check positions
+;1b4f  a7        and     a		; is the red ghost in a tunnel slowdown area ?
+;1b50  ca6a1b    jp      z,#1b6a		; no, skip ahead
+
+;1b53  2a604d    ld      hl,(#4d60)	; else load HL with red ghost speed bit patterns for tunnel areas
+;1b56  29        add     hl,hl		; double it
+;1b57  22604d    ld      (#4d60),hl	; store result
+;1b5a  2a5e4d    ld      hl,(#4d5e)	; load HL with red ghost speed bit patterns for tunnel areas
+;1b5d  ed6a      adc     hl,hl		; double it
+;1b5f  225e4d    ld      (#4d5e),hl	; store result.  have we exceeded the threshold ?
+;1b62  d0        ret     nc		; no, return
+
+;1b63  21604d    ld      hl,#4d60	; else load HL with red ghost speed bit patterns for tunnel areas
+;1b66  34        inc     (hl)		; increase
+;1b67  c3d81b    jp      #1bd8		; skip ahead
+
+;1b6a  3aa74d    ld      a,(#4da7)	; load A with red ghost blue flag (0=not blue)
+;1b6d  a7        and     a		; is red ghost blue ?
+;1b6e  ca881b    jp      z,#1b88		; no, skip ahead
+
+;1b71  2a5c4d    ld      hl,(#4d5c)	; yes, load HL with red ghost speed bit patterns for blue state
+;1b74  29        add     hl,hl		; double it
+;1b75  225c4d    ld      (#4d5c),hl	; store result
+;1b78  2a5a4d    ld      hl,(#4d5a)	; load HL with red ghost speed bit patterns for blue state
+;1b7b  ed6a      adc     hl,hl		; double it
+;1b7d  225a4d    ld      (#4d5a),hl	; store result.  have we exceeded the threshold ?
+;1b80  d0        ret     nc		; no, return
+
+;1b81  215c4d    ld      hl,#4d5c	; yes, load HL with red ghost speed bit patterns for blue state
+;1b84  34        inc     (hl)		; increase
+;1b85  c3d81b    jp      #1bd8		; skip ahead
+
+;1b88  3ab74d    ld      a,(#4db7)	; load A with 2nd difficulty flag
+;1b8b  a7        and     a		; is cruise elroy 2 active ?
+;1b8c  caa61b    jp      z,#1ba6		; no, skip ahead
+
+;1b8f  2a504d    ld      hl,(#4d50)	; yes, load HL with speed bit patterns for second difficulty flag
+;1b92  29        add     hl,hl		; double
+;1b93  22504d    ld      (#4d50),hl	; store result
+;1b96  2a4e4d    ld      hl,(#4d4e)	; load HL with speed bit patterns for second difficulty flag
+;1b99  ed6a      adc     hl,hl		; double
+;1b9b  224e4d    ld      (#4d4e),hl	; store result.  have we exceeded the threshold ?
+;1b9e  d0        ret     nc		; no, return
+
+;1b9f  21504d    ld      hl,#4d50	; yes, load HL with movement bit patterns for second difficulty flag
+;1ba2  34        inc     (hl)		; increase
+;1ba3  c3d81b    jp      #1bd8		; skip ahead
+
+;1ba6  3ab64d    ld      a,(#4db6)	; load A with 1st difficulty flag
+;1ba9  a7        and     a		; is cruise elroy 1 active?
+;1baa  cac41b    jp      z,#1bc4		; no, skip ahead
+
+;1bad  2a544d    ld      hl,(#4d54)	; yes, load HL with speed bit patterns for first difficulty flag
+;1bb0  29        add     hl,hl		; double
+;1bb1  22544d    ld      (#4d54),hl	; store result
+;1bb4  2a524d    ld      hl,(#4d52)	; load HL with speed bit patterns for first difficulty flag
+;1bb7  ed6a      adc     hl,hl		; double
+;1bb9  22524d    ld      (#4d52),hl	; store result.  have we exceeded the threshold ?
+;1bbc  d0        ret     nc		; no, return
+
+;1bbd  21544d    ld      hl,#4d54	; yes, load HL with speed bit patterns for first difficulty flag
+;1bc0  34        inc     (hl)		; increase
+;1bc1  c3d81b    jp      #1bd8		; skip ahead
+
+;1bc4  2a584d    ld      hl,(#4d58)	; load HL with speed bit patterns for red ghost normal state
+;1bc7  29        add     hl,hl		; double
+;1bc8  22584d    ld      (#4d58),hl	; store result
+;1bcb  2a564d    ld      hl,(#4d56)	; load HL with  speed bit patterns for red ghost normal state
+;1bce  ed6a      adc     hl,hl		; double
+;1bd0  22564d    ld      (#4d56),hl	; store result.  have we exceed the threshold ?
+;1bd3  d0        ret     nc		; no, return
+
+;1bd4  21584d    ld      hl,#4d58	; yes, load HL with speed bit patterns for red ghost normal state
+;1bd7  34        inc     (hl)		; increase
+
+
+;------------------------------------------------------------------------------
 ; called from #10C0 and several other places
 ; handles red ghost movement
 ; 1bd8
@@ -5995,5 +6095,72 @@ release_orange
 ;20d6  c9        ret     		; return
 	    rts
 
+;------------------------------------------------------------------------------
+; checks for and sets the difficulty flags based on number of pellets eaten
+; called from #1B40
+;20d7
+check_difficulty mx %00
+
+;20d7  3aa34d    ld      a,(#4da3)	; load A with orange ghost state
+	    lda |orange_substate
+;20da  a7        and     a		; is the ghost living in the ghost house?
+;20db  c8        ret     z		; yes, return
+	    beq :rts
+
+;20dc  210e4e    ld      hl,#4e0e	; load HL with number of pellets eaten address
+;20df  3ab64d    ld      a,(#4db6)	; load A with first difficulty flag
+	    lda |red_difficulty0
+;20e2  a7        and     a		; has flag been set ?
+;20e3  c2f420    jp      nz,#20f4	; yes, skip ahead
+	    bne :skip_ahead
+
+;20e6  3ef4      ld      a,#f4		; no, A := #F4
+	    lda #$F4
+;20e8  96        sub     (hl)		; subract number of pellets eaten
+	    sec
+	    sbc |dotseat
+;20e9  47        ld      b,a		; load B with the result
+	    sta <temp0
+;20ea  3abb4d    ld      a,(#4dbb)	; load A with remainder of pills when first diff. flag is set
+	    lda |pill_remain0
+;20ed  90        sub     b		; subtract the result found above.  is it time to set the flag ?
+	    sec
+	    sbc <temp0
+;20ee  d8        ret     c		; no, return
+	    bcs :rts
+
+;20ef  3e01      ld      a,#01		; A := #01
+	    lda #1
+;20f1  32b64d    ld      (#4db6),a	; set 1st difficulty flag so red ghost goes for pacman
+	    sta |red_difficulty0
+:skip_ahead
+;20f4  3ab74d    ld      a,(#4db7)	; load A with 2nd difficulty flag
+	    lda |red_difficulty1
+;20f7  a7        and     a		; 2nd difficulty flag set yet ?
+;20f8  c0        ret     nz		; no, return
+	    bne :rts
+
+;20f9  3ef4      ld      a,#f4		; else A := #F4
+	    lda #$f4
+;20fb  96        sub     (hl)		; subtract number of pellets eaten
+	    sec
+	    sbc |dotseat
+;20fc  47        ld      b,a		; save result into B
+	    sta <temp 0
+;20fd  3abc4d    ld      a,(#4dbc)	; load A with remainder of pills when second diff. flag is set
+	    lda |pill_remain1
+;2100  90        sub     b		; subract result computed above.  is it time to set the 2nd difficulty flag?
+	    sec
+	    sbc <temp0
+;2101  d8        ret     c		; no, return
+	    bcs :rts
+
+;2102  3e01      ld      a,#01		; yes, A := #01
+	    lda #1
+;2104  32b74d    ld      (#4db7),a	; set 2nd difficulty flag
+	    sta |red_difficulty1
+:rts
+;2107  c9        ret     		; return
+	    rts
 ;------------------------------------------------------------------------------
 

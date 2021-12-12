@@ -412,15 +412,19 @@ pacman_change_dir dw 0
 ;		0: red ghost goes to upper right corner on scatter
 ;		1: red ghost goes for pacman on scatter
 ;		1: red ghost goes faster
+red_difficulty0 dw 0
 ;	4db7	2nd difficulty flag (rel 4dbc) (cruise elroy 2)
 ;		when set, red uses a faster bit speed pattern
 ;		0: not set
 ;		1: faster movement
+red_difficulty1 dw 0
 ;	4db8	pink ghost counter to go out of home limit (rel 4e0f)
 ;	4db9	blue ghost counter to go out of home limit (rel 4e10)
 ;	4dba	orange ghost counter to go out of home limit (rel 4e11)
 ;	4dbb	remainder of pills when first diff. flag is set (cruise elroy 1)
+pill_remain0 dw 0
 ;	4dbc	remainder of pills when second diff. flag is set (cruise elroy 2)
+pill_remain1 dw 0
 ;	4dbd-4dbe Time the ghosts stay blue when pacman eats a big pill
 stay_blue_time dw 0
 ;
