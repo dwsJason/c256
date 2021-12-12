@@ -4703,6 +4703,7 @@ pacman_movement mx %00
 ;1A00: CD 08 1B	call	#1B08		; update timers for ghosts to leave ghost house
 	    jsr ghost_house_timers
 ;1A03: CD 6A 1A	call	#1A6A		; check for energizer eaten
+	    jsr check_energizer
 ;1A06: 21 BC 4E	ld	hl,#4EBC	; load HL with sound #3
 ;1A09: 3A 0E 4E	ld	a,(#4E0E)	; load A with number of pills eaten in this level
 ;1A0C: 0F	rrca			; roll right
@@ -4754,37 +4755,63 @@ pacman_movement mx %00
 ;1a60  fd21084d  ld      iy,#4d08	; load IY with pacman position (Y,X) address
 ;1a64  cd0020    call    #2000		; load HL with new position of pacman
 ;1a67  c38519    jp      #1985		; jump to movement check
-;
+;------------------------------------------------------------------------------
 ;; called from #1A03 after a dot has been eaten
-;
+;1a6a
+check_energizer mx %00
 ;1a6a  3a9d4d    ld      a,(#4d9d)	; load A with dot just eaten
+	    lda |move_delay
 ;1a6d  fe06      cp      #06		; was it an energizer?
+	    cmp #6
 ;1a6f  c0        ret     nz		; no, return
+	    beq :cont
+	    rts
+:cont
 ;
 ;; else an engergizer has been eaten
 ;; this is also called even on boards where energizers have "no effect"
 ;
 ;1A70: 2A BD 4D	ld	hl,(#4DBD)	; load HL with time the ghosts stay blue when pacman eats a big pill
+	    lda |stay_blue_time
 ;1a73  22cb4d    ld      (#4dcb),hl	; store into counter used while ghosts are blue
+	    sta |ghosts_blue_timer
 ;1a76  3e01      ld      a,#01		; A := #01
+	    lda #1
 ;1a78  32a64d    ld      (#4da6),a	; set power pill to active
+	    sta |powerpill
 ;1a7b  32a74d    ld      (#4da7),a	; set red ghost blue flag
+	    sta |redghost_blue
 ;1a7e  32a84d    ld      (#4da8),a	; set pink ghost blue flag
+	    sta |pinkghost_blue
 ;1a81  32a94d    ld      (#4da9),a	; set inky blue flag
+	    sta |blueghost_blue
 ;1a84  32aa4d    ld      (#4daa),a	; set orange ghost blue flag
+	    sta |orangeghost_blue
 ;1a87  32b14d    ld      (#4db1),a	; set red ghost change orientation flag
+	    sta |red_change_dir
 ;1a8a  32b24d    ld      (#4db2),a	; set pink ghost change orientation flag
+	    sta |pink_change_dir
 ;1a8d  32b34d    ld      (#4db3),a	; set blue ghost (inky) change orientation flag
+	    sta |blue_change_dir
 ;1a90  32b44d    ld      (#4db4),a	; set orange ghost change orientation flag
+	    sta |orange_change_dir
 ;1a93  32b54d    ld      (#4db5),a	; set pacman change orientation flag (?)
+	    sta |pacman_change_dir
 ;1a96  af        xor     a		; A := #00
 ;1a97  32c84d    ld      (#4dc8),a	; clear counter used to change ghost colors under big pill effects
+	    stz |big_pill_timer
 ;1a9a  32d04d    ld      (#4dd0),a	; clear current number of killed ghosts (used for scoring)
+	    stz |num_killed_ghosts
 ;1a9d  dd21004c  ld      ix,#4c00	; load IX with start of sprites address
 ;1aa1  dd36021c  ld      (ix+#02),#1c	; set red ghost sprite to edible
 ;1aa5  dd36041c  ld      (ix+#04),#1c	; set pink ghost sprite to edible
 ;1aa9  dd36061c  ld      (ix+#06),#1c	; set inky sprite to edible
 ;1aad  dd36081c  ld      (ix+#08),#1c	; set orange ghost sprite to edible
+	    lda #$1c
+	    sta |redghostsprite
+	    sta |pinkghostsprite
+	    sta |blueghostsprite
+	    sta |orangeghostsprite
 ;
 ;1ab1  dd360311  ld      (ix+#03),#11	; set red ghost color to blue
 ;
@@ -4802,11 +4829,21 @@ pacman_movement mx %00
 ;1ab5  dd360511  ld      (ix+#05),#11	; set pink ghost color to blue
 ;1ab9  dd360711  ld      (ix+#07),#11	; set inky color to blue
 ;1abd  dd360911  ld      (ix+#09),#11	; set orange ghost color to blue
+	    lda #$11
+	    sta |redghostcolor
+	    sta |pinkghostcolor
+	    sta |blueghostcolor
+	    sta |orangeghostcolor
 ;
 ;1AC1: 21 AC 4E	ld	hl,#4EAC	; load HL with sound channel 2
+	    lda #%100000
 ;1AC4: CB EE	set	5,(hl)		; play sound bit 5
+	    tsb |CH2_E_NUM
 ;1AC6: CB BE	res	7,(hl)		; clear sound bit 7
+	    lda #%10000000
+	    trb |CH2_E_NUM
 ;1AC8: C9	ret			; return
+	    rts
 ;
 ;	; Player move Left
 :player_move_left

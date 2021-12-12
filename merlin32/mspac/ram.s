@@ -422,6 +422,7 @@ pacman_change_dir dw 0
 ;	4dbb	remainder of pills when first diff. flag is set (cruise elroy 1)
 ;	4dbc	remainder of pills when second diff. flag is set (cruise elroy 2)
 ;	4dbd-4dbe Time the ghosts stay blue when pacman eats a big pill
+stay_blue_time dw 0
 ;
 ;	4dbf	1=pacman about to enter a tunnel, otherwise 0
 pacman_enter_tunnel dw 0
@@ -441,10 +442,11 @@ pacman_dead_counter dw 0
 
 ; 	4dc7	counter for current orientation we're trying
 ;	4dc8	counter used to change ghost colors under big pill effects
-;
+big_pill_timer dw 0
 ;	4dc9-4dca pointer to pick a random value from the ROM (routine 2a23)
 ;
 ;	4dcb-4dcc counter while ghosts are blue. effect ceases at 0
+ghosts_blue_timer dw 0
 ;	4dce	counter started after insert coin (LED and 1UP/2UP blink)
 ;	4dcf	counter to handle power pill flashes
 ;	4dd0	current number of killed ghosts (0..4)	(rel 4da5)
