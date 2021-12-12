@@ -341,7 +341,7 @@ move_delay dw 0
 RTNOPEBLPM dw 0
 ;	4d9f	eaten pills counter after pacman has died in a level
 ;		used to make ghosts go out of home after # pills eaten
-;
+pills_eaten_since_death dw 0
 ;		ghost substates:
 ;		0 = at home
 ;		1 = going for pac-man
@@ -510,14 +510,17 @@ dotseat dw 0
 ;	4e0f	counter incremented if orange, blue and pink ghosts are home
 ;		and pacman is eating pills.
 ;		used to make pink ghost leave home (rel 4db8)
+all_home_counter dw 0
 ;	4e10	counter incremented if orange, blue and pink ghosts are home
 ;		and pacman is eating pills.
 ;		used to make blue ghost leave home (rel 4db9)
+blue_home_counter dw 0
 ;	4e11	counter incremented if orange, blue and pink ghosts are home
 ;		and pacman is eating pills.
 ;		used to make orange ghost leave home (rel 4db9)
 ;	4e12	1 after dying in a level, reset to 0 if ghosts have left home
 ;		because of 4d9f
+pacman_dead dw 0
 ;
 ;------------------------------------------------------------------------------
 ; Game Variables

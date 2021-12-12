@@ -329,22 +329,28 @@ start   ent             ; make sure start is visible outside the file
 ;
 ;------------------------------------------------------------------------------
 
-rst0
+rst0 mx %00
 		sei					; Disable Interrupts
 ;		jmp	startuptest
 
 ;;$$TODO, port the rst28 - Add task, with argument
-rst28
+rst28 mx %00
 		rts
 
 ;;$$TODO, A=TNTM Y=param  TN=Task number, TM=Timer
-rst30
+rst30 mx %00
 		rts
 
 	; rst 38 (vblank)
 	; INTERRUPT MODE 1 handler
-rst38
-		rts
+rst38 mx %00
+	    rts
+
+;;$$TODO - Task
+;; A=00TN, Y=param
+;0042
+task_add mx %00
+	    rts
 
 
 
@@ -4589,11 +4595,12 @@ pacman_movement mx %00
 
 ; arrive here when fruit is eaten
 :fruit_eaten
-	    ;$$JGA TODO - this needs converted, make this future Jason's problem
 ;19B2: 06 19	ld	b,#19		; else a fruit is eaten.  load B with task #19
 ;19B4: 4F	ld	c,a		; load C with task from A register
+	    tay
+	    lda #$19
 ;19B5: CD 42 00	call	#0042		; set task #19 with parameter variable A.  updates score.  B has code for items scored, draw score on screen, check for high score and extra lives
-	    ;$$JGA TODO
+	    jsr task_add
 
 ;19B8: CD 00 10	call	#1000		; clear fruit.  clears #4DD4 and returns
 	    stz |FVALUE
@@ -4662,25 +4669,39 @@ pacman_movement mx %00
 ;19EB: 06 40	ld	b,#40		; load B with #40 (clear graphic)
 ;19ED: 70	ld	(hl),b		; update maze to clear the dot that has been eaten
 	    sep #$20
+	    pha
 	    lda #$40
 	    sta |0,x
+	    pla
 	    rep #$20
 
 ;19EE: 06 19	ld	b,#19		; load B with #19 for task call below
 ;19F0: 4F	ld	c,a		; load C with A (either #00 or #02)
 ;19F1: CB 39	srl	c		; shift right (div by 2).  now C is either #00 or #01
+	    lsr
+	    tay
+	    lda #$19
+
 ;19F3: CD 42 00	call	#0042		; set task #19 with variable parameter
+	    phy
+	    jsr task_add
+	    pla
 
 ; task #19 will update score.  B has code for items scored, draw score on screen, check for high score and extra lives
 
 ;19F6: 3C	inc	a		; A := A + 1.  A is now either 1 or 3
+	    inc
 ;19F7: FE 01	cp	#01		; was a dot just eaten?
+	    cmp #1
 ;19F9: CA FD 19	jp	z,#19FD		; yes, skip next step
-
+	    beq :normal_pill
 ;19FC: 87	add  a,a		; else it was an energizer. double A to 6
-
+	    asl
+:normal_pill
 ;19FD: 32 9D 4D	ld	(#4D9D),a	; store A to delay update pacman movement
+	    sta |move_delay
 ;1A00: CD 08 1B	call	#1B08		; update timers for ghosts to leave ghost house
+	    jsr ghost_house_timers
 ;1A03: CD 6A 1A	call	#1A6A		; check for energizer eaten
 ;1A06: 21 BC 4E	ld	hl,#4EBC	; load HL with sound #3
 ;1A09: 3A 0E 4E	ld	a,(#4E0E)	; load A with number of pills eaten in this level
@@ -4822,39 +4843,54 @@ pacman_movement mx %00
 ;1b00  22264d    ld      (#4d26),hl	; store into wanted pacman tile changes
 ;1b03  0600      ld      b,#00		; B := #00
 ;1b05  c3e418    jp      #18e4		; return to program
+;------------------------------------------------------------------------------
 ;
 ;; called from #1A00
-;
+;1b08
+ghost_house_timers mx %00
 ;1b08  3a124e    ld      a,(#4e12)	; load A with flag set to 1 after dying in a level, reset to 0 if ghosts have left home
+	    lda |pacman_dead
 ;1b0b  a7        and     a		; has pacman died this level?  (or has this flag been reset after eating enough dots after death) ?
 ;1b0c  ca141b    jp      z,#1b14		; no, skip ahead
+	    beq :not_dead
 ;
 ;1b0f  219f4d    ld      hl,#4d9f	; no, load HL with eaten pills counter after pacman has died in a level
 ;1b12  34        inc     (hl)		; increase
+	    inc |pills_eaten_since_death
 ;1b13  c9        ret     		; return
-;
+	    rts
+:not_dead
 ;1b14  3aa34d    ld      a,(#4da3)	; load A with orange ghost substate
+	    lda |orange_substate
 ;1b17  a7        and     a		; is orange ghost at home ?
 ;1b18  c0        ret     nz		; no, return
+	    bne :rts
 ;
 ;1b19  3aa24d    ld      a,(#4da2)	; yes, load A with inky substate
+	    lda |blue_substate
 ;1b1c  a7        and     a		; is inky at home ?
 ;1b1d  ca251b    jp      z,#1b25		; yes, skip ahead
+	    beq :check_pink
 ;
 ;1b20  21114e    ld      hl,#4e11	; no, load HL with counter incremented if orange ghost is home but inky is not
 ;1b23  34        inc     (hl)		; increase counter
 ;1b24  c9        ret     		; return
-;
+:check_pink
 ;1b25  3aa14d    ld      a,(#4da1)	; load A with pink ghost substate
+	    lda |pink_substate
 ;1b28  a7        and     a		; is pink ghost at home ?
 ;1b29  ca311b    jp      z,#1b31		; yes, skip ahead
-;
+	    beq :pink_home
 ;1b2c  21104e    ld      hl,#4e10	; no, load HL with counter incremented if inky and orange ghost are home but pinky is not
 ;1b2f  34        inc     (hl)		; increase counter
+	    inc |blue_home_counter
 ;1b30  c9        ret     		; return
-;
+	    rts
+:pink_home
 ;1b31  210f4e    ld      hl,#4e0f	; load HL with counter incremented if pink ghost is home
 ;1b34  34        inc     (hl)		; increase counter
+	    inc |all_home_counter
+:rts
 ;1b35  c9        ret     		; return
 	    rts
 
