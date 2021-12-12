@@ -3021,6 +3021,7 @@ pm1017      mx %00
 ;104d  cd221d    call    #1d22		; control movement for blue ghost (inky)
 	    jsr control_inky
 ;1050  cdf91d    call    #1df9		; control movement for orange ghost
+	    jsr control_orange
 ;1053  3a044e    ld      a,(#4e04)	; load A with level state subroutine #
 ;1056  fe03      cp      #03		; is a game being played ?
 ;1058  c0        ret     nz		; no, return
@@ -5633,60 +5634,88 @@ inky_ghost_move	mx %00
 ;------------------------------------------------------------------------------
 ; control movement patterns for orange ghost
 ; called from #1050
-
+;1df9
+control_orange mx %00
 ;1df9  3aa34d    ld      a,(#4da3)	; load A with orange ghost substate
+	    lda |orange_substate
 ;1dfc  fe01      cp      #01		; is orange ghost at home ?
+	    cmp #1
 ;1dfe  c0        ret     nz		; yes, return
-;
+	    beq :stay
+:rts
+	    rts
+:stay
 ;1dff  3aaf4d    ld      a,(#4daf)	; else load A with orange ghost state
+	    lda |orangeghost_state
 ;1e02  a7        and     a		; is orange ghost alive ?
 ;1e03  c0        ret     nz		; no, return
-;
+	    bne :rts
 ;1e04  2a374d    ld      hl,(#4d37)	; load HL with orange ghost tile position 2
+	    lda |orange_tile_y_2
 ;1e07  019c4d    ld      bc,#4d9c	; load BC with address of aux var used by orange ghost to check positions
+	    ldy #orange_aux
 ;1e0a  cd5a20    call    #205a		; check to see if orange ghost has entered a tunnel slowdown area
+	    jsr check_slow
 ;1e0d  3a9c4d    ld      a,(#4d9c)	; load A with aux var used by orange ghost to check positions
+	    lda |orange_aux
 ;1e10  a7        and     a		; is the orange ghost in a tunnel slowdown area?
 ;1e11  ca2b1e    jp      z,#1e2b		; no, skip ahead
-;
+	    beq :not_slow
 ;1e14  2a844d    ld      hl,(#4d84)	; yes, load HL with speed bit patterns for orange ghost tunnel areas
 ;1e17  29        add     hl,hl		; double it
 ;1e18  22844d    ld      (#4d84),hl	; store result
+	    asl |speedbit_orange_tunnel+2
 ;1e1b  2a824d    ld      hl,(#4d82)	; load HL with speed bit patterns for orange ghost tunnel areas
 ;1e1e  ed6a      adc     hl,hl		; double it
 ;1e20  22824d    ld      (#4d82),hl	; store result.  have we exceeded the threshold?
+	    asl |speedbit_orange_tunnel
 ;1e23  d0        ret     nc		; no, return
+	    bcc :rts
 ;
 ;1e24  21844d    ld      hl,#4d84	; yes, load HL with speed bit patterns for orange ghost tunnel areas
 ;1e27  34        inc     (hl)		; increase
+	    inc |speedbit_orange_tunnel+2
 ;1e28  c35d1e    jp      #1e5d		; skip ahead
-;
+	    bra orange_ghost_move
+:not_slow
 ;1e2b  3aaa4d    ld      a,(#4daa)	; load A with orange ghost blue flag
+	    lda |orangeghost_blue
 ;1e2e  a7        and     a		; is the orange ghost blue ( edible ) ?
 ;1e2f  ca491e    jp      z,#1e49		; no, skip ahead
+	    beq :not_blue
 ;
 ;1e32  2a804d    ld      hl,(#4d80)	; yes, load HL with speed bit patterns for orange ghost blue state
 ;1e35  29        add     hl,hl		; double it
 ;1e36  22804d    ld      (#4d80),hl	; store result
+	    asl |speedbit_orange_blue+2
 ;1e39  2a7e4d    ld      hl,(#4d7e)	; load HL with speed bit patterns for orange ghost blue state
 ;1e3c  ed6a      adc     hl,hl		; double it
 ;1e3e  227e4d    ld      (#4d7e),hl	; store result.  have we exceeded the threshold ?
+	    asl |speedbit_orange_blue
 ;1e41  d0        ret     nc		; no, return
+	    bcc :rts
 ;
 ;1e42  21804d    ld      hl,#4d80	; yes, load HL with speed bit patterns for orange ghost blue state
-;1e45  34        inc     (hl)		; increase 
+;1e45  34        inc     (hl)		; increase
+	    inc |speedbit_orange_blue+2
 ;1e46  c35d1e    jp      #1e5d		; skip ahead
-;
+	    bra orange_ghost_move
+
+:not_blue
 ;1e49  2a7c4d    ld      hl,(#4d7c)	; load HL with speed bit patterns for orange ghost normal state
 ;1e4c  29        add     hl,hl		; double it
 ;1e4d  227c4d    ld      (#4d7c),hl	; store result
+	    asl |speedbit_orange_normal+2
 ;1e50  2a7a4d    ld      hl,(#4d7a)	; load HL with speed bit patterns for orange ghost normal state
 ;1e53  ed6a      adc     hl,hl		; double it
 ;1e55  227a4d    ld      (#4d7a),hl	; store result.  have we exceeded the threshold ?
+	    asl |speedbit_orange_normal
 ;1e58  d0        ret     nc		; no, return
+	    bcc :rts
 ;
 ;1e59  217c4d    ld      hl,#4d7c	; yes, load HL with speed bit patterns for orange ghost normal state
 ;1e5c  34        inc     (hl)		; increase
+	    inc |speedbit_orange_normal+2
 
 ;------------------------------------------------------------------------------
 ;1e5d
