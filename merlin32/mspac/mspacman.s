@@ -3017,6 +3017,7 @@ pm1017      mx %00
 ;1047  cd361b    call    #1b36		; control movement for red ghost
 	    jsr control_red
 ;104a  cd4b1c    call    #1c4b		; control movement for pink ghost
+	    jsr control_pink
 ;104d  cd221d    call    #1d22		; control movement for blue ghost (inky)
 ;1050  cdf91d    call    #1df9		; control movement for orange ghost
 ;1053  3a044e    ld      a,(#4e04)	; load A with level state subroutine #
@@ -5247,6 +5248,91 @@ red_ghost_move mx %00
 	    sta |red_tile_y_2
 ;1c4a  c9        ret			; return
 	    rts
+;------------------------------------------------------------------------------
+; control movement patterns for pink ghost
+; called from #104A
+; 1c4b
+control_pink mx %00
+;1c4b  3aa14d    ld      a,(#4da1)	; load A with pink ghost substate
+	    lda |pink_substate
+;1c4e  fe01      cp      #01		; is pink ghost at home ?
+	    cmp #1
+;1c50  c0        ret     nz		; yes, return
+	    beq :pink_out
+:rts
+	    rts
+:pink_out
+;1c51  3aad4d    ld      a,(#4dad)	; else load A with pink ghost state
+	    lda |pinkghost_state
+;1c54  a7        and     a		; is pink ghost alive ?
+;1c55  c0        ret     nz		; no, return
+	    bne :rts
+
+;1c56  2a334d    ld      hl,(#4d33)	; load HL with pink ghost tile position 2
+	    lda |pink_tile_y_2
+;1c59  019a4d    ld      bc,#4d9a	; load BC with address of aux var used by pink ghost to check positions
+	    ldy #pink_aux
+;1c5c  cd5a20    call    #205a		; check to see if pink ghost has entered a tunnel slowdown area
+	    jsr check_slow
+;1c5f  3a9a4d    ld      a,(#4d9a)	; load A with aux var used by pink ghost to check positions
+	    lda |pink_aux
+;1c62  a7        and     a		; is the pink ghost in a tunnel slowdown area ?
+;1c63  ca7d1c    jp      z,#1c7d		; no, skip ahead
+	    beq :not_slow
+
+;1c66  2a6c4d    ld      hl,(#4d6c)	; else load HL with speed bit patterns for pink ghost tunnel areas
+;1c69  29        add     hl,hl		; double it
+;1c6a  226c4d    ld      (#4d6c),hl	; store result
+	    asl |speedbit_pink_tunnel+2
+;1c6d  2a6a4d    ld      hl,(#4d6a)	; load HL with speed bit patterns for pink ghost tunnel areas
+;1c70  ed6a      adc     hl,hl		; double it
+;1c72  226a4d    ld      (#4d6a),hl	; store result.   Have we exceeded the threshold ?
+	    asl |speedbit_pink_tunnel
+;1c75  d0        ret     nc		; no, return
+	    bcc :rts
+
+;1c76  216c4d    ld      hl,#4d6c	; else load HL with address of speed bit patterns for pink ghost tunnel areas
+;1c79  34        inc     (hl)		; increase
+	    inc |speedbit_pink_tunnel+2
+;1c7a  c3af1c    jp      #1caf		; skip ahead
+	    bra pink_ghost_move
+:not_slow
+;1c7d  3aa84d    ld      a,(#4da8)	; load A with pink ghost blue flag
+	    lda |pinkghost_blue
+;1c80  a7        and     a		; is the pink ghost blue ?
+;1c81  ca9b1c    jp      z,#1c9b		; no, skip ahead
+	    beq :not_blue
+
+;1c84  2a684d    ld      hl,(#4d68)	; yes, load HL with speed bit patterns for pink ghost blue state
+;1c87  29        add     hl,hl		; double it
+;1c88  22684d    ld      (#4d68),hl	; store result
+	    asl |speedbit_pink_blue+2
+;1c8b  2a664d    ld      hl,(#4d66)	; load HL with speed bit patterns for pink ghost blue state
+;1c8e  ed6a      adc     hl,hl		; double it
+;1c90  22664d    ld      (#4d66),hl	; store result.  have we exceeded the threshold ?
+	    asl |speedbit_pink_blue
+;1c93  d0        ret     nc		; no, return
+	    bcc :rts
+
+;1c94  21684d    ld      hl,#4d68	; yes, load HL with speed bit patterns for pink ghost blue state
+;1c97  34        inc     (hl)		; increase
+	    inc |speedbit_pink_blue+2
+;1c98  c3af1c    jp      #1caf		; skip ahead
+	    bra pink_ghost_move
+:not_blue
+;1c9b  2a644d    ld      hl,(#4d64)	; load HL with speed bit patterns for pink ghost normal state
+;1c9e  29        add     hl,hl		; double it
+;1c9f  22644d    ld      (#4d64),hl	; store result
+	    asl |speedbit_pink_normal+2
+;1ca2  2a624d    ld      hl,(#4d62)	; load HL with speed bit patterns for pink ghost normal state
+;1ca5  ed6a      adc     hl,hl		; double it
+;1ca7  22624d    ld      (#4d62),hl	; store result.  have we exceeded the threshold ?
+	    asl |speedbit_pink_normal
+;1caa  d0        ret     nc		; no, return
+	    bcc :rts
+;1cab  21644d    ld      hl,#4d64	; yes, load HL with speed bit patterns for pink ghost normal state
+;1cae  34        inc     (hl)		; increase
+	    inc |speedbit_pink_normal+2
 
 ;------------------------------------------------------------------------------
 ;1caf
