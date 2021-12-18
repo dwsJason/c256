@@ -2965,6 +2965,8 @@ game_playing mx %00
 ;0900  cdd60b    call    #0bd6		; color dead ghosts the correct colors
 ;0903  cd0d0c    call    #0c0d		; handle power pill (dot) flashes
 ;0906  cd6c0e    call    #0e6c		; change the background sound based on # of pills eaten
+	    jsr change_sound_pills
+
 ;0909: CDAD0E	 call	 #0EAD		; check for fruit to come out.  (new ms. pac sub actually at #86EE.)
 
 	    rts   			; return ( to #0195 ) 
@@ -3505,59 +3507,89 @@ reverse_ghosts mx %00
 	    rts
 
 ;------------------------------------------------------------------------------
-
 ; called from #0906
 ; changes the background sound based on # of pills eaten
-
+;0e6c
+change_sound_pills mx %00
 ;0e6c  3aa54d    ld      a,(#4da5)	; load A with pacman dead animation state (0 if not dead)
+	    lda |pacman_dead_state
 ;0e6f  a7        and     a		; is pacman dead ?
 ;0e70  2805      jr      z,#0e77         ; no, skip ahead
+	    beq :not_dead
 ;0e72  af        xor     a		; else A := #00
 ;0e73  32ac4e    ld      (#4eac),a	; clear sound channel 2
+	    stz |CH2_E_NUM
 ;0e76  c9        ret     		; return
-
+	    rts
+:not_dead
 ;0E77: 21 AC 4E	ld	hl,#4EAC	; else pacman is alive.  load HL with sound 2 channel
+	    lda |CH2_E_NUM
 ;0E7A: 06 E0	ld	b,#E0		; B := #E0.  this is a binary bitmask of 11100000 applied later
+	    and #$E0
 ;0E7C: 3A 0E 4E	ld	a,(#4E0E)	; load A with number of pills eaten in this level
+	    ldx |dotseat
 ;0E7F: FE E4	cp	#E4		; > #E4 ?
+	    cpx #$E4
 ;0E81: 38 06	jr	c,#0E89		; no, skip ahead
+	    bcs :skip   	       	; $$JGA REVISIT
 
 ;0E83: 78	ld	a,b		; else load A with bitmask
 ;0E84: A6	and	(hl)		; apply bitmask to sound 2 channel. this turns off bits 0 through 4
 ;0E85: CB E7	set	4,a		; turn on bit 4
+	    ora #$10
 ;0E87: 77	ld	(hl),a		; play sound
+	    sta |CH2_E_NUM
 ;0E88: C9	ret  			; return
-
+	    rts
+:skip
 ;0e89  fed4      cp      #d4		; is the number of pills eaten in this level > #D4 ? 
+	    cpx #$d4
 ;0e8b  3806      jr      c,#0e93         ; no, skip ahead
+	    bcs :skip2			; $$JGA REVISIT
 
 ;0e8d  78        ld      a,b		; else load A with bitmask
 ;0e8e  a6        and     (hl)		; turn off bits 0 through 4 on sound channel
 ;0e8f  cbdf      set     3,a		; turn on bit 3
+	    ora #$08
 ;0e91  77        ld      (hl),a		; play sound
+	    sta |CH2_E_NUM
 ;0e92  c9        ret     		; return
-
+	    rts
+:skip2
 ;0e93  feb4      cp      #b4		; is the number of pills eaten in this level > #B4 ?
-;0e95  3806      jr      c,#0e9d         ; no, skip ahead
+	    cpx #$b4
+;0e95  3806      jr      c,#0e9d        ; no, skip ahead
+	    bcs :skip3			; $$JGA REVISIT
 ;0e97  78        ld      a,b		; else load A with bitmask
 ;0e98  a6        and     (hl)		; turn off bits 0 through 4 on sound channel
 ;0e99  cbd7      set     2,a		; turn on bit 2
+	    ora #4
 ;0e9b  77        ld      (hl),a		; play sound
+	    sta |CH2_E_NUM
 ;0e9c  c9        ret     		; return
-
+	    rts
+:skip3
 ;0e9d  fe74      cp      #74		; is the number of pills eaten in this level > #74 ?
+	    cpx #$74
 ;0e9f  3806      jr      c,#0ea7         ; no, skip ahead
+	    bcs :skip4			; $$JGA Revisit
 ;0ea1  78        ld      a,b		; load A with bitmask
 ;0ea2  a6        and     (hl)		; turn off bits 0 through 4 on sound channel
 ;0ea3  cbcf      set     1,a		; turn on bit 1
+	    ora #2
 ;0ea5  77        ld      (hl),a		; play sound
+	    sta |CH2_E_NUM
 ;0ea6  c9        ret     		; return
-
+	    rts
+:skip4
 ;0ea7  78        ld      a,b		; else load A with bitmask
 ;0ea8  a6        and     (hl)		; turn off bits 0 through 4 on sound channel
 ;0ea9  cbc7      set     0,a		; turn on bit 0
+	    ora #1
 ;0eab  77        ld      (hl),a		; play sound
+	    sta |CH2_E_NUM
 ;0eac  c9        ret     		; return
+	    rts
 
 ;------------------------------------------------------------------------------
 ; called from #052C, #052F, #08EB and #08EE 
