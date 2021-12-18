@@ -2951,8 +2951,10 @@ game_playing mx %00
 ;08ee  cd1710    call    #1017		; another core game loop that does many things
 	    jsr pm1017
 ;08f1  cddd13    call    #13dd		; check for release of ghosts from ghost house
-
+	    jsr ghosthouse
 ;08f4  cd420c    call    #0c42		; adjust movement of ghosts if moving out of ghost house
+	    jsr ghost_house_movement
+
 ;08f7  cd230e    call    #0e23		; change animation of ghosts every 8th frame
 ;08fa  cd360e    call    #0e36		; periodically reverse ghost direction based on difficulty (only when energizer not active)
 ;08fd  cdc30a    call    #0ac3		; handle ghost flashing and colors when power pills are eaten
@@ -2962,6 +2964,450 @@ game_playing mx %00
 ;0909: CDAD0E	 call	 #0EAD		; check for fruit to come out.  (new ms. pac sub actually at #86EE.)
 
 	    rts   			; return ( to #0195 ) 
+
+;------------------------------------------------------------------------------
+; called from #08f4
+; handles ghost movements when they are moving around in or coming out of the ghost home
+;0c42
+ghost_house_movement mx %00
+
+; red ghost
+
+;0c42  3aa44d    ld      a,(#4da4)	; load A with # of ghost killed but no collision for yet [0..4]
+	    lda	|num_ghosts_killed
+;0c45  a7        and     a		; == #00 ?
+;0c46  c0        ret     nz		; return if no collision
+	    beq :do_red
+:rts
+	    rts
+:do_red
+;0c47  3a944d    ld      a,(#4d94)	; else load A with counter related to ghost movement inside home
+	    sep #$20
+	    asl |home_counter0
+;0c4a  07        rlca    		; rotate left
+	    lda #0
+	    rol
+;0c4b  32944d    ld      (#4d94),a	; store result
+	    tsb |home_counter0
+;0c4e  d0        ret     nc		; return if no carry
+	    rep #$30
+	    bcc :rts
+
+;0c4f  3aa04d    ld      a,(#4da0)	; else load A with red ghost substate
+	    lda |red_substate
+;0c52  a7        and     a		; is red ghost out of the ghost house ?
+;0c53  c2900c    jp      nz,#0c90	; yes, skip ahead and check next ghost
+	    bne :do_pink
+
+;0c56  dd210533  ld      ix,#3305	; no, load IX with address for offsets to move up
+	    ldx #move_up
+;0c5a  fd21004d  ld      iy,#4d00	; load IY with red ghost position
+	    ldy #red_ghost_y
+;0c5e  cd0020    call    #2000		; load HL with IY + IX = new position by moving up
+	    jsr double_add
+;0c61  22004d    ld      (#4d00),hl	; store into red ghost position
+	    sta |red_ghost_y
+;0c64  3e03      ld      a,#03		; A := #03
+	    lda #3
+;0c66  32284d    ld      (#4d28),a	; set previous red ghost orientation as moving up
+	    sta |prev_red_ghost_dir
+;0c69  322c4d    ld      (#4d2c),a	; set red ghost orientation as moving up
+	    sta |red_ghost_dir
+;0c6c  3a004d    ld      a,(#4d00)	; load A with red ghost Y position
+	    lda |red_ghost_y
+	    and #$FF
+;0c6f  fe64      cp      #64		; is the red ghost out of the ghost house ?
+	    cmp #$64
+;0c71  c2900c    jp      nz,#0c90	; no, skip ahead and check next ghost
+	    bne :do_pink
+
+;0c74  212c2e    ld      hl,#2e2c	; yes, HL := #2E, 2C
+	    lda #$2e2c
+;0c77  220a4d    ld      (#4d0a),hl	; store into red ghost position
+	    sta |redghost_tile_y
+;0c7a  210001    ld      hl,#0100	; HL := #01 00 (code for moving to left)
+	    lda #$0100
+;0c7d  22144d    ld      (#4d14),hl	; store into red ghost tile changes
+	    sta |red_ghost_tchangeA_y
+;0c80  221e4d    ld      (#4d1e),hl	; store into red ghost tile changes
+	    sta |red_ghost_tchange_y
+;0c83  3e02      ld      a,#02		; A := #02
+	    lda #2
+;0c85  32284d    ld      (#4d28),a	; set previous red ghost orientation as moving left
+	    sta |prev_red_ghost_dir
+;0c88  322c4d    ld      (#4d2c),a	; set red ghost orientation as moving left
+	    sta |red_ghost_dir
+;0c8b  3e01      ld      a,#01		; A := #01
+	    lda #1
+;0c8d  32a04d    ld      (#4da0),a	; set red ghost indicator to outside the ghost house
+	    sta |red_substate
+
+; pink ghost
+:do_pink
+;0c90  3aa14d    ld      a,(#4da1)	; load A with pink ghost substate
+	    lda |pink_substate
+;0c93  fe01      cp      #01		; is pink ghost out of the ghost house ?
+	    cmp #1
+;0c95  cafb0c    jp      z,#0cfb	; yes, skip ahead and check next ghost
+	    beq :do_blue
+
+;0c98  fe00      cp      #00		; is pink ghost waiting to leave the ghost house?
+	    cmp #0
+;0c9a  c2c10c    jp      nz,#0cc1	; no, skip ahead
+	    bne :pink_escape
+
+; pink ghost is moving up and down in the ghost house
+
+;0c9d  3a024d    ld      a,(#4d02)	; yes, load A with pink ghost Y position
+	    lda |pink_ghost_y
+	    and #$FF
+;0ca0  fe78      cp      #78		; is pink ghost at the upper limit of the ghost house?
+	    cmp #$78
+;0ca2  cc2e1f    call    z,#1f2e		; yes, reverse direction of pink ghost
+	    bne :not78
+	    jsr reverse_pink
+	    lda |pink_ghost_y
+	    and #$FF
+:not78
+;0ca5  fe80      cp      #80		; is pink ghost at bottom of the ghost house?
+	    cmp #$80
+	    bne :not80
+;0ca7  cc2e1f    call    z,#1f2e		; yes, reverse direction of pink ghost
+	    jsr reverse_pink
+:not80
+;0caa  3a2d4d    ld      a,(#4d2d)	; load A with pink ghost orientation
+	    lda |pink_ghost_dir
+;0cad  32294d    ld      (#4d29),a	; store into previous pink ghost orienation
+	    sta |prev_pink_ghost_dir
+;0cb0  dd21204d  ld      ix,#4d20	; load IX with pink ghost tile changes
+	    ldx #pink_ghost_tchange_y
+;0cb4  fd21024d  ld      iy,#4d02	; load IY with pink ghost position
+	    ldy #pink_ghost_y
+;0cb8  cd0020    call    #2000		; load HL with IX + IY = new pink ghost position
+	    jsr double_add
+;0cbb  22024d    ld      (#4d02),hl	; store into pink ghost position
+	    sta |pink_ghost_y
+;0cbe  c3fb0c    jp      #0cfb		; skip ahead and check next ghost
+	    bra :do_blue
+
+; pink ghost is moving up out of the ghost house
+:pink_escape
+;0cc1  dd210533  ld      ix,#3305	; load IX with address for offsets to move up
+	    ldx #move_up
+;0cc5  fd21024d  ld      iy,#4d02	; load IY with pink ghost position
+	    ldy #pink_ghost_y
+;0cc9  cd0020    call    #2000		; load HL with IY + IX = new pink ghost position
+	    jsr double_add
+;0ccc  22024d    ld      (#4d02),hl	; store result into pink ghost position
+	    sta |pink_ghost_y
+;0ccf  3e03      ld      a,#03		; A := #03
+	    lda #3
+;0cd1  322d4d    ld      (#4d2d),a	; set previous pink ghost orientation as moving up
+	    sta |pink_ghost_dir
+;0cd4  32294d    ld      (#4d29),a	; set pink ghost orientation as moving up
+	    sta |prev_pink_ghost_dir
+;0cd7  3a024d    ld      a,(#4d02)	; load A with pink ghost Y position
+	    lda |pink_ghost_y
+;0cda  fe64      cp      #64		; is pink ghost out of the ghost house ?
+	    and #$FF
+	    cmp #$64
+;0cdc  c2fb0c    jp      nz,#0cfb	; no, skip ahead and check next ghost
+	    bne :do_blue
+
+; pink ghost has made it out of the ghost house
+
+;0cdf  212c2e    ld      hl,#2e2c	; HL := 2E, 2C
+	    lda #$2e2c
+;0ce2  220c4d    ld      (#4d0c),hl	; store into pink ghost position
+	    sta |pinkghost_tile_y
+;0ce5  210001    ld      hl,#0100	; HL := #01 00 (code for moving left)
+	    lda #$0100
+;0ce8  22164d    ld      (#4d16),hl	; store into pink ghost tile changes
+	    sta |pink_ghost_tchangeA_y
+;0ceb  22204d    ld      (#4d20),hl	; store into pink ghost tile changes
+	    sta |pink_ghost_tchange_y
+;0cee  3e02      ld      a,#02		; A := #02
+	    lda #2
+;0cf0  32294d    ld      (#4d29),a	; set previous pink ghost orientation as moving left
+	    sta |prev_pink_ghost_dir
+;0cf3  322d4d    ld      (#4d2d),a	; set pink ghost orientation as moving left
+	    sta |pink_ghost_dir
+;0cf6  3e01      ld      a,#01		; A := #01
+	    lda #1
+;0cf8  32a14d    ld      (#4da1),a	; set pink ghost indicator to outside the ghost house
+	    sta |pink_substate
+
+; blue ghost (inky)
+:do_blue
+;0cfb  3aa24d    ld      a,(#4da2)	; load A with blue ghost (inky) substate
+	    lda |blue_substate
+;0cfe  fe01      cp      #01		; is inky out of the ghost house ?
+	    cmp #1
+;0d00  ca930d    jp      z,#0d93		; yes, skip ahead and check next ghost
+	    beql :do_orange
+
+;0d03  fe00      cp      #00		; is inky waiting to leave the ghost house ?
+	    cmp #0
+;0d05  c22c0d    jp      nz,#0d2c	; no, skip ahead
+	    bne :inky_no_wait
+
+; inky is moving up and down in the ghost house
+
+;0d08  3a044d    ld      a,(#4d04)	; load A with inky Y position
+	    lda |blue_ghost_y
+;0d0b  fe78      cp      #78		; is inky at the upper limit of ghost house ?
+	    and #$FF
+	    cmp #$78
+	    bne :bg_no_top
+;0d0d  cc551f    call    z,#1f55		; yes, reverse direction of inky
+	    jsr reverse_inky
+	    lda |blue_ghost_y
+	    and #$FF
+:bg_no_top
+;0d10  fe80      cp      #80		; is inky at the bottom of the ghost house ?
+	    cmp #$80
+	    bne :bg_no_bot
+;0d12  cc551f    call    z,#1f55		; yes, reverse direction of inky
+	    jsr reverse_inky
+:bg_no_bot
+;0d15  3a2e4d    ld      a,(#4d2e)	; load A with inky orientation
+	    lda |blue_ghost_dir
+;0d18  322a4d    ld      (#4d2a),a	; store into previous inky orientation
+	    sta |prev_blue_ghost_dir
+;0d1b  dd21224d  ld      ix,#4d22	; load IX with inky tile changes
+	    ldx #blue_ghost_tchange_y
+;0d1f  fd21044d  ld      iy,#4d04	; load IY with inky position
+	    ldy #blue_ghost_y
+;0d23  cd0020    call    #2000		; load HL with IX + IY = new inky position
+	    jsr double_add
+;0d26  22044d    ld      (#4d04),hl	; store into inky position
+	    sta |blue_ghost_y
+;0d29  c3930d    jp      #0d93		; skip ahead and check next ghost
+	    bra :do_orange
+:inky_no_wait
+;0d2c  3aa24d    ld      a,(#4da2)	; load A with inky substate
+	    lda |blue_substate
+;0d2f  fe03      cp      #03		; is inky moving to his right, on his way out of the ghost house?
+	    cmp #3
+;0d31  c2590d    jp      nz,#0d59	; no, skip ahead
+	    bne :inky_not_right
+
+; inky is on his way out of ghost house to right
+
+;0d34  dd21ff32  ld      ix,#32ff	; yes, load IX with tile movement for moving right
+	    ldx #move_right
+;0d38  fd21044d  ld      iy,#4d04	; load IY with inky position
+	    ldy #blue_ghost_y
+;0d3c  cd0020    call    #2000		; load HL with IX + IY = new inky position
+	    jsr double_add
+;0d3f  22044d    ld      (#4d04),hl	; store new position for inky
+	    sta |blue_ghost_y
+;0d42  af        xor     a		; A := #00
+;0d43  322a4d    ld      (#4d2a),a	; set previous inky orientation as moving right
+	    stz |prev_blue_ghost_dir
+;0d46  322e4d    ld      (#4d2e),a	; set inky orientation as moving right
+	    sta |blue_ghost_dir
+;0d49  3a054d    ld      a,(#4d05)	; load A with inky X position
+	    lda |blue_ghost_x
+;0d4c  fe80      cp      #80		; is inky exactly under the ghost house door ?
+	    and #$FF
+	    cmp #$80
+;0d4e  c2930d    jp      nz,#0d93	; no, skip ahead and check next ghost
+	    bne :do_orange
+
+;0d51  3e02      ld      a,#02		; yes, A := #02
+	    lda #2
+;0d53  32a24d    ld      (#4da2),a	; store into inky substate to indicate moving up and out of ghost house
+	    sta |blue_substate
+;0d56  c3930d    jp      #0d93		; skip ahead and check next ghost
+	    bra :do_orange
+
+; inky is moving up out of the ghost house
+:inky_not_right
+;0d59  dd210533  ld      ix,#3305	; load IX with address for offsets to move up
+	    ldx #move_up
+;0d5d  fd21044d  ld      iy,#4d04	; load IY with inky position
+	    ldy #blue_ghost_y
+;0d61  cd0020    call    #2000		; load HL with IX + IY = new inky position
+	    jsr double_add
+;0d64  22044d    ld      (#4d04),hl	; store into inky position
+	    sta |blue_ghost_y
+;0d67  3e03      ld      a,#03		; A := #03
+	    lda #3
+;0d69  322a4d    ld      (#4d2a),a	; set previous inky orientation as moving up
+	    sta |prev_blue_ghost_dir
+;0d6c  322e4d    ld      (#4d2e),a	; set inky orientation as moving up
+	    sta |blue_ghost_dir
+;0d6f  3a044d    ld      a,(#4d04)	; load A with inky's Y position
+	    lda |blue_ghost_y
+;0d72  fe64      cp      #64		; is inky out of the ghost house ?
+	    and #$FF
+	    cmp #$64
+;0d74  c2930d    jp      nz,#0d93	; no, skip ahead and check next ghost
+	    bne :do_orange
+
+; inky has made it out of the ghost house
+
+;0d77  212c2e    ld      hl,#2e2c	; load HL with 2E, 2C
+	    lda #$2e2c
+;0d7a  220e4d    ld      (#4d0e),hl	; store into inky tile position
+	    sta |blueghost_tile_y
+;0d7d  210001    ld      hl,#0100	; load HL with code for moving left
+	    lda #$0100
+;0d80  22184d    ld      (#4d18),hl	; store into inky tile changes
+	    sta |blue_ghost_tchangeA_y
+;0d83  22224d    ld      (#4d22),hl	; store into inky tile changes
+	    sta |blue_ghost_tchange_y
+;0d86  3e02      ld      a,#02		; A := #02
+	    lda #2
+;0d88  322a4d    ld      (#4d2a),a	; set previous inky orientation as moving left
+	    sta |prev_blue_ghost_dir
+;0d8b  322e4d    ld      (#4d2e),a	; set inky orientation as moving left
+	    sta |blue_ghost_dir
+;0d8e  3e01      ld      a,#01		; A := #01	
+	    lda #1
+;0d90  32a24d    ld      (#4da2),a	; set inky ghost indicator to outside the ghost house
+	    sta |blue_substate
+
+; orange ghost
+:do_orange
+;0d93  3aa34d    ld      a,(#4da3)	; load A with orange ghost substate
+	    lda |orange_substate
+;0d96  fe01      cp      #01		; is orange ghost out of the ghost house ?
+	    cmp #1
+;0d98  c8        ret     z		; yes, return
+	    bne :continue_orange
+	    rts
+:continue_orange
+;0d99  fe00      cp      #00		; is orange ghost waiting to leave the ghost house ?
+	    cmp #0
+;0d9b  c2c00d    jp      nz,#0dc0	; no, skip ahead
+	    bne :not_up_down
+
+; orange ghost is moving up and down in the ghost house
+
+;0d9e  3a064d    ld      a,(#4d06)	; yes, load A with orange ghost Y position
+	    lda |orange_ghost_y
+	    and #$FF
+;0da1  fe78      cp      #78		; is orange ghost at upper limit of ghost house ?
+	    cmp #$78
+	    bne :not_orange_reverse1
+;0da3  cc7c1f    call    z,#1f7c		; yes, reverse orange ghost direction
+	    jsr reverse_orange
+:not_orange_reverse1
+	    lda |orange_ghost_y
+	    and #$FF
+;0da6  fe80      cp      #80		; is orange ghost at bottom of ghost house ?
+	    cmp #$80
+	    bne :no_orange_rev
+;0da8  cc7c1f    call    z,#1f7c		; yes, reverse orange ghost direction
+	    jsr reverse_orange
+:no_orange_rev
+;0dab  3a2f4d    ld      a,(#4d2f)	; load A with orange ghost orientation
+	    lda |orange_ghost_dir
+;0dae  322b4d    ld      (#4d2b),a	; store into previous orange ghost orientation
+	    sta |prev_orange_ghost_dir
+;0db1  dd21244d  ld      ix,#4d24	; load IX with orange ghost tile changes
+	    ldx #orange_ghost_tchange_y
+;0db5  fd21064d  ld      iy,#4d06	; load IY with orange ghost position
+	    ldy #orange_ghost_y
+;0db9  cd0020    call    #2000		; load HL with IX + IY = new orange ghost position
+	    jsr double_add
+;0dbc  22064d    ld      (#4d06),hl	; store into orange ghost position
+	    sta |orange_ghost_y
+;0dbf  c9        ret     		; return
+:rts2
+	    rts
+:not_up_down
+;0dc0  3aa34d    ld      a,(#4da3)	; load A with orange ghost substate
+	    lda |orange_substate
+;0dc3  fe03      cp      #03		; is orange ghost moving to his left, on his way out of the ghost house ?
+	    cmp #3
+;0dc5  c2ea0d    jp      nz,#0dea	; no, skip ahead
+	    bne :orange_up_out
+
+; orange ghost is moving left, on his way out of ghost house
+
+;0dc8  dd210333  ld      ix,#3303	; load IX with address for offsets to move left
+	    ldx #move_left
+;0dcc  fd21064d  ld      iy,#4d06	; load IY with orange ghost position 
+	    ldy #orange_ghost_y
+;0dd0  cd0020    call    #2000		; load HL with IX + IY = new orange ghost position
+	    jsr double_add
+;0dd3  22064d    ld      (#4d06),hl	; store new orange ghost position
+	    sta |orange_ghost_y
+;0dd6  3e02      ld      a,#02		; A := #02
+	    lda #2
+;0dd8  322b4d    ld      (#4d2b),a	; set previous orange ghost orientation as moving left
+	    sta |prev_orange_ghost_dir
+;0ddb  322f4d    ld      (#4d2f),a	; set orange ghost orientation as moving left
+	    sta |orange_ghost_dir
+;0dde  3a074d    ld      a,(#4d07)	; load A with orange ghost X position
+	    lda |orange_ghost_x
+	    and #$FF
+;0de1  fe80      cp      #80		; is orange ghost exactly under the ghost house door ?
+	    cmp #$80
+;0de3  c0        ret     nz		; no, return
+	    bne :rts2 
+
+;0de4  3e02      ld      a,#02		; yes, A := #02
+	    lda #2
+;0de6  32a34d    ld      (#4da3),a	; store into orange ghost substate to indicate moving up and out of ghost house
+	    sta |orange_substate
+;0de9  c9        ret			; return
+	    rts
+
+; orange ghost is moving up and out of ghost house
+:orange_up_out
+;0dea  dd210533  ld      ix,#3305	; load IX with address for offsets to move up
+	    ldx #move_up
+;0dee  fd21064d  ld      iy,#4d06	; load IY with orange ghost position
+	    ldy #orange_ghost_y
+;0df2  cd0020    call    #2000		; load HL with IX + IY = new orange ghost position
+	    jsr double_add
+;0df5  22064d    ld      (#4d06),hl	; store into orange ghost position
+	    sta |orange_ghost_y
+;0df8  3e03      ld      a,#03		; A := #03
+	    lda #3
+;0dfa  322b4d    ld      (#4d2b),a	; set previous orange ghost orientation as moving up
+	    sta |prev_orange_ghost_dir
+;0dfd  322f4d    ld      (#4d2f),a	; set orange ghost orientation as moving up
+	    sta |orange_ghost_dir
+;0e00  3a064d    ld      a,(#4d06)	; load A with orange ghost Y position
+	    lda |orange_ghost_y
+	    and #$FF
+;0e03  fe64      cp      #64		; is orange ghost out of the ghost house ?
+	    cmp #$64
+;0e05  c0        ret     nz		; no, return
+	    bne :rts3
+
+; orange ghost has made it out of the ghost house
+
+;0e06  212c2e    ld      hl,#2e2c	; load HL with 2E, 2C
+	    lda #$2e2c
+;0e09  22104d    ld      (#4d10),hl	; store into orange ghost tile position
+	    sta |orangeghost_tile_y
+;0e0c  210001    ld      hl,#0100	; load HL with code for moving left
+	    lda #$0100
+;0e0f  221a4d    ld      (#4d1a),hl	; store into oragne ghost tile changes
+	    sta |orange_ghost_tchangeA_y
+;0e12  22244d    ld      (#4d24),hl	; store into orange ghost tile changes
+	    sta |orange_ghost_tchange_y
+;0e15  3e02      ld      a,#02		; A := #02
+	    lda #2
+;0e17  322b4d    ld      (#4d2b),a	; set previous orange ghost orientation as moving left
+	    sta |prev_orange_ghost_dir
+;0e1a  322f4d    ld      (#4d2f),a	; set orange ghost orientation as moving left
+	    sta |orange_ghost_dir
+;0e1d  3e01      ld      a,#01		; A := #01
+	    lda #1
+;0e1f  32a34d    ld      (#4da3),a	; set orange ghost indicator to outside the ghost house
+	    sta |orange_substate
+
+;0e22  c9        ret     		; return
+:rts3
+	    rts
+;------------------------------------------------------------------------------
 
 ;------------------------------------------------------------------------------
 ; called from #052C, #052F, #08EB and #08EE 
@@ -6059,6 +6505,7 @@ check_reverse_pink mx %00
 ;1f2a  af        xor     a		; yes, A := #00
 ;1f2b  32b24d    ld      (#4db2),a	; clear pink ghost change orientation flag
 	    stz |pink_change_dir
+reverse_pink mx %00
 ;1f2e  21ff32    ld      hl,#32ff	; load HL with table data - tile differences tables for movements
 ;1f31  3a294d    ld      a,(#4d29)	; load A with previous pink ghost orientation
 	    lda |prev_pink_ghost_dir
@@ -6108,6 +6555,7 @@ check_reverse_inky mx %00
 ;+-------1f51  af        xor     a		; yes, A := #00
 ;1f52  32b34d    ld      (#4db3),a	; clear inky ghost change orienation flag
 	    stz |blue_change_dir
+reverse_inky mx %00
 ;1f55  21ff32    ld      hl,#32ff	; load HL with table data - tile differences tables for movements
 ;1f58  3a2a4d    ld      a,(#4d2a)	; load A with previous inky orientation
 	    lda |prev_blue_ghost_dir
@@ -6157,6 +6605,7 @@ check_reverse_orange mx %00
 ;1f78  af        xor     a		; yes, A := #00
 ;1f79  32b44d    ld      (#4db4),a	; clear orange ghost change orientation flag
 	    stz |orange_change_dir
+reverse_orange mx %00
 ;1f7c  21ff32    ld      hl,#32ff	; load HL with table data - tile differences tables for movements
 ;1f7f  3a2b4d    ld      a,(#4d2b)	; load A with previous orange ghost orienation
 	    lda |prev_orange_ghost_dir
