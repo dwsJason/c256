@@ -2965,11 +2965,16 @@ game_playing mx %00
 	    jsr ghost_flashing
 
 ;0900  cdd60b    call    #0bd6		; color dead ghosts the correct colors
+	    jsr set_dead_color
+
 ;0903  cd0d0c    call    #0c0d		; handle power pill (dot) flashes
+	    jsr flash_power
+
 ;0906  cd6c0e    call    #0e6c		; change the background sound based on # of pills eaten
 	    jsr change_sound_pills
 
 ;0909: CDAD0E	 call	 #0EAD		; check for fruit to come out.  (new ms. pac sub actually at #86EE.)
+	    ;jsr DOFRUIT
 
 	    rts   			; return ( to #0195 ) 
 
@@ -3011,7 +3016,7 @@ ghost_flashing mx %00
 	    sec
 	    sbc #$100
 ;0ae9  3013      jr      nc,#0afe       ; no, skip ahead
-	    bcc :no_pp 			; $$JGA REVISIT
+	    bcc :no_pp
 
 ; arrive here when ghosts start flashing after being blue
 ; this sub controls the flashing and the return
@@ -3049,7 +3054,7 @@ ghost_flashing mx %00
 	    sec
 	    sbc #$100
 ;0b0a  3027      jr      nc,#0b33       ; no, jump ahead and check next ghost
-	    bcc :chk_pink		; $$JGA REVISIT
+	    bcs :chk_pink
 
 ;0b0c  3e11      ld      a,#11		; yes, A := #11
 	    lda #$11
@@ -3092,7 +3097,7 @@ ghost_flashing mx %00
 	    sec
 	    sbc #$100
 ;0b3f  3027      jr      nc,#0b68       ; no, jump ahead and check next ghost
-	    bcc :check_inky 		;$$JGA Revisit
+	    bcs :check_inky
 
 ;0b41  3e11      ld      a,#11		; A := #11
 	    lda #$11
@@ -3124,25 +3129,42 @@ ghost_flashing mx %00
 ;0b64  dd360503  ld      (ix+#05),#03	; set pink ghost to pink
 :check_inky
 ;0b68  3aa94d    ld      a,(#4da9)	; load A with blue ghost (inky) blue flag
+	    lda |blueghost_blue
 ;0b6b  a7        and     a		; is inky blue (edible) ?
 ;0b6c  281d      jr      z,#0b8b         ; no, skip ahead
+	    beq :blue_not_blue
 
 ;0b6e  2acb4d    ld      hl,(#4dcb)	; else load HL with counter while ghosts are blue
+	    lda |ghosts_blue_timer
 ;0b71  a7        and     a		; clear carry flag
 ;0b72  ed52      sbc     hl,de		; subtract offset (#0100).  has this counter gone under?
+	    sec
+	    sbc #$100
 ;0b74  3027      jr      nc,#0b9d        ; no, jump ahead and check next ghost
+	    bcs :check_orange
 
 ;0b76  3e11      ld      a,#11		; A := #11
+	    lda #$11
 ;0b78  ddbe07    cp      (ix+#07)	; is inky blue (edible) ?
+	    cmp |blueghostcolor
 ;0b7b  2807      jr      z,#0b84         ; yes, jump ahead and change his color to white
+	    beq :make_blue_white
 
 ;0b7d  dd360711  ld      (ix+#07),#11	; no, set inky to blue color
+	    sta |blueghostcolor
 ;0b81  c39d0b    jp      #0b9d		; skip ahead
+	    bra :check_orange
 
+:make_blue_white
 ;0b84  dd360712  ld      (ix+#07),#12	; set inky to white color
+	    lda #$12
+	    sta |blueghostcolor
 ;0b88  c39d0b    jp      #0b9d		; skip ahead
-
+	    bra :check_orange
+:blue_not_blue
 ;0b8b  3e05      ld      a,#05		; A := #05
+	    lda #5
+	    sta |blueghostcolor
 ;0b8d  ddbe07    cp      (ix+#07)	; is inky his regular color ?
 ;0b90  2807      jr      z,#0b99         ; yes, skip ahead
 
@@ -3151,26 +3173,43 @@ ghost_flashing mx %00
 
 ;0b99  dd360705  ld      (ix+#07),#05	; set inky to his regular color
 
+:check_orange
 ;0b9d  3aaa4d    ld      a,(#4daa)	; load A with orange ghost blue flag
+	    lda |orangeghost_blue
 ;0ba0  a7        and     a		; is orange ghost blue (edible) ?
 ;0ba1  281d      jr      z,#0bc0         ; no, skip ahead
+	    beq :not_orange_blue
 
 ;0ba3  2acb4d    ld      hl,(#4dcb)	; else load HL with counter while ghosts are blue 
+	    lda |ghosts_blue_timer
 ;0ba6  a7        and     a		; clear carry flag
 ;0ba7  ed52      sbc     hl,de		; subtract offset (#0100).  has this counter gone under?
+	    sec
+	    sbc #$100
 ;0ba9  3027      jr      nc,#0bd2        ; no, jump ahead
+	    bcs :dec_return
 
 ;0bab  3e11      ld      a,#11		; A := #11
+	    lda #$11
 ;0bad  ddbe09    cp      (ix+#09)	; is orange ghost blue (edible) ?
+	    cmp |orangeghostcolor
 ;0bb0  2807      jr      z,#0bb9         ; yes, skip ahead and change to white
+	    beq :make_orange_white
 
 ;0bb2  dd360911  ld      (ix+#09),#11	; no, set orange ghost color to blue
+	    sta |orangeghostcolor
 ;0bb6  c3d20b    jp      #0bd2		; skip ahead
-
+	    bra :dec_return
+:make_orange_white
 ;0bb9  dd360912  ld      (ix+#09),#12	; set orange ghost color to white
+	    lda #$12
+	    sta |orangeghostcolor
 ;0bbd  c3d20b    jp      #0bd2		; skip ahead
-
+	    bra :dec_return
+:not_orange_blue
 ;0bc0  3e07      ld      a,#07		; A := #07
+	    lda #7
+	    sta |orangeghostcolor
 ;0bc2  ddbe09    cp      (ix+#09)	; is orange ghost orange ?
 ;0bc5  2807      jr      z,#0bce         ; yes, skip ahead
 
@@ -3184,7 +3223,104 @@ ghost_flashing mx %00
 ;0bd5  c9        ret     		; return
 	    rts
 ;------------------------------------------------------------------------------
+; called from #0900
+;0bd6
+set_dead_color mx %00
+    ; set the color for a dead ghost
+;0bd6  0619      ld      b,#19		; B := #19 - floating death eyes (good band name!)
+;0bd8  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
+;0bdb  fe22      cp      #22		; == #22 ? is code is used in pac-man only, not ms. pac.  its checking for the routine where pacman heads towards the energizer followed by 4 ghosts
+;0bdd  c2e20b    jp      nz,#0be2	; no, skip next step
 
+;0be0  0600      ld      b,#00		; B := #00.  code used to clear ghosts after they get eaten in the pac-man attract
+
+;0be2  dd21004c  ld      ix,#4c00	; load IX with start of offset for ghost sprites and colors
+;0be6  3aac4d    ld      a,(#4dac)	; load A with red ghost state
+
+;0be9  a7        and     a		; is red ghost alive ?
+;0bea  caf00b    jp      z,#0bf0		; yes, skip next step. only set color if not alive
+
+;0bed  dd7003    ld      (ix+#03),b	; store B into red ghost color entry
+
+;0bf0  3aad4d    ld      a,(#4dad)	; load A wtih pink ghost state
+;0bf3  a7        and     a		; is pink ghost alive ?
+;0bf4  cafa0b    jp      z,#0bfa		; yes, skip next step
+
+;0bf7  dd7005    ld      (ix+#05),b	; store B into pink ghost color entry
+
+;0bfa  3aae4d    ld      a,(#4dae)	; load A with blue ghost (inky) state
+;0bfd  a7        and     a		; is inky alive ?
+;0bfe  ca040c    jp      z,#0c04		; yes, skip next step
+
+;0c01  dd7007    ld      (ix+#07),b	; store B into blue ghost (inky) color entry
+
+;0c04  3aaf4d    ld      a,(#4daf)	; load A with orange ghost state
+;0c07  a7        and     a		; is orange ghost alive ? 
+;0c08  c8        ret     z		; yes, return
+
+;0c09  dd7009    ld      (ix+#09),b	; store B into orange ghost color entry
+;0c0c  c9        ret   			; return  
+	    rts
+
+;------------------------------------------------------------------------------
+; called from #0903
+; routine to handle power pill flashes
+;0c0d
+flash_power mx %00
+;0c0d  21cf4d    ld      hl,#4dcf	; load HL with power pill counter
+;0c10  34        inc     (hl)		; increment
+;0c11  3e0a      ld      a,#0a		; A := #0A
+;0c13  be        cp      (hl)		; is it time to flash the power pellets ?
+;0c14  c0        ret     nz		; no, return
+;
+;0c15  3600      ld      (hl),#00	; else we will flash the pellets.  reset counter to #00
+;0c17  3a044e    ld      a,(#4e04)	; load A with game state indicator.  this is #03 when game or demo is in play
+;0c1a  fe03      cp      #03		; == #03 ?  Is a game being played ?
+;0c1c  2015      jr      nz,#0c33        ; no, skip ahead and flash the pellets in the demo screen where pac is chased by 4 ghosts and then eats a power pill and eats them all
+;
+;; BUGFIX05 - Map discoloration fix - Don Hodges
+;0c1c  2000	jr 	nz,#0c1e	; no, do nothing
+;
+;0c1e  216444    ld      hl,#4464	; else load HL with first power pellet address (legacy from pac-man.  new routine loads new value)
+;
+;; OTTOPATCH
+;;PATCH TO MAKE THE ENERGIZERS FLASH IN NEW AND EXCITING COLORS
+;ORG 0C21H
+;JP FLASHEN
+;0c21  c32495    jp      #9524		; jump to new ms pac routine to flash power pellets
+;
+;;; Pac-man code:
+;; 0c21  3e10      ld      a,#10		; load A with code for power pellet
+;; 0c23  be        cp      (hl)		; is there already a power pellet there?
+;;; end pac-man code
+;
+;; junk from pac-man, flashes power pellets for non-changing maze
+;
+;0c24  2002      jr      nz,#0c28        ; no, skip ahead
+;0c26  3e00      ld      a,#00		; yes, change code to empty graphic
+;0c28  77        ld      (hl),a		; flash power pellet
+;0c29  327844    ld      (#4478),a	; flash power pellet
+;0c2c  328447    ld      (#4784),a	; flash power pellet
+;0c2f  329847    ld      (#4798),a	; flash power pellet
+;0c32  c9        ret     		; return
+;
+;; arrive from #0C1C
+;; flash the pellets in the demo screen where pac is chased by 4 ghosts and then eats a power pill and eats them all
+;; this causes a very minor bug in pac-man and ms. pac man.  
+;; potentially 2 screen elements can sometimes get colored wrong when player dies.
+;; in pac-man, a dot may disappear at #4678
+;
+;0c33  213247    ld      hl,#4732	; load HL with screen color address (?)
+;0c36  3e10      ld      a,#10		; A := #10
+;0c38  be        cp      (hl)		; is the screen color in this address == #10 ?
+;0c39  2002      jr      nz,#0c3d        ; no, skip next step
+;
+;0c3b  3e00      ld      a,#00		; A := #00
+;
+;0c3d  77        ld      (hl),a		; store #10 or #00 into this color location to flash the power pill in the demo
+;0c3e  327846    ld      (#4678),a	; store into #4678 to flash the other power pill
+;0c41  c9        ret     		; return (to #0906)
+	    rts
 
 ;------------------------------------------------------------------------------
 ; called from #08f4
@@ -3746,7 +3882,7 @@ change_sound_pills mx %00
 ;0E7F: FE E4	cp	#E4		; > #E4 ?
 	    cpx #$E4
 ;0E81: 38 06	jr	c,#0E89		; no, skip ahead
-	    bcs :skip   	       	; $$JGA REVISIT
+	    bcc :skip
 
 ;0E83: 78	ld	a,b		; else load A with bitmask
 ;0E84: A6	and	(hl)		; apply bitmask to sound 2 channel. this turns off bits 0 through 4
@@ -3760,7 +3896,7 @@ change_sound_pills mx %00
 ;0e89  fed4      cp      #d4		; is the number of pills eaten in this level > #D4 ? 
 	    cpx #$d4
 ;0e8b  3806      jr      c,#0e93         ; no, skip ahead
-	    bcs :skip2			; $$JGA REVISIT
+	    bcc :skip2
 
 ;0e8d  78        ld      a,b		; else load A with bitmask
 ;0e8e  a6        and     (hl)		; turn off bits 0 through 4 on sound channel
@@ -3774,7 +3910,7 @@ change_sound_pills mx %00
 ;0e93  feb4      cp      #b4		; is the number of pills eaten in this level > #B4 ?
 	    cpx #$b4
 ;0e95  3806      jr      c,#0e9d        ; no, skip ahead
-	    bcs :skip3			; $$JGA REVISIT
+	    bcc :skip3
 ;0e97  78        ld      a,b		; else load A with bitmask
 ;0e98  a6        and     (hl)		; turn off bits 0 through 4 on sound channel
 ;0e99  cbd7      set     2,a		; turn on bit 2
@@ -3787,7 +3923,7 @@ change_sound_pills mx %00
 ;0e9d  fe74      cp      #74		; is the number of pills eaten in this level > #74 ?
 	    cpx #$74
 ;0e9f  3806      jr      c,#0ea7         ; no, skip ahead
-	    bcs :skip4			; $$JGA Revisit
+	    bcc :skip4
 ;0ea1  78        ld      a,b		; load A with bitmask
 ;0ea2  a6        and     (hl)		; turn off bits 0 through 4 on sound channel
 ;0ea3  cbcf      set     1,a		; turn on bit 1
@@ -4891,7 +5027,7 @@ blue_ghost_collide mx %00
 ;17a7  b9        cp      c		; <= #04 ?
 	    cmp #4
 ;17a8  300a      jr      nc,#17b4        ; no, skip ahead for next ghost
-	    bcc :check_blue
+	    bcs :check_blue
 ;
 ;17aa  3a074d    ld      a,(#4d07)	; yes, load A with orange ghost X position
 	    lda |orange_ghost_x
@@ -4903,7 +5039,7 @@ blue_ghost_collide mx %00
 	    ;bcc :check_blue
 	    ;rep #$30
 	    ;jmp ghost_collided
-	    bcs :collided
+	    bcc :collided
 
 :check_blue mx %11
 ;17b4  05        dec     b		; B := #03
@@ -4922,7 +5058,7 @@ blue_ghost_collide mx %00
 ;17c1  b9        cp      c		; <= #04 ?
 	    cmp #4
 ;17c2  300a      jr      nc,#17ce        ; no, skip ahead for next ghost
-	    bcc :check_pink
+	    bcs :check_pink
 ;
 ;17c4  3a054d    ld      a,(#4d05)	; yes, load A with inky's X position
 	    lda |blue_ghost_x
@@ -4931,7 +5067,7 @@ blue_ghost_collide mx %00
 ;17ca  b9        cp      c		; <= #04 ?
 	    cmp #4
 ;17cb  da6317    jp      c,#1763		; yes, jump back and set collision
-	    bcs :collided
+	    bcc :collided
 
 :check_pink mx %11
 ;17ce  05        dec     b		; B := #02
@@ -4950,7 +5086,7 @@ blue_ghost_collide mx %00
 ;17db  b9        cp      c		; <= #04 ?
 	    cmp #4
 ;17dc  300a      jr      nc,#17e8        ; no, skip ahead for next ghost
-	    bcc :check_red
+	    bcs :check_red
 ;
 ;17de  3a034d    ld      a,(#4d03)	; yes, load A with pink ghost X position
 	    lda |pink_ghost_x
@@ -4959,7 +5095,7 @@ blue_ghost_collide mx %00
 ;17e4  b9        cp      c		; <= #04 ?
 	    cmp #4
 ;17e5  da6317    jp      c,#1763		; yes, jump back and set collision
-	    bcs :collided
+	    bcc	:collided
 :check_red mx %11
 ;17e8  05        dec     b		; B := #01
 	    dey
@@ -4977,7 +5113,7 @@ blue_ghost_collide mx %00
 ;17f5  b9        cp      c		; <= #04 ?
 	    cmp #4
 ;17f6  300a      jr      nc,#1802        ; no, skip ahead
-	    bcc :red_dead
+	    bcs :red_dead
 ;
 ;17f8  3a014d    ld      a,(#4d01)	; yes, load A with red ghost X position
 	    lda |red_ghost_x
@@ -4986,7 +5122,7 @@ blue_ghost_collide mx %00
 ;17fe  b9        cp      c		; <= #04 ?
 	    cmp #4
 ;17ff  da6317    jp      c,#1763		; yes, jump back and set collision
-	    bcs :collided
+	    bcc :collided
 :red_dead
 ;1802  05        dec     b		; else no collision ; B := #00
 	    dey
@@ -5109,7 +5245,7 @@ pacman_movement mx %00
 ;1858  90        sub     b		; subtract.  is pacman past the right edge of the screen?
 	    cmp #$21
 ;1859  3809      jr      c,#1864         ; yes, skip ahead to handle tunnel movement
-	    bcs :yes_tunnel
+	    bcc :yes_tunnel
 
 ;185b  7e        ld      a,(hl)		; load A with pacman X tile position
 	    lda |pacman_tile_pos_x
@@ -5120,7 +5256,7 @@ pacman_movement mx %00
 ;185f  3003      jr      nc,#1864        ; yes, skip ahead to handle tunnel movement
 	    ;bcc :yes_tunnel
 ;1861  c3ab18    jp      #18ab		; no tunnel movement.  jump ahead to handle normal movement
-	    bcs :normal_move
+	    bcc :normal_move
 
 ; this sub is only called while player is in a tunnel
 :yes_tunnel
@@ -5141,7 +5277,7 @@ pacman_movement mx %00
 	    cmp #$10
 ;1876  d2191a    jp      nc,#1a19	; no, skip ahead
 	    ;bcc :continue
-	    bcsl :demo_mode
+	    bccl :demo_mode
 
 ;1879  79        ld      a,c		; load A with mix of cocktail mode and player number, created above at #1849-#1851
 ;187a  a7        and     a		; is this player 2 and cocktail mode ?
@@ -5204,7 +5340,7 @@ pacman_movement mx %00
 ;18b6  fe10      cp      #10		; <= #10 ?
 		cmp #$10
 ;18b8  d2191a    jp      nc,#1a19	; no, skip ahead
-		bccl :demo_mode
+		bcsl :demo_mode
 
 ;18bb  79        ld      a,c		; A := C
 ;18bc  a7        and     a		; is this player 2 and cocktail mode ?
@@ -5393,7 +5529,7 @@ mc_return equ *
 		beq :skip_center
 
 ;196a  da7119    jp      c,#1971		; was the last comparison less than #04 ?, if yes, skip next 2 steps
-		bcs :corner_from_down
+		bcc :corner_from_down
 
 ; cornering up to the left or up to the right
 
@@ -5422,7 +5558,7 @@ mc_return equ *
 		beq :skip_center
 
 ;197d  da8419    jp      c,#1984		; was the last comparison less than #04 ?, if yes, skip next 2 steps
-		bcs :corner_from_right
+		bcc :corner_from_right
 
 ; cornering up from the left side, or down from the left side
 
@@ -5501,7 +5637,7 @@ movement_check equ *
 ;8821: FE 06	cp	#06		; X values match within margin ?
 	    cmp #6
 ;8823: 30 18	jr	nc,#883D	; no , jump back to program
-	    bcc :return
+	    bcs :return
 
 ;8825: 7D	ld	a,l		; else load A with pacman Y values
 	    xba
@@ -5514,7 +5650,7 @@ movement_check equ *
 ;8829: FE 06	cp	#06		; Y values match within margin?
 	    cmp #6
 ;882B: 30 10	jr	nc,#883D	; no, jump back to program
-	    bcc :return
+	    bcs :return
 
 ; else a fruit is being eaten
 
@@ -5664,7 +5800,7 @@ movement_check equ *
 	    ror
 	    lda |bnoise
 ;1A0D: 38 05	jr	c,#1A14		; if carry then use other sound pattern
-	    bcs :other_sound
+	    bcc :other_sound
 
 ;1A0F: CB C6	set	0,(hl)		; else set sound bit 0
 ;1A11: CB 8E	res	1,(hl)		; clear sound bit 1
@@ -5716,7 +5852,7 @@ movement_check equ *
 ;1a3a  cdd01e    call    #1ed0		; if using tunnel, set carry flag
 	    jsr check_screen_edge
 ;1a3d  3803      jr      c,#1a42		; is pacman in tunnel?  no, skip next 2 steps
-	    bcs  :skip
+	    bcc  :skip
 ;1a3f  ef        rst     #28		; insert task to control pacman AI during demo mode.
 ;1a40  17 00				; task #17, parameter #00
 	    lda #$0017
@@ -6810,7 +6946,7 @@ check_screen_edge mx %00
 	    sec
 	    sbc #$21
 ;1ef0  dafc1e    jp      c,#1efc		; yes, set carry flag and return
-	    bcs :sec
+	    bcc :sec
 
 ;1ef3  7e        ld      a,(hl)		; else load A with ghost/pacman tile X position
 	    lda |pacman_x,x
@@ -6819,7 +6955,7 @@ check_screen_edge mx %00
 	    sec
 	    sbc #$3b
 ;1ef7  d2fc1e    jp      nc,#1efc	; yes, set carry flag and return
-	    bcc :sec
+	    bcs :sec 			;;$$JGA MAYBE REVISIT
 :clc
 ;1efa  a7        and     a		; else clear carry flag
 	    rep #$31	; mxc = 000
@@ -7276,7 +7412,7 @@ check_pink_house mx %00
 ;2084  be        cp      (hl)		; has the counter been exceeded?
 	    cmp |pink_home_limit	; $$JGA REVISIT
 ;2085  d8        ret     c		; no, return
-	    bcs :rts
+	    bcc :rts
 
 ;------------------------------------------------------------------------------
 ; releases pink ghost from the ghost house
@@ -7326,7 +7462,7 @@ check_inky_house mx %00
 ;20a7  be        cp      (hl)		; has the counter been exceeded ?
 	    cmp |blue_home_limit
 ;20a8  d8        ret     c		; no, return
-	    bcs :rts
+	    bcc :rts
 
 ;------------------------------------------------------------------------------
 ; releases blue ghost (inky) from the ghost house
@@ -7380,7 +7516,7 @@ check_orange_house mx %00
 ;20cf  be        cp      (hl)		; has the counter been exceeded ?
 	    cmp |orange_home_limit	; $$JGA REVISIT, c=?
 ;20d0  d8        ret     c		; no, return
-	    bcs :rts
+	    bcc :rts
 
 ;------------------------------------------------------------------------------
 
@@ -7426,7 +7562,7 @@ check_difficulty mx %00
 	    sec
 	    sbc <temp0
 ;20ee  d8        ret     c		; no, return
-	    bcs :rts
+	    bcc :rts
 
 ;20ef  3e01      ld      a,#01		; A := #01
 	    lda #1
@@ -7452,7 +7588,7 @@ check_difficulty mx %00
 	    sec
 	    sbc <temp0
 ;2101  d8        ret     c		; no, return
-	    bcs :rts
+	    bcc :rts
 
 ;2102  3e01      ld      a,#01		; yes, A := #01
 	    lda #1
