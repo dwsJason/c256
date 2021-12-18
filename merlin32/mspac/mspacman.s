@@ -3023,13 +3023,23 @@ pm1017      mx %00
 ;1050  cdf91d    call    #1df9		; control movement for orange ghost
 	    jsr control_orange
 ;1053  3a044e    ld      a,(#4e04)	; load A with level state subroutine #
+	    lda |levelstate
 ;1056  fe03      cp      #03		; is a game being played ?
+	    cmp #3
 ;1058  c0        ret     nz		; no, return
+	    bne :rts
 ;
 ;1059  cd7613    call    #1376		; control blue ghost timer and reset ghosts when it is over or when pac eats all blue ghosts
+	    jsr control_blue_time
+
 ;105c  cd6920    call    #2069		; check for pink ghost to leave the ghost house
+	    jsr check_pink_house
+
 ;105f  cd8c20    call    #208c		; check for blue ghost (inky) to leave the ghost house
+	    jsr check_inky_house
+
 ;1062  cdaf20    call    #20af		; check for orange ghost to leave the ghost house
+	    jsr check_orange_house
 :rts
 	    rts
 
@@ -3717,6 +3727,100 @@ mspac_death_update mx %00
 :return
 	    rts
 
+;------------------------------------------------------------------------------
+;; routine to control blue time
+;; ret immediately to make ghosts stay blue till eaten 
+;1376
+control_blue_time mx %00
+;1376  3aa64d    ld      a,(#4da6)	; load A with power pill effect (1=active, 0=no effect)
+	    lda |powerpill
+;1379  a7        and     a		; is a power pill active ?
+;137a  c8        ret     z		; no, return
+	    bne :continue
+:rts
+	    rts
+:continue
+;137b  dd21a74d  ld      ix,#4da7	; yes, load IX with ghost blue flag starting address
+;137f  dd7e00    ld      a,(ix+#00)	; load A with red ghost blue flag
+	    lda |redghost_blue
+;1382  ddb601    or      (ix+#01)	; OR with pink ghost blue flag
+	    ora |pinkghost_blue
+;1385  ddb602    or      (ix+#02)	; OR with blue ghost (inky) blue flag
+	    ora |blueghost_blue
+;1388  ddb603    or      (ix+#03)	; OR with oragne ghost blue flag
+	    ora |orangeghost_blue
+;138b  ca9813    jp      z,#1398		; if all ghosts are not blue, then skip ahead and reset power pill effect
+	    beq :none_blue
+
+;138e  2acb4d    ld      hl,(#4dcb)	; else load HL with blue ghost counter
+;1391  2b        dec     hl		; count down
+;1392  22cb4d    ld      (#4dcb),hl	; store result
+	    dec |ghosts_blue_timer
+;1395  7c        ld      a,h		; load A with counter high byte
+;1396  b5        or      l		; or with counter low byte.  are both counters at #00 ?
+;1397  c0        ret     nz		; no, return
+	    beq :rts
+
+; arrive here when power pill effect is over, either by timer or by eating all ghosts
+:none_blue
+;1398  210b4c    ld      hl,#4c0b	; load HL with pacman color entry
+;139b  3609      ld      (hl),#09	; store #09 into pacman color entry
+	    lda #9
+	    sta |pacmancolor
+;139d  3aac4d    ld      a,(#4dac)	; load A with red ghost state
+	    lda |redghost_state
+;13a0  a7        and     a		; is red ghost alive ?
+;13a1  c2a713    jp      nz,#13a7	; yes, skip next step
+	    bne :red_alive
+
+;13a4  32a74d    ld      (#4da7),a	; clear red ghost blue state
+	    stz |redghost_blue
+:red_alive
+;13a7  3aad4d    ld      a,(#4dad)	; load A with pink ghost state
+	    lda |pinkghost_state
+;13aa  a7        and     a		; is pink ghost alive ?
+;13ab  c2b113    jp      nz,#13b1	; yes, skip next step
+	    bne :pink_alive
+
+;13ae  32a84d    ld      (#4da8),a	; clear pink ghost blue state
+	    stz |pinkghost_blue
+:pink_alive
+;13b1  3aae4d    ld      a,(#4dae)	; load A with blue ghost (inky) state
+	    lda |blueghost_state
+;13b4  a7        and     a		; is inky alive ?
+;13b5  c2bb13    jp      nz,#13bb	; yes, skip next step
+	    bne :blue_alive
+
+;13b8  32a94d    ld      (#4da9),a	; clear inky blue state
+	    stz |blueghost_blue
+:blue_alive
+;13bb  3aaf4d    ld      a,(#4daf)	; load A with orange ghost state
+	    lda |orangeghost_state
+;13be  a7        and     a		; is orange ghost alive ?
+;13bf  c2c513    jp      nz,#13c5	; yes, skip next step
+	    bne :orange_dead
+
+;13C2: 32 AA 4D	ld	(#4DAA),a	; clear orange ghost blue state
+	    stz |orangeghost_blue
+:orange_dead
+
+;13C5: AF	xor	a		; A := #00
+;13C6: 32 CB 4D	ld	(#4DCB),a	; clear counter while ghosts are blue
+;13C9: 32 CC 4D	ld	(#4DCC),a	; clear counter while ghosts are blue
+	    stz |ghosts_blue_timer
+;13CC: 32 A6 4D	ld	(#4DA6),a	; clear pill effect
+	    stz |powerpill
+;13CF: 32 C8 4D	ld	(#4DC8),a	; clear counter used to change ghost colors under big pill effects
+	    stz |big_pill_timer
+;13D2: 32 D0 4D	ld	(#4DD0),a	; clear current number of killed ghosts
+	    stz |num_killed_ghosts
+;13D5: 21 AC 4E	ld	hl,#4EAC	; load HL with sound channel 2
+	    lda #%10100000
+;13D8: CB AE	res	5,(hl)		; clear sound bit 5
+;13DA: CB BE	res	7,(hl)		; clear sound bit 7
+	    trb |CH2_E_NUM
+;13DC: C9	ret			; return
+	    rts
 
 ;------------------------------------------------------------------------------
 ; arrive here from call at #08F1
@@ -6289,6 +6393,44 @@ check_slow mx %00
 ;2068  c9        ret   ; return
 	    rts
 
+;------------------------------------------------------------------------------
+;
+; called from #105C
+;2069
+check_pink_house mx %00
+
+;2069  3aa14d    ld      a,(#4da1)	; load A with pink ghost substate
+	    lda |pink_substate
+;206c  a7        and     a		; is the pink ghost at home ?
+;206d  c0        ret     nz		; no, return
+	    beq :at_home
+:rts
+	    rts
+:at_home
+;206e  3a124e    ld      a,(#4e12)	; load A with flag that is 1 after dying in a level, reset to 0 if ghosts have left home
+	    lda |pacman_dead
+;2071  a7        and     a		; is this flag set ?
+;2072  ca7e20    jp      z,#207e		; no, skip ahead
+	    beq :pacman_alive
+
+;2075  3a9f4d    ld      a,(#4d9f)	; yes, load A with eaten pills counter after pacman has died in a level
+	    lda |pills_eaten_since_death
+;2078  fe07      cp      #07		; == #07 ?
+	    cmp #7
+;207a  c0        ret     nz		; no, return
+	    bne :rts
+
+;207b  c38620    jp      #2086		; yes, jump ahead and release pink ghost
+	    bra release_pink
+
+:pacman_alive
+;207e  21b84d    ld      hl,#4db8	; load HL with address of pink ghost counter to go out of home pill limit
+;2081  3a0f4e    ld      a,(#4e0f)	; load A with counter incremented if orange, blue and pink ghosts are home and pacman is eating pills.
+	    lda |all_home_counter
+;2084  be        cp      (hl)		; has the counter been exceeded?
+	    cmp |pink_home_limit	; $$JGA REVISIT
+;2085  d8        ret     c		; no, return
+	    bcs :rts
 
 ;------------------------------------------------------------------------------
 ; releases pink ghost from the ghost house
@@ -6303,7 +6445,42 @@ release_pink mx %00
 	    rts
 
 ;------------------------------------------------------------------------------
+; called from #105F
+;208c
+check_inky_house mx %00
 
+;208c  3aa24d    ld      a,(#4da2)	; load A with blue ghost (inky) substate
+	    lda |blue_substate
+;208f  a7        and     a		; is inky at home ?
+;2090  c0        ret     nz		; no, return
+	    beq :continue
+:rts
+	    rts
+
+:continue
+;2091  3a124e    ld      a,(#4e12)	; yes, load A with flag that is 1 after dying in a level, reset to 0 if ghosts have left home
+	    lda |pacman_dead
+;2094  a7        and     a		; is this flag set ?
+;2095  caa120    jp      z,#20a1		; no, skip ahead
+	    beq :alive
+
+;2098  3a9f4d    ld      a,(#4d9f)	; yes, load A with eaten pills counter after pacman has died in a level 
+	    lda |pills_eaten_since_death
+;209b  fe11      cp      #11		; == #11 ?
+	    cmp #$11
+;209d  c0        ret     nz		; no, return
+	    bne :rts
+
+;209e  c3a920    jp      #20a9		; yes, skip ahead and release inky
+	    bra release_blue
+:alive
+;20a1  21b94d    ld      hl,#4db9	; load HL with address of inky counter to go out of home pill limit
+;20a4  3a104e    ld      a,(#4e10)	; load A with counter incremented if blue ghost and orange ghost is home and pacman is eating pills.
+	    lda |blue_home_counter      ; $$JGA REVISIT
+;20a7  be        cp      (hl)		; has the counter been exceeded ?
+	    cmp |blue_home_limit
+;20a8  d8        ret     c		; no, return
+	    bcs :rts
 
 ;------------------------------------------------------------------------------
 ; releases blue ghost (inky) from the ghost house
@@ -6316,6 +6493,48 @@ release_blue
 	    sta |blue_substate
 ;20ae  c9        ret     		; return
 	    rts
+
+;------------------------------------------------------------------------------
+; called from #1062
+;20af
+check_orange_house mx %00
+;20af  3aa34d    ld      a,(#4da3)	; load A with orange ghost substate
+	    lda |orange_substate
+;20b2  a7        and     a		; is orange ghost at home ?
+;20b3  c0        ret     nz		; no, return
+	    beq :continue
+:rts
+	    rts
+:continue
+;20b4  3a124e    ld      a,(#4e12)	; yes, load A with flag that is 1 after dying in a level, reset to 0 if ghosts have left home
+	    lda |pacman_dead
+;20b7  a7        and     a		; is this flag set ?
+;20b8  cac920    jp      z,#20c9		; no, skip ahead
+	    beq :alive
+
+;20bb  3a9f4d    ld      a,(#4d9f)	; yes, load A with eaten pills counter after pacman has died in a level
+	    lda |pills_eaten_since_death
+
+;20be  fe20      cp      #20		; == #20 ?
+	    cmp #$20
+;20c0  c0        ret     nz		; no, return
+	    bne :rts
+
+;20c1  af        xor     a		; yes, A := #00
+;20c2  32124e    ld      (#4e12),a	; clear flag that is 1 after dying in a level, reset to 0 if ghosts have left home
+	    stz |pacman_dead
+;20c5  329f4d    ld      (#4d9f),a	; clear eaten pills counter after pacman has died in a level
+	    stz |pills_eaten_since_death
+;20c8  c9        ret     		; return
+	    rts
+:alive
+;20c9  21ba4d    ld      hl,#4dba	; load HL with address of orange ghost to go out of home pill limit
+;20cc  3a114e    ld      a,(#4e11)	; load A with counter incremented if orange ghost is home alone and pacman is eating pills
+	    lda |orange_home_counter
+;20cf  be        cp      (hl)		; has the counter been exceeded ?
+	    cmp |orange_home_limit	; $$JGA REVISIT, c=?
+;20d0  d8        ret     c		; no, return
+	    bcs :rts
 
 ;------------------------------------------------------------------------------
 

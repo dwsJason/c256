@@ -423,8 +423,11 @@ red_difficulty0 dw 0
 ;		1: faster movement
 red_difficulty1 dw 0
 ;	4db8	pink ghost counter to go out of home limit (rel 4e0f)
+pink_home_limit dw 0
 ;	4db9	blue ghost counter to go out of home limit (rel 4e10)
+blue_home_limit dw 0
 ;	4dba	orange ghost counter to go out of home limit (rel 4e11)
+orange_home_limit dw 0
 ;	4dbb	remainder of pills when first diff. flag is set (cruise elroy 1)
 pill_remain0 dw 0
 ;	4dbc	remainder of pills when second diff. flag is set (cruise elroy 2)
@@ -528,6 +531,7 @@ blue_home_counter dw 0
 ;	4e11	counter incremented if orange, blue and pink ghosts are home
 ;		and pacman is eating pills.
 ;		used to make orange ghost leave home (rel 4db9)
+orange_home_counter dw 0
 ;	4e12	1 after dying in a level, reset to 0 if ghosts have left home
 ;		because of 4d9f
 pacman_dead dw 0
