@@ -2956,6 +2956,8 @@ game_playing mx %00
 	    jsr ghost_house_movement
 
 ;08f7  cd230e    call    #0e23		; change animation of ghosts every 8th frame
+	    jsr animate_ghosts
+
 ;08fa  cd360e    call    #0e36		; periodically reverse ghost direction based on difficulty (only when energizer not active)
 ;08fd  cdc30a    call    #0ac3		; handle ghost flashing and colors when power pills are eaten
 ;0900  cdd60b    call    #0bd6		; color dead ghosts the correct colors
@@ -3407,6 +3409,33 @@ ghost_house_movement mx %00
 ;0e22  c9        ret     		; return
 :rts3
 	    rts
+;------------------------------------------------------------------------------
+; called from #08f7
+;0e23
+animate_ghosts mx %00
+;0e23  21c44d    ld      hl,#4dc4	; load HL with counter
+;0e26  34        inc     (hl)		; increment
+;0e27  3e08      ld      a,#08		; A := #08
+;0e29  be        cp      (hl)		; is the counter == #08 ?
+	    lda |counter8
+	    inc
+	    sta |counter8
+	    cmp #8
+;0e2a  c0        ret     nz		; no, return
+	    bne :rts
+
+;0e2b  3600      ld      (hl),#00	; else clear counter
+	    stz |counter8
+;0e2d  3ac04d    ld      a,(#4dc0)	; load A with address used for ghost animations
+	    lda |ghost_anim_counter
+;0e30  ee01      xor     #01		; flip bit 0
+	    eor #1
+;0e32  32c04d    ld      (#4dc0),a	; store result
+	    sta |ghost_anim_counter
+:rts
+;0e35  c9        ret     		; return
+	    rts
+
 ;------------------------------------------------------------------------------
 
 ;------------------------------------------------------------------------------
