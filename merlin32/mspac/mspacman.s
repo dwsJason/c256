@@ -2959,6 +2959,8 @@ game_playing mx %00
 	    jsr animate_ghosts
 
 ;08fa  cd360e    call    #0e36		; periodically reverse ghost direction based on difficulty (only when energizer not active)
+	    jsr reverse_ghosts
+
 ;08fd  cdc30a    call    #0ac3		; handle ghost flashing and colors when power pills are eaten
 ;0900  cdd60b    call    #0bd6		; color dead ghosts the correct colors
 ;0903  cd0d0c    call    #0c0d		; handle power pill (dot) flashes
@@ -3437,6 +3439,125 @@ animate_ghosts mx %00
 	    rts
 
 ;------------------------------------------------------------------------------
+; called from #08fa
+;0e36
+reverse_ghosts mx %00
+;0e36  3aa64d    ld      a,(#4da6)	; load A with power pill effect (1=active, 0=no effect)
+	    lda |powerpill
+;0e39  a7        and     a		; is a power pill active ?
+;0e3a  c0        ret     nz		; yes, return, we never reverse dir. when power pill is on
+	    bne :rts
+
+;0e3b  3ac14d    ld      a,(#4dc1)	; no, load A with ghost orientation index
+	    lda |orientation_changes_index
+;0e3e  fe07      cp      #07		; == #07 ?
+	    cmp #7
+;0e40  c8        ret     z		; yes, return, we never reverse dir. more than 7 times (pac-man only)
+	    beq :rts
+
+;0e41  87        add     a,a		; Double the index, this is used below for offset in the table
+	    asl
+	    tax
+
+;0e42  2ac24d    ld      hl,(#4dc2)	; load HL with counter for ghost reversals
+;0e45  23        inc     hl		; increment
+;0e46  22c24d    ld      (#4dc2),hl	; store result
+	    inc |ghost_orientation_counter
+;0e49  5f        ld      e,a		; E := A
+;0e4a  1600      ld      d,#00		; D := #00
+;0e4c  dd21864d  ld      ix,#4d86	; load IX with start of difficulty table
+;0e50  dd19      add     ix,de		; add offset based on which reversal this is
+;0e52  dd5e00    ld      e,(ix+#00)	; 
+;0e55  dd5601    ld      d,(ix+#01)	; load DE with result from table.  for first reverse this is #01A4
+	    lda |orientation_changes,x
+;0e58  a7        and     a		; clear carry flag
+;0e59  ed52      sbc     hl,de		; subtract.  are they equal ? = time to reverse direction of ghosts
+	    cmp |ghost_orientation_counter
+;0e5b  c0        ret     nz		; if not, return
+	    bne :rts
+
+; arrive here when ghosts reverse direction
+; this differs from the pac-man code
+
+; OTTOPATCH
+;PATCH TO MAKE RED MONSTER GO AFTER OTTO TO AVOID PARKING
+;0e5c  af        xor     a		; else A := #00
+;0e5d  00        nop     		; 
+
+
+;; Pac-Man code follows
+	; 0E5C CB 3F SRL A		; this undoes the double from line #0E41
+;; end pac-man code
+
+;0e5e  3c        inc     a		; increment
+	    lda # 1
+;0e5f  32c14d    ld      (#4dc1),a	; store into orientation index
+	    sta |orientation_changes_index
+;0e62  210101    ld      hl,#0101
+;0e65  22b14d    ld      (#4db1),hl
+;0e68  22b34d    ld      (#4db3),hl	; load #01 ghost orientations - reverses ghosts direction
+	    sta |red_change_dir
+	    sta |pink_change_dir
+	    sta |blue_change_dir
+	    sta |orange_change_dir
+;0e6b  c9        ret     		; return
+:rts
+	    rts
+
+;------------------------------------------------------------------------------
+
+; called from #0906
+; changes the background sound based on # of pills eaten
+
+;0e6c  3aa54d    ld      a,(#4da5)	; load A with pacman dead animation state (0 if not dead)
+;0e6f  a7        and     a		; is pacman dead ?
+;0e70  2805      jr      z,#0e77         ; no, skip ahead
+;0e72  af        xor     a		; else A := #00
+;0e73  32ac4e    ld      (#4eac),a	; clear sound channel 2
+;0e76  c9        ret     		; return
+
+;0E77: 21 AC 4E	ld	hl,#4EAC	; else pacman is alive.  load HL with sound 2 channel
+;0E7A: 06 E0	ld	b,#E0		; B := #E0.  this is a binary bitmask of 11100000 applied later
+;0E7C: 3A 0E 4E	ld	a,(#4E0E)	; load A with number of pills eaten in this level
+;0E7F: FE E4	cp	#E4		; > #E4 ?
+;0E81: 38 06	jr	c,#0E89		; no, skip ahead
+
+;0E83: 78	ld	a,b		; else load A with bitmask
+;0E84: A6	and	(hl)		; apply bitmask to sound 2 channel. this turns off bits 0 through 4
+;0E85: CB E7	set	4,a		; turn on bit 4
+;0E87: 77	ld	(hl),a		; play sound
+;0E88: C9	ret  			; return
+
+;0e89  fed4      cp      #d4		; is the number of pills eaten in this level > #D4 ? 
+;0e8b  3806      jr      c,#0e93         ; no, skip ahead
+
+;0e8d  78        ld      a,b		; else load A with bitmask
+;0e8e  a6        and     (hl)		; turn off bits 0 through 4 on sound channel
+;0e8f  cbdf      set     3,a		; turn on bit 3
+;0e91  77        ld      (hl),a		; play sound
+;0e92  c9        ret     		; return
+
+;0e93  feb4      cp      #b4		; is the number of pills eaten in this level > #B4 ?
+;0e95  3806      jr      c,#0e9d         ; no, skip ahead
+;0e97  78        ld      a,b		; else load A with bitmask
+;0e98  a6        and     (hl)		; turn off bits 0 through 4 on sound channel
+;0e99  cbd7      set     2,a		; turn on bit 2
+;0e9b  77        ld      (hl),a		; play sound
+;0e9c  c9        ret     		; return
+
+;0e9d  fe74      cp      #74		; is the number of pills eaten in this level > #74 ?
+;0e9f  3806      jr      c,#0ea7         ; no, skip ahead
+;0ea1  78        ld      a,b		; load A with bitmask
+;0ea2  a6        and     (hl)		; turn off bits 0 through 4 on sound channel
+;0ea3  cbcf      set     1,a		; turn on bit 1
+;0ea5  77        ld      (hl),a		; play sound
+;0ea6  c9        ret     		; return
+
+;0ea7  78        ld      a,b		; else load A with bitmask
+;0ea8  a6        and     (hl)		; turn off bits 0 through 4 on sound channel
+;0ea9  cbc7      set     0,a		; turn on bit 0
+;0eab  77        ld      (hl),a		; play sound
+;0eac  c9        ret     		; return
 
 ;------------------------------------------------------------------------------
 ; called from #052C, #052F, #08EB and #08EE 
