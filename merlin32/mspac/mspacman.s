@@ -2962,6 +2962,8 @@ game_playing mx %00
 	    jsr reverse_ghosts
 
 ;08fd  cdc30a    call    #0ac3		; handle ghost flashing and colors when power pills are eaten
+	    jsr ghost_flashing
+
 ;0900  cdd60b    call    #0bd6		; color dead ghosts the correct colors
 ;0903  cd0d0c    call    #0c0d		; handle power pill (dot) flashes
 ;0906  cd6c0e    call    #0e6c		; change the background sound based on # of pills eaten
@@ -2970,6 +2972,219 @@ game_playing mx %00
 ;0909: CDAD0E	 call	 #0EAD		; check for fruit to come out.  (new ms. pac sub actually at #86EE.)
 
 	    rts   			; return ( to #0195 ) 
+
+;------------------------------------------------------------------------------
+; called from #08FD
+ghost_flashing mx %00
+;0ac3  3aa44d    ld      a,(#4da4)	; load A with # of ghost killed but no collision for yet [0..4]
+	    lda |num_ghosts_killed
+;0ac6  a7        and     a		; is there a collision ?
+;0ac7  c0        ret     nz		; yes, return
+	    beq :continue
+	    rts
+
+; this subroutine never gets called when the green-eyed ghost bug occurs
+:continue
+;0ac8  dd21004c  ld      ix,#4c00	; else load IX with start of sprites address
+	; 4c00 = allsprite
+;0acc  fd21c84d  ld      iy,#4dc8	; load IY with (counter used to change ghost colors under big pill effects?)
+	; 4dc8 = big_pill_timer
+;0ad0  110001    ld      de,#0100	; load DE with offset value of #0100.  [used at #0AE7]
+;0ad3  fdbe00    cp      (iy+#00)	; compare.  is it time to flash?
+	    lda |big_pill_timer
+;0ad6  c2d20b    jp      nz,#0bd2	; no, decrement (IY) and return
+	    bnel :dec_return
+
+;0ad9  fd36000e  ld      (iy+#00),#0e	; else reset counter to #0E
+	    lda #$0e
+	    sta |big_pill_timer
+
+;0add  3aa64d    ld      a,(#4da6)	; load A with power pill effect (1=active, 0=no effect)
+;0ae0  a7        and     a		; is a power pill still active ?
+	    lda	|powerpill
+;0ae1  281b      jr      z,#0afe         ; no, skip ahead
+	    beq :no_pp
+;0ae3  2acb4d    ld      hl,(#4dcb)	; yes, load HL with counter while ghosts are blue
+	    lda |ghosts_blue_timer
+;0ae6  a7        and     a		; clear carry flag
+;0ae7  ed52      sbc     hl,de		; subtract offset of #0100.  has this counter gone under?
+	    sec
+	    sbc #$100
+;0ae9  3013      jr      nc,#0afe       ; no, skip ahead
+	    bcc :no_pp 			; $$JGA REVISIT
+
+; arrive here when ghosts start flashing after being blue
+; this sub controls the flashing and the return
+
+;0AEB: 21 AC 4E	ld	hl,#4EAC	; yes, load HL with sound 2 channel
+;0AEE: CB FE	set	7,(hl)		; play sound = high frequency
+	    lda #$80
+	    tsb |CH2_E_NUM
+
+;0AF0: 3E 09	ld	a,#09		; A := #09
+	    lda #9
+;0AF2: DD BE 0B	cp	(ix+#0b)	; compare with #4C0b = pacman color entry.  is a ghost being eaten?
+	    cmp |pacmancolor
+	    sta |pacmancolor
+;0AF5: 20 04	jr	nz,#0AFB	; no, skip ahead
+	    bne :yello
+
+;0AF7: CB BE	res	7,(hl)		; clear sound
+	    lda #$80
+	    trb |CH2_E_NUM
+;0AF9: 3E 09	ld	a,#09		; A := #09
+:yello
+;0afb  320b4c    ld      (#4c0b),a	; set pacman color to yellow
+:no_pp
+;0afe  3aa74d    ld      a,(#4da7)	; load A with red ghost blue flag (0=not blue)
+	    lda |redghost_blue
+;0b01  a7        and     a		; is red ghost blue (edible) ?
+;0b02  281d      jr      z,#0b21         ; no, skip ahead and set red ghost to red
+	    beq :set_red_red
+
+;0b04  2acb4d    ld      hl,(#4dcb)	; else load HL with counter while ghosts are blue
+	    lda |ghosts_blue_timer
+;0b07  a7        and     a		; clear carry flag
+;0b08  ed52      sbc     hl,de		; subtract offset (#0100).  has this counter gone under?
+	    sec
+	    sbc #$100
+;0b0a  3027      jr      nc,#0b33       ; no, jump ahead and check next ghost
+	    bcc :chk_pink		; $$JGA REVISIT
+
+;0b0c  3e11      ld      a,#11		; yes, A := #11
+	    lda #$11
+;0b0e  ddbe03    cp      (ix+#03)	; compare with red ghost color. is red ghost blue ?
+	    cmp |redghostcolor
+;0b11  2807      jr      z,#0b1a         ; yes, skip ahead and change his color to white
+	    beq :set_red_white
+
+;0b13  dd360311  ld      (ix+#03),#11	; no, set red ghost to blue color
+	    sta |redghostcolor
+;0b17  c3330b    jp      #0b33		; skip ahead and check next ghost
+	    bra :chk_pink
+:set_red_white
+;0b1a  dd360312  ld      (ix+#03),#12	; set red ghost color to white
+	    lda #$12
+	    sta |redghostcolor
+;0b1e  c3330b    jp      #0b33		; skip ahead and check next ghost
+	    bra :chk_pink
+:set_red_red
+;0b21  3e01      ld      a,#01		; A := #01
+	    lda #1
+;0b23  ddbe03    cp      (ix+#03)	; compare with red ghost color.  is the red ghost red?
+	    sta |redghostcolor
+;0b26  2807      jr      z,#0b2f         ; yes, then jump ahead
+;0b28  dd360301  ld      (ix+#03),#01	; set red ghost back to red
+;0b2c  c3330b    jp      #0b33		; skip ahead
+
+;0b2f  dd360301  ld      (ix+#03),#01	; set red ghost back to red
+:chk_pink
+;0b33  3aa84d    ld      a,(#4da8)	; load A with pink ghost blue flag
+	    lda |pinkghost_blue
+;0b36  a7        and     a		; is pink ghost blue (edible) ?
+;0b37  281d      jr      z,#0b56        ; no, skip ahead and set pink ghost to pink
+	    beq :set_pink_pink
+
+;0b39  2acb4d    ld      hl,(#4dcb)	; else load HL with counter while ghosts are blue 
+	    lda |ghosts_blue_timer
+;0b3c  a7        and     a		; clear carry flag
+;0b3d  ed52      sbc     hl,de		; subtract offset (#0100).  has this counter gone under?
+	    sec
+	    sbc #$100
+;0b3f  3027      jr      nc,#0b68       ; no, jump ahead and check next ghost
+	    bcc :check_inky 		;$$JGA Revisit
+
+;0b41  3e11      ld      a,#11		; A := #11
+	    lda #$11
+;0b43  ddbe05    cp      (ix+#05)	; compare with pink ghost color.  is the pink ghost blue?
+	    cmp |pinkghostcolor
+;0b46  2807      jr      z,#0b4f         ; yes, jump ahead and change his color to white
+	    beq :pink_white
+
+;0b48  dd360511  ld      (ix+#05),#11	; no, set pink ghost back to blue
+	    sta |pinkghostcolor
+;0b4c  c3680b    jp      #0b68		; skip ahead
+	    bra :check_inky
+:pink_white
+;0b4f  dd360512  ld      (ix+#05),#12	; set pink ghost color to white
+	    lda #$12
+	    sta |pinkghostcolor
+;0b53  c3680b    jp      #0b68		; skip ahead
+	    bra :check_inky
+:set_pink_pink
+;0b56  3e03      ld      a,#03		; A := #03
+	    lda #3
+;0b58  ddbe05    cp      (ix+#05)	; is the pink ghost pink ?
+	    sta |pinkghostcolor
+;0b5b  2807      jr      z,#0b64         ; yes, skip ahead
+
+;0b5d  dd360503  ld      (ix+#05),#03	; set pink ghost to pink
+;0b61  c3680b    jp      #0b68		; jump ahead
+
+;0b64  dd360503  ld      (ix+#05),#03	; set pink ghost to pink
+:check_inky
+;0b68  3aa94d    ld      a,(#4da9)	; load A with blue ghost (inky) blue flag
+;0b6b  a7        and     a		; is inky blue (edible) ?
+;0b6c  281d      jr      z,#0b8b         ; no, skip ahead
+
+;0b6e  2acb4d    ld      hl,(#4dcb)	; else load HL with counter while ghosts are blue
+;0b71  a7        and     a		; clear carry flag
+;0b72  ed52      sbc     hl,de		; subtract offset (#0100).  has this counter gone under?
+;0b74  3027      jr      nc,#0b9d        ; no, jump ahead and check next ghost
+
+;0b76  3e11      ld      a,#11		; A := #11
+;0b78  ddbe07    cp      (ix+#07)	; is inky blue (edible) ?
+;0b7b  2807      jr      z,#0b84         ; yes, jump ahead and change his color to white
+
+;0b7d  dd360711  ld      (ix+#07),#11	; no, set inky to blue color
+;0b81  c39d0b    jp      #0b9d		; skip ahead
+
+;0b84  dd360712  ld      (ix+#07),#12	; set inky to white color
+;0b88  c39d0b    jp      #0b9d		; skip ahead
+
+;0b8b  3e05      ld      a,#05		; A := #05
+;0b8d  ddbe07    cp      (ix+#07)	; is inky his regular color ?
+;0b90  2807      jr      z,#0b99         ; yes, skip ahead
+
+;0b92  dd360705  ld      (ix+#07),#05	; set inky to his regular color
+;0b96  c39d0b    jp      #0b9d		; skip ahead
+
+;0b99  dd360705  ld      (ix+#07),#05	; set inky to his regular color
+
+;0b9d  3aaa4d    ld      a,(#4daa)	; load A with orange ghost blue flag
+;0ba0  a7        and     a		; is orange ghost blue (edible) ?
+;0ba1  281d      jr      z,#0bc0         ; no, skip ahead
+
+;0ba3  2acb4d    ld      hl,(#4dcb)	; else load HL with counter while ghosts are blue 
+;0ba6  a7        and     a		; clear carry flag
+;0ba7  ed52      sbc     hl,de		; subtract offset (#0100).  has this counter gone under?
+;0ba9  3027      jr      nc,#0bd2        ; no, jump ahead
+
+;0bab  3e11      ld      a,#11		; A := #11
+;0bad  ddbe09    cp      (ix+#09)	; is orange ghost blue (edible) ?
+;0bb0  2807      jr      z,#0bb9         ; yes, skip ahead and change to white
+
+;0bb2  dd360911  ld      (ix+#09),#11	; no, set orange ghost color to blue
+;0bb6  c3d20b    jp      #0bd2		; skip ahead
+
+;0bb9  dd360912  ld      (ix+#09),#12	; set orange ghost color to white
+;0bbd  c3d20b    jp      #0bd2		; skip ahead
+
+;0bc0  3e07      ld      a,#07		; A := #07
+;0bc2  ddbe09    cp      (ix+#09)	; is orange ghost orange ?
+;0bc5  2807      jr      z,#0bce         ; yes, skip ahead
+
+;0bc7  dd360907  ld      (ix+#09),#07	; set orange ghost to orange
+;0bcb  c3d20b    jp      #0bd2		; skip ahead
+
+;0bce  dd360907  ld      (ix+#09),#07	; set orange ghost to orange
+:dec_return
+;0bd2  fd3500    dec     (iy+#00)	; decrease the flash counter
+	    dec |big_pill_timer
+;0bd5  c9        ret     		; return
+	    rts
+;------------------------------------------------------------------------------
+
 
 ;------------------------------------------------------------------------------
 ; called from #08f4
