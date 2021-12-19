@@ -1928,7 +1928,7 @@ DrawPills mx %00
 		jsr ChooseMaze
 		tay 				; pointer to source pellet table
 
-	    ldx #pilldata		; pointer to output pill table data
+		ldx #pilldata		; pointer to output pill table data
 ]lp
 		lda #8				; 8 bits in the byte
 		sta <:bitcount
@@ -2105,12 +2105,6 @@ PelletTable
 		da Pellet2  ; 8d27 ; pellets for maze 2
 		da Pellet3  ; 9018 ; pellets for maze 3
 		da Pellet4  ; 92ec ; pellets for maze 4
-
-PowerPelletTable
-		da Power1   ; #8B35 ; maze 1 power pellet address table 
-		da Power2   ; #8E20 ; maze 2 power pellet address table 
-		da Power3   ; #9112 ; maze 3 power pellet address table 
-		da Power4   ; #93FA ; maze 4 power pellet address table
 
 ; 94B5
 PelletCountTable
@@ -2584,6 +2578,107 @@ Power4
 		db $AA,$A0,$82,$AA,$FE,$AA
 		db $AA,$AF,$02,$2A,$A0,$AA,$AA
 		db $55,$5F,$01,$00,$50,$55,$BF
+
+;------------------------------------------------------------------------------
+
+PowerPelletTable
+		da Power1   ; #8B35 ; maze 1 power pellet address table 
+		da Power2   ; #8E20 ; maze 2 power pellet address table 
+		da Power3   ; #9112 ; maze 3 power pellet address table 
+		da Power4   ; #93FA ; maze 4 power pellet address table
+
+;------------------------------------------------------------------------------
+; this subroutine flashes the power pellets
+; arrive from #0C21
+; $$JGA this works by altering the palette index used, all 4 locations
+; $$JGA "flash" even after the power pill has been eaten/removed from the map
+; 9524
+FLASHEN	mx %00
+
+;9524  c5        push    bc		; save BC
+;9525  d5        push    de		; save DE
+;9526  211c95    ld      hl,#951c	; load HL with power pellet lookup table start
+;9529  cdbd94    call    #94bd		; load BC with address of power pellet table based on map played
+
+	    lda #PowerPelletTable		; Lookup Table Address
+	    sta <temp0
+
+	    jsr ChooseMaze
+	    tay							; address of pelette table for this map
+
+;952c  60        ld      h,b
+;952d  69        ld      l,c		; load HL with BC
+;952e  5e        ld      e,(hl)		; 
+;952f  23        inc     hl
+;9530  56        ld      d,(hl)		; load DE with the screen location of the first power pellet
+	    lda |0,y
+;9531  eb        ex      de,hl		; Copy to HL
+;9532  cbd4      set     2,h		; convert the screen address to a color address
+	    clc
+	    adc #$400
+	    tax
+	    sep #$20
+
+;9534  3a7e44    ld      a,(#447e)	; load A with the graphic for power pellets
+	    lda |palette_ram+$7e
+;9537  be        cp      (hl)		; compare with value in HL
+	    cmp |0,x
+;9538  2002      jr      nz,#953c        ; if not zero then skip next step
+	    bne :make_vis
+;953a  3e00      ld      a,#00		; else A := #00 (used for clearing the power pellets every other time)
+	    lda #0
+:make_vis
+	    pha			; temporary save clear color on stack
+;953c  77        ld      (hl),a		; flash the power pellet
+	    sta |0,x
+	    rep #$21
+;953d  eb        ex      de,hl
+;953e  23        inc     hl
+;953f  5e        ld      e,(hl)
+;9540  23        inc     hl
+;9541  56        ld      d,(hl)
+	    lda |2,y
+;9542  cbd2      set     2,d
+	    adc #$400
+	        tax
+;9544  12        ld      (de),a		; flash the power pellet
+	    sep #$20
+	    lda 1,s
+	    sta |0,x
+	    rep #$21
+;9545  23        inc     hl
+;9546  5e        ld      e,(hl)
+;9547  23        inc     hl
+;9548  56        ld      d,(hl)
+	    lda |4,y
+;9549  cbd2      set     2,d
+	    adc #$400
+	        tax
+;954b  12        ld      (de),a		; flash the power pellet
+	    sep #$20
+	    lda 1,s
+	    sta |0,x
+;954c  23        inc     hl
+;954d  5e        ld      e,(hl)
+;954e  23        inc     hl
+;954f  56        ld      d,(hl)
+	    rep #$21
+	    lda |6,y
+;9550  cbd2      set     2,d
+	    adc #$400
+	        tax
+;9552  12        ld      (de),a		; flash the power pellet
+	    sep #$20
+	        pla
+	    sta |0,x
+	    rep #$31
+;9553  d1        pop     de		; restore DE
+;9554  c1        pop     bc		; restore BC
+;9555  3e10      ld      a,#10		; A := #10
+	    lda #$10
+;9557  be        cp      (hl)		; 
+;9558  c9        ret     		; return (to #0906)
+	    rts
 
 
 ;
@@ -3281,14 +3376,23 @@ set_dead_color mx %00
 flash_power mx %00
 ;0c0d  21cf4d    ld      hl,#4dcf	; load HL with power pill counter
 ;0c10  34        inc     (hl)		; increment
+	    inc |powerpill_flash_timer
 ;0c11  3e0a      ld      a,#0a		; A := #0A
+	    lda #$0a
 ;0c13  be        cp      (hl)		; is it time to flash the power pellets ?
+	    cmp |powerpill_flash_timer
 ;0c14  c0        ret     nz		; no, return
-;
+	    beq :continue
+	    rts
+:continue
 ;0c15  3600      ld      (hl),#00	; else we will flash the pellets.  reset counter to #00
+	    stz |powerpill_flash_timer
 ;0c17  3a044e    ld      a,(#4e04)	; load A with game state indicator.  this is #03 when game or demo is in play
+	    lda |levelstate
 ;0c1a  fe03      cp      #03		; == #03 ?  Is a game being played ?
+	    cmp #3
 ;0c1c  2015      jr      nz,#0c33        ; no, skip ahead and flash the pellets in the demo screen where pac is chased by 4 ghosts and then eats a power pill and eats them all
+	    bne :not_play
 ;
 ;; BUGFIX05 - Map discoloration fix - Don Hodges
 ;0c1c  2000	jr 	nz,#0c1e	; no, do nothing
@@ -3300,6 +3404,7 @@ flash_power mx %00
 ;ORG 0C21H
 ;JP FLASHEN
 ;0c21  c32495    jp      #9524		; jump to new ms pac routine to flash power pellets
+	    jmp FLASHEN
 ;
 ;;; Pac-man code:
 ;; 0c21  3e10      ld      a,#10		; load A with code for power pellet
@@ -3321,16 +3426,23 @@ flash_power mx %00
 ;; this causes a very minor bug in pac-man and ms. pac man.  
 ;; potentially 2 screen elements can sometimes get colored wrong when player dies.
 ;; in pac-man, a dot may disappear at #4678
-;
+:not_play
 ;0c33  213247    ld      hl,#4732	; load HL with screen color address (?)
 ;0c36  3e10      ld      a,#10		; A := #10
+	    lda |palette_ram+$332
+	    and #$FF
 ;0c38  be        cp      (hl)		; is the screen color in this address == #10 ?
+	    cmp #$10
 ;0c39  2002      jr      nz,#0c3d        ; no, skip next step
+	    bne :rts
 ;
 ;0c3b  3e00      ld      a,#00		; A := #00
-;
+	    lda #$00FF
 ;0c3d  77        ld      (hl),a		; store #10 or #00 into this color location to flash the power pill in the demo
+	    trb |palette_ram+$332
 ;0c3e  327846    ld      (#4678),a	; store into #4678 to flash the other power pill
+	    trb |palette_ram+$278
+:rts
 ;0c41  c9        ret     		; return (to #0906)
 	    rts
 
