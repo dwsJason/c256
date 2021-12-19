@@ -2906,7 +2906,6 @@ LOOP
 	RTS
 
 ;------------------------------------------------------------------------------
-;
 ; demo or game is playing
 ;
 ; 08CD;
@@ -3228,37 +3227,50 @@ ghost_flashing mx %00
 set_dead_color mx %00
     ; set the color for a dead ghost
 ;0bd6  0619      ld      b,#19		; B := #19 - floating death eyes (good band name!)
+	    ldy #$19
 ;0bd8  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
+	    lda |mainroutine1
 ;0bdb  fe22      cp      #22		; == #22 ? is code is used in pac-man only, not ms. pac.  its checking for the routine where pacman heads towards the energizer followed by 4 ghosts
+	    cmp #$22
 ;0bdd  c2e20b    jp      nz,#0be2	; no, skip next step
-
+	    bne :next
 ;0be0  0600      ld      b,#00		; B := #00.  code used to clear ghosts after they get eaten in the pac-man attract
-
+	    ldy #0
+:next
 ;0be2  dd21004c  ld      ix,#4c00	; load IX with start of offset for ghost sprites and colors
 ;0be6  3aac4d    ld      a,(#4dac)	; load A with red ghost state
+	    lda |redghost_state
 
 ;0be9  a7        and     a		; is red ghost alive ?
 ;0bea  caf00b    jp      z,#0bf0		; yes, skip next step. only set color if not alive
-
+	    beq :red_alive
 ;0bed  dd7003    ld      (ix+#03),b	; store B into red ghost color entry
-
+	    sty |redghostcolor
+:red_alive
 ;0bf0  3aad4d    ld      a,(#4dad)	; load A wtih pink ghost state
+	    lda |pinkghost_state
 ;0bf3  a7        and     a		; is pink ghost alive ?
 ;0bf4  cafa0b    jp      z,#0bfa		; yes, skip next step
-
+	    beq :pink_alive
 ;0bf7  dd7005    ld      (ix+#05),b	; store B into pink ghost color entry
-
+	    sty |pinkghostcolor
+:pink_alive
 ;0bfa  3aae4d    ld      a,(#4dae)	; load A with blue ghost (inky) state
+	    lda |blueghost_state
 ;0bfd  a7        and     a		; is inky alive ?
 ;0bfe  ca040c    jp      z,#0c04		; yes, skip next step
-
+	    beq :blue_alive
 ;0c01  dd7007    ld      (ix+#07),b	; store B into blue ghost (inky) color entry
-
+	    sty |blueghostcolor
+:blue_alive
 ;0c04  3aaf4d    ld      a,(#4daf)	; load A with orange ghost state
+	    lda |orangeghost_state
 ;0c07  a7        and     a		; is orange ghost alive ? 
 ;0c08  c8        ret     z		; yes, return
-
+	    beq :orange_alive
 ;0c09  dd7009    ld      (ix+#09),b	; store B into orange ghost color entry
+	    sty |orangeghostcolor
+:orange_alive
 ;0c0c  c9        ret   			; return  
 	    rts
 
