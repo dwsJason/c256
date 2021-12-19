@@ -3068,7 +3068,7 @@ game_playing mx %00
 	    jsr change_sound_pills
 
 ;0909: CDAD0E	 call	 #0EAD		; check for fruit to come out.  (new ms. pac sub actually at #86EE.)
-	    ;jsr DOFRUIT
+	    jsr DOFRUIT
 
 	    rts   			; return ( to #0195 ) 
 
@@ -4065,6 +4065,17 @@ change_sound_pills mx %00
 	    sta |CH2_E_NUM
 ;0eac  c9        ret     		; return
 	    rts
+
+;------------------------------------------------------------------------------
+;
+; called from #0909
+;
+; OTTOPATCH
+;PATCH TO THE PRIMARY FRUIT ROUTINE, THIS ROUTINE IS CALLED ONCE PER
+;GAME STEP (THE MINIMUM TIME IT TAKES A MONSTER TO MOVE A PIXEL)
+;0EAD
+;JP DOFRUIT
+;0ead  c3ee86    jp      #86ee		; jump to Ms. Pac patch for fruit release OTTO DOFRUIT
 
 ;------------------------------------------------------------------------------
 ; called from #052C, #052F, #08EB and #08EE 
@@ -7721,5 +7732,405 @@ check_difficulty mx %00
 :rts
 ;2107  c9        ret     		; return
 	    rts
+;------------------------------------------------------------------------------
+; subroutine called from #0909, per intermediate jump at #0EAD
+;86EE
+DOFRUIT mx %00
+;
+;86EE: 3A A4 4D	ld	a,(#4DA4)	; Load A with # of ghost killed but no collision for yet [0..4]
+	    lda |num_ghosts_killed
+;86F1: A7	and	a		; == #00 ?
+;86F2: C0	ret	nz		; no, return
+	    beq :continue
+	    ; return if there's a dead ghost
+	    rts
+:continue
+;86F3: 3A D4 4D	ld	a,(#4DD4)	; load A with entry to fruit points, or 0 if no fruit
+	    lda |fruit_entry
+;86F6: A7	and	a		; == #00 ?
+;86F7: CA 47 87	jp	z,#8747		; yes, check for fruit release
+	    beq :check_fruit_release
+;
+;86FA: 3A D2 4D	ld	a,(#4DD2)	; load A with fruit X position
+	    lda |fruit_y
+;86FD: A7	and	a		; is a fruit already onscreen?
+;86FE: CA 47 87	jp	z,#8747		; no, then jump to check for 
+	    beq :check_fruit_release
+;
+;8701  3a414c    ld      a,(#4c41)	; load A with fruit position
+	    lda |BCNT
+;8704  47        ld      b,a		; copy to B
+;8705  214188    ld      hl,#8841	; load HL with start of table data
+;8708  df        rst     #18		; load HL with data at table plus offset in B
+	    asl
+	    tax
+	    lda |bounce_table,x
+;8709  ed5bd24d  ld      de,(#4dd2)	; load DE with fruit position
+;870d  19        add     hl,de		; add result from above
+	    adc |FRUITP
+;870e  22d24d    ld      (#4dd2),hl	; store result into fruit position
+	    sta |FRUITP
+;8711  21414c    ld      hl,#4c41	; load HL with fruit position
+;8714  34        inc     (hl)		; increment that location
+	    inc |BCNT
+;8715  7e        ld      a,(hl)		; load A with this value
+	    lda |BCNT
+;8716  e60f      and     #0f		; mask bits, now between #00 and #0F
+	    and #$0F
+;8718  c0        ret     nz		; return if not zero ( returns to #090C)
+	    beq :fcont
+	    rts
+:fcont
+;8719  21404c    ld      hl,#4c40	; else load HL with fruit position counter
+;871c  35        dec     (hl)		; decrement
+	    dec |COUNT
+;871d  fab587    jp      m,#87b5		; if negative, jump out to this subroutine
+	    bmi FruitPathDone
+
+;8720  7e        ld      a,(hl)		; else load A with this value
+;8721  57        ld      d,a		; copy to D
+;8722  cb3f      srl     a		; 
+;8724  cb3f      srl     a		; shift A right twice
+;8726  21 BC 4E	ld	hl,#4EBC	; load HL with sound channel 3
+;8729  CB EE	set	5,(hl)		; set bit 5 to turn on fruit bouncing sound
+;872b  2a424c    ld      hl,(#4c42)	; load HL with address of the fruit path
+;872e  d7        rst     #10		; load A with table data
+;872f  4f        ld      c,a		; copy to C
+;8730  3e03      ld      a,#03		; A := #03
+;8732  a2        and     d		; mask bits with the fruit position
+;8733  2807      jr      z,#873c         ; if zero, skip next 4 steps
+;
+;8735  cb39      srl     c
+;8737  cb39      srl     c		; shift C right twice
+;8739  3d        dec     a		; A := A - 1.  is A == #00 ?
+;873a  20f9      jr      nz,#8735        ; no, loop again
+;
+;873c  3e03      ld      a,#03		; A := #03
+;873e  a1        and     c		; mask bits with C
+;873f  07        rlca
+;8740  07        rlca
+;8741  07        rlca
+;8742  07        rlca			; rotate left 4 times
+;8743  32414c    ld      (#4c41),a	; store result into fruit position counter
+;8746  c9        ret     		; return
+;
+;; arrive here from #86FE
+;; to check to see if it is time for a new fruit to be released
+;; only called when a fruit is not already onscreen
+:check_fruit_release
+;8747: 3A 0E 4E	ld	a,(#4E0E)	; load number of dots eaten
+;874A: FE 40	cp	#40		; == #40 ? (64 decimal)
+;874C: CA 58 87	jp	z,#8758		; yes, skip ahead and use HL as 4E0C
+;874F: FE B0	cp	#B0		; == #B0 (176 deciaml) ?
+;8751: C0	ret	nz		; no, return
+;
+;8752: 21 0D 4E	ld	hl,#4E0D	; yes, load HL with #4E0D for 2nd fruit
+;8755: C3 5B 87	jp	#875B		; skip ahead
+;(
+;8758: 21 0C 4E	ld	hl,#4E0C	; load HL with 4E0C for first fruit
+;
+;875B: 7E	ld	a,(hl)		; load A with fruit flag
+;875C: A7	and	a		; has this fruit already appeared?
+;875D: C0	ret	nz		; yes, return
+;
+;875e  34	inc	(hl)
+;
+;	;; Ms. Pacman Random Fruit Probabilities
+;	;; (c) 2002 Mark Spaeth
+;	;; http://rgvac.978.org/files/MsPacFruit.txt
+;
+;;  A hotly contested issue on rgvac. here's an explanation
+;;  of how the random fruit selection routine works in Ms.
+;;  Pacman, and the probabilities associated with the routine:
+;
+;875f  3a134e    ld      a,(#4e13)       ; Load the board # (cherry = 0)
+;8762  fe07      cp      #07             ; Compare it to 7
+;8764  380a      jr      c,#8770         ; If less than 7, use board # as fruit
+;
+;8766  0607      ld      b,#07   	; else B := #07
+;
+;        ;; selector for random fruits
+;        ;; uses r register to get a random number
+;
+;8768  ed5f      ld      a,r             ; Load the DRAM refresh counter 
+;876a  e61f      and     #1f             ; Mask off the bottom 5 bits
+;
+;                ;; Compute ((R % 32) % 7)
+;876c  90        sub     b               ; Subtract 7
+;876d  30fd      jr      nc,#876c        ; If >=0 loop
+;876f  80        add     a,b             ; Add 7 back
+;
+;
+;8770  219d87    ld      hl,#879d        ; Level / fruit data table      
+;8773  47        ld      b,a             ; 3 * a -> a
+;8774  87        add     a,a
+;8775  80        add     a,b
+;8776  d7        rst     #10             ; hl + a -> hl, (hl) -> a  [table look]
+;
+;8777  320c4c    ld      (#4c0c),a       ; Write 3 fruit data bytes (shape code)
+;877a  23        inc     hl
+;877b  7e        ld      a,(hl)
+;877c  320d4c    ld      (#4c0d),a	; Color code
+;877f  23        inc     hl
+;8780  7e        ld      a,(hl)
+;8781  32d44d    ld      (#4dd4),a	; Score table offset
+;
+;
+;;    So, a little more background...
+;;
+;;    The 'R' register is the dram refresh address register
+;;    that is not initalized on startup, so it has garbage
+;;    in it.  During every instruction fetch, the counter is
+;;    incremented.  Assume on average 4 clock cycles per
+;;    instruction, with the clock running at 3.072 Mhz, this
+;;    counter is incremented every 1.3us, so if you read it
+;;    at any time, it's gonna be pretty damn random.  Of
+;;    course, it doesn't just get read at any time, since
+;;    the fruit select routine is called during the vertical
+;;    blank every 1/60sec, but since the instruction
+;;    counts between reads are not all the say, it's still
+;;    random to better than 1/60 sec, which is still too fast
+;;    for any player to count off.
+;;
+;;    So, now, assuming that the counter is random, the bottom
+;;    5 bits are hacked off giving a number 0-31 (each with
+;;    probability 1/32), and this number modulo 7 is used to
+;;    determine which fruit appears...
+;;
+;;    So...
+;;
+;;     0, 7,14,21,28  ->  Cherry         100 pts @ 5/32 = 15.625 % 
+;;     1, 8,15,22,29  ->  Strawberry     200 pts @ 5/32 = 15.625 %
+;;     2, 9,16,23,30  ->  Orange         500 pts @ 5/32 = 15.625 %
+;;     3,10,17,24,31  ->  Pretzel        700 pts @ 5/32 = 15.625 %
+;;     4,11,18,25     ->  Apple         1000 pts @ 4/32 = 12.5   %
+;;     5,12,19,26     ->  Pear          2000 pts @ 4/32 = 12.5   %
+;;     6,13,20,27     ->  Banana        5000 pts @ 4/32 = 12.5   %
+;;
+;;    Also interesting to note is that the expected value of
+;;    the random fruit is 1234.375 points, which is useful
+;;    in determining a good estimate of what the killscreen
+;;    score should be.  The standard deviation of this
+;;    distribution is 1532.891 / sqrt(n), where n is the
+;;    number of random fruits eaten, so at the level 243 (?)
+;;    killscreen, (243-7)*2 = 472 fruits have been eaten,
+;;    and the SD falls to 21.726, so it should be pretty easy
+;;    to tell if the fruit distribution has been tampered
+;;    with.  This SD across 472 fruits is +/- 10k from the
+;;    mean, is approximaely the difference between the top
+;;    3 players in twin galaxies, but given the game crash
+;;    issue, the number of levels the game lets you play is
+;;    probably a more poingant indicator than the fruits
+;;    given.
+;;
+;;
+;;
+;;    How to cheat:
+;;    -------------
+;;
+;;    Of course, if you want to be cutesy you can play with
+;;    the distribution, by say changing 876b to 0x3f, thus
+;;    doing 0-63 mod 7 to choose the fruit, bumping the
+;;    average up to 1337.5, but at an extra 100 points a
+;;    fruit, thats 47,200 points on average, and without a
+;;    close statistical analysis like the one I've provided
+;;    (which shows that this is almost 5 standard deviations
+;;    above the mean), you could probably get away with it
+;;    in competition.
+;;
+;;    If you really wanted to be cheezy, you could change
+;;    0x876b to 0x06, so that only cherry, orange, apple,
+;;    and banana come up, and all have equal probability.
+;;    That would bump your fruit average up to 1650, but the
+;;    absence of strawberries, pretzels, and pears would be
+;;    pretty obvious.
+;;
+;;    These changes would't require any other changes in the
+;;    code, but it's also possible to completely rewrite the
+;;    routine, in a different part of the code space to do
+;;    something different, but that's an exercise left to
+;;    the reader.  (Perhaps the simplest would be to add 3
+;;    after the mod 32 operation, so that Pretzel-Banana are
+;;    slightly more likely than Cherry-Orange).
+;;
+;;    If you really want to be lame, you can edit the scoring
+;;    table at 0x2b17 (many pacman bootlegs did this).
+;;    Seriously, you could probably add 10 points to each
+;;    value, and the 'judges' couldn't tell whether or not
+;;    you were eating a dot while eating the fruit in many
+;;    situations, and you could get almost 5000 extra points
+;;    over the entire game ;)
+;;
+;;    One other 'cool' thing to do would be to chage 0x8763
+;;    to 0x08, which would utilize the 8th fruit on the 8th
+;;    board, and subsequently would give you even odds on
+;;    all of the fruit, but since the junior icon and the
+;;    banana are both 5000, the average skews WAY up to 1812.5
+;;    points.
+;;
+;;    [To keep things fair, though, note that the junior
+;;    fruit uses color code 0x00, which is to say, all black,
+;;    so you'd have to find the invisible fruit.  Since the
+;;    fruit patterns are pretty well known, that's probably
+;;    not that big of a deal for top players.]
+;
+;
+;	;; select the proper fruit path from the table at 87f8
+;
+;8784  21f887    ld      hl,#87f8	; load HL with fruit path entry lookup table
+;8787  cdcd87    call    #87cd		; set up fruit path
+;878a  23        inc     hl		; HL := HL + 1
+;878b  5e        ld      e,(hl)		; load E with table data
+;878c  23        inc     hl		; next table entry
+;878d  56        ld      d,(hl)		; load D with table data
+;878e  ed53d24d  ld      (#4dd2),de	; store into fruit position
+;8792  c9        ret			; return
+;
+;; jumped from #2BF4 for fruit drawing subroutine
+;; A has the level number
+;; keeps the fruit level at banana after level 7
+;
+;8793 FE 08 	CP 	#08 		; Is Level >= #08 ?
+;8795 DA F9 2B 	JP 	C,#2BF9 	; No, return
+;8798 3E 07 	LD 	A,#07 		; Yes, set A := #07
+;879A C3 F9 2B 	JP 	#2BF9 		; Return
+;
+;
+;	;; fruit shape/color/points table
+;
+;879d  00 14 06				; Cherry     = sprite 0, color 14, score table 06
+;87a0  01 0f 07				; Strawberry = sprite 1, color 0f, score table 07
+;87a3  02 15 08				; Orange     = sprite 2, color 15, score table 08
+;87a6  03 07 09				; Pretzel    = sprite 3, color 07, score table 09
+;87a9  04 14 0a				; Apple      = sprite 4, color 14, score table 0a
+;87ac  05 15 0b				; Pear	     = sprite 5, color 15, score table 0b
+;87af  06 16 0c				; Banana     = sprite 6, color 16, score table 0c
+;87b2  07 00 0d				; Junior!    = sprite 7, color 00, score table 0d
+;
+;	; For reference, the score table is at 0x2b17
+;	; arrive here from #871D
+FruitPathDone mx %00
+;87b5  3ad34d    ld      a,(#4dd3)	; load A with fruit position
+;87b8  c620      add     a,#20		; add 20
+;87ba  fe40      cp      #40		; > 40 ?
+;87bc  3852      jr      c,#8810         ; yes, jump ahead and return
+;87be  2a424c    ld      hl,(#4c42)	; else load HL with value in #4C42 (EG. #8808, #8B71,)
+;87c1  110888    ld      de,#8808	; load DE with start of data table
+;87c4  37        scf     		; Set Carry Flag.
+;87c5  3f        ccf   			; Invert Carry Flag (cleared in this case)  
+;87c6  ed52      sbc     hl,de		; subtract DE (value = #8808) from HL
+;87c8  2023      jr      nz,#87ed        ; If not zero then jump ahead
+;
+;87ca  210088    ld      hl,#8800	; else if zero then load HL with start of data table for fruit exit
+;
+;87cd  cdbd94    call    #94bd		; load BC with valued from table based on level
+;87d0  69        ld      l,c		; 
+;87d1  60        ld      h,b		; copy BC into HL
+;87d2  ed5f      ld      a,r		; load A with a random number
+;87d4  e603      and     #03		; mask bits, now between #00 and #03
+;87d6  47        ld      b,a		; copy to B		
+;87d7  87        add     a,a		; A := A*2
+;87d8  87        add     a,a		; A := A*2
+;87d9  80        add     a,b		; A := A+B (A is now randomly #00, #05, #0A, or #0F)
+;87da  d7        rst     #10		; load A with (HL + A), HL := HL + A
+;87db  5f        ld      e,a		; copy to E
+;87dc  23        inc     hl		; next table entry
+;87dd  56        ld      d,(hl)		; load D with next value from table.  DE now has fruit path address from table.
+;87de  ed53424c  ld      (#4c42),de	; store DE into #4C42
+;87e2  23        inc     hl		; next table entry
+;87e3  7e        ld      a,(hl)		; load A with next value from table
+;
+;87e4  32404c    ld      (#4c40),a	; store into #4C40
+;87e7  3e1f      ld      a,#1f		; A := #1F
+;87e9  32414c    ld      (#4c41),a	; store into #4C41
+;87ec  c9        ret     		; return
+;
+;; arrive here from #87C8
+;
+;87ed  210888    ld      hl,#8808	; load HL with start of table data
+;87f0  22424c    ld      (#4c42),hl	; store 08 88 into the addresses in #4C42 and #4C43
+;87f3  3e1d      ld      a,#1d		; A := #1D (resets counter)
+;87f5  c3e487    jp      #87e4		; jump back
+;
+;	; fruit path entry lookup table.  referenced in #8784
+;
+;87f8  4f 8b				; #8B4F ; fruit paths for maze 1
+;87fa  40 8e				; #8E40 ; fruit paths for maze 2
+;87fc  1a 91				; #911A ; fruit paths for maze 3
+;87fe  0a 94				; #940A ; fruit paths for maze 4
+;
+;	; fruit path exit lookup table data used from #87CA
+;
+;8800  82 8B				; #8B82 ; fruit paths for maze 1
+;8802  73 8E				; #8E73	; fruit paths for maze 2
+;8804  42 91				; #9142	; fruit paths for maze 3
+;8806  3c 94				; #943C	; fruit paths for maze 4
+;
+;; data used from #87C1 and #87ED
+;
+;8808  FA FF 55 55 01 80 AA 02		; fruit path ?
+;
+;
+;; arrive here from #87BC, when fruit exits screen on its own (not eaten)
+;
+;8810  3e00      ld      a,#00		; A := #00
+;8812  320d4c    ld      (#4c0d),a	; store into fruit sprite entry (clears fruit)
+;8815  c30010    jp      #1000		; jump back to program (clears #4DD4 and returns from sub)
+;
+;; check for fruit being eaten ... jumped from #19AD
+;; HL has pacman X,Y
+;
+;8818: F5	push	af		; Save AF
+;8819: ED5BD24D	ld	de,(#4DD2)	; load fruit X position into D, fruit Y position into E
+;881D: 7C	ld	a,h		; load A with pacman X position
+;881E: 92	sub	d		; subtract fruit X position
+;881F: C6 03	add	a,#03		; add margin of error == #03
+;8821: FE 06	cp	#06		; X values match within margin ?
+;8823: 30 18	jr	nc,#883D	; no , jump back to program
+;
+;8825: 7D	ld	a,l		; else load A with pacman Y values
+;8826: 93	sub	e		; subtract fruit Y position
+;8827: C6 03	add	a,#03		; add margin of error
+;8829: FE 06	cp	#06		; Y values match within margin?
+;882B: 30 10	jr	nc,#883D	; no, jump back to program
+;
+;; else a fruit is being eaten
+;
+;882D: 3E 01	ld	a,#01		; load A with #01
+;882F: 32 0D 4C	ld	(#4C0D),a	; store into fruit sprite entry
+;8832: F1	pop	af		; Restore AF
+;8833: C6 02	add	a,#02		; add 2 to A
+;8835: 32 0C 4C	ld	(#4C0C),a	; store into fruit sprite number
+;8838: D6 02	sub	#02		; sub 2 from A, make A the same as it was
+;883A: C3 B2 19	jp	#19B2		; jump back to program for fruit being eaten
+;
+;883D: F1	pop	af		; Restore AF
+;883E: C3 CD 19	jp	#19CD		; jump back to program with no fruit eaten
+;
+;------------------------------------------------------------------------------
+;
+;; data used somehow with the fruit
+;; called from #8705
+
+bounce_table
+;8841
+    db $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+;8850
+    db $FF,$FF,$FF,$00,$00,$FF,$FF,$00,$00,$00,$00,$01,$00,$00,$00,$01
+;8860
+    db $00,$00,$00,$FF,$FE,$00,$00,$00,$FF,$00,$00,$FF,$FE,$00,$00,$00
+;8870
+    db $FF,$00,$00,$00,$FF,$00,$00,$00,$FF,$00,$00,$01,$FF,$01,$FF,$00
+;8880
+    db $00,$00,$00,$00,$00,$FF,$00,$00,$00,$00,$01,$00,$00,$FF,$00,$00
+;8890
+    db $00,$00,$01,$00,$00,$00,$01,$00,$00,$00,$01,$00,$00,$01,$01,$01
+;88A0
+    db $01,$00,$00,$01,$00,$01,$00,$01,$00,$01,$00,$01,$00,$01,$00,$01
+;88B0
+    db $00,$01,$00,$01,$00,$01,$00,$01,$00,$FF,$FF,$FF,$FF,$00,$00,$FF
+;88C0
+    db $FF
+
 ;------------------------------------------------------------------------------
 

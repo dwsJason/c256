@@ -112,6 +112,7 @@ SECONDF dw 0
 ;   4C41    BCNT    current place within bounce
 BCNT dw 0
 ;   4C42    PATH    pointer to the path the fruit is currently following
+PATH dw 0
 ;   4EBC    BNOISE  set bit 5 of BNOISE to make the bounce sound
 bnoise dw 0
 
@@ -474,6 +475,7 @@ fruit_y db 0
 fruit_x db 0
 ;
 ;	4dd4	entry to fruit points or 0 if no fruit
+fruit_entry dw 0
 ;	4dd6	used for LED state( 1: game waits for 1P/2P start button press)
 ;
 ; Main States
