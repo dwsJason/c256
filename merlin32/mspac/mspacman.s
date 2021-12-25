@@ -7787,53 +7787,97 @@ DOFRUIT mx %00
 ;871d  fab587    jp      m,#87b5		; if negative, jump out to this subroutine
 	    bmi FruitPathDone
 
-;8720  7e        ld      a,(hl)		; else load A with this value
-;8721  57        ld      d,a		; copy to D
-;8722  cb3f      srl     a		; 
-;8724  cb3f      srl     a		; shift A right twice
+    ; I'm spending a little bit wrapping my head around
+    ; what this is supposed to be doing
+
 ;8726  21 BC 4E	ld	hl,#4EBC	; load HL with sound channel 3
 ;8729  CB EE	set	5,(hl)		; set bit 5 to turn on fruit bouncing sound
+	    lda #%100000			; I changed order, so I don't have
+	    tsb |bnoise				; to preserve A
+
+;8720  7e        ld      a,(hl)		; else load A with this value
+		lda |COUNT
+;8721  57        ld      d,a		; copy to D
+;8722  cb3f      srl     a		; 
+		lsr
+;8724  cb3f      srl     a		; shift A right twice
+		lsr
+
 ;872b  2a424c    ld      hl,(#4c42)	; load HL with address of the fruit path
+		adc |PATH
 ;872e  d7        rst     #10		; load A with table data
+		tax
+		lda |0,x
+		and #$FF
+		tax
+
 ;872f  4f        ld      c,a		; copy to C
 ;8730  3e03      ld      a,#03		; A := #03
 ;8732  a2        and     d		; mask bits with the fruit position
+		lda #3
+		and |COUNT
 ;8733  2807      jr      z,#873c         ; if zero, skip next 4 steps
+		beq :fskip
 ;
+		tay
+		tya
+:loop
 ;8735  cb39      srl     c
+		lsr
 ;8737  cb39      srl     c		; shift C right twice
+		lsr
 ;8739  3d        dec     a		; A := A - 1.  is A == #00 ?
+		dey
 ;873a  20f9      jr      nz,#8735        ; no, loop again
-;
+		bne :loop
+:fskip
 ;873c  3e03      ld      a,#03		; A := #03
 ;873e  a1        and     c		; mask bits with C
+		and #3
 ;873f  07        rlca
 ;8740  07        rlca
 ;8741  07        rlca
 ;8742  07        rlca			; rotate left 4 times
+		asl
+		asl
+		asl
+		asl
 ;8743  32414c    ld      (#4c41),a	; store result into fruit position counter
+		sta |BCNT
 ;8746  c9        ret     		; return
-;
+:rts
+		rts
 ;; arrive here from #86FE
 ;; to check to see if it is time for a new fruit to be released
 ;; only called when a fruit is not already onscreen
 :check_fruit_release
 ;8747: 3A 0E 4E	ld	a,(#4E0E)	; load number of dots eaten
+		lda |dotseat
 ;874A: FE 40	cp	#40		; == #40 ? (64 decimal)
+		cmp #$40
 ;874C: CA 58 87	jp	z,#8758		; yes, skip ahead and use HL as 4E0C
+		beq :is64
 ;874F: FE B0	cp	#B0		; == #B0 (176 deciaml) ?
+		cmp #$B0
 ;8751: C0	ret	nz		; no, return
+		bne :rts
 ;
 ;8752: 21 0D 4E	ld	hl,#4E0D	; yes, load HL with #4E0D for 2nd fruit
+		ldx #SECONDF
 ;8755: C3 5B 87	jp	#875B		; skip ahead
-;(
+		bra :use2
+:is64
 ;8758: 21 0C 4E	ld	hl,#4E0C	; load HL with 4E0C for first fruit
-;
+		ldx #FIRSTF
+:use2
 ;875B: 7E	ld	a,(hl)		; load A with fruit flag
+		lda |0,x
 ;875C: A7	and	a		; has this fruit already appeared?
 ;875D: C0	ret	nz		; yes, return
+		bne :rts
 ;
 ;875e  34	inc	(hl)
+		inc |0,x
 ;
 ;	;; Ms. Pacman Random Fruit Probabilities
 ;	;; (c) 2002 Mark Spaeth
@@ -7844,8 +7888,11 @@ DOFRUIT mx %00
 ;;  Pacman, and the probabilities associated with the routine:
 ;
 ;875f  3a134e    ld      a,(#4e13)       ; Load the board # (cherry = 0)
+		lda |level
 ;8762  fe07      cp      #07             ; Compare it to 7
+		cmp #7
 ;8764  380a      jr      c,#8770         ; If less than 7, use board # as fruit
+		bcc :useboardnum
 ;
 ;8766  0607      ld      b,#07   	; else B := #07
 ;
@@ -7859,21 +7906,39 @@ DOFRUIT mx %00
 ;876c  90        sub     b               ; Subtract 7
 ;876d  30fd      jr      nc,#876c        ; If >=0 loop
 ;876f  80        add     a,b             ; Add 7 back
+		; $$JGA TODO Make this Random
+		and #7  ; until then, it's not random
 ;
-;
+:useboardnum
 ;8770  219d87    ld      hl,#879d        ; Level / fruit data table      
 ;8773  47        ld      b,a             ; 3 * a -> a
 ;8774  87        add     a,a
 ;8775  80        add     a,b
 ;8776  d7        rst     #10             ; hl + a -> hl, (hl) -> a  [table look]
-;
+		pha
+		asl   	; x2
+		adc 1,s ; x3
+		sta 1,s
+		pla
+
+		tax
+
 ;8777  320c4c    ld      (#4c0c),a       ; Write 3 fruit data bytes (shape code)
+		lda |fruit_shape_table,x
+		and #$FF
+		sta |fruitsprite
 ;877a  23        inc     hl
 ;877b  7e        ld      a,(hl)
 ;877c  320d4c    ld      (#4c0d),a	; Color code
+		lda |fruit_shape_table+1,x
+		and #$FF
+		sta |fruitspritecolor
 ;877f  23        inc     hl
 ;8780  7e        ld      a,(hl)
 ;8781  32d44d    ld      (#4dd4),a	; Score table offset
+		lda |fruit_shape_table+2,x
+		and #$FF
+		sta |FVALUE
 ;
 ;
 ;;    So, a little more background...
@@ -7995,17 +8060,18 @@ DOFRUIT mx %00
 ;8798 3E 07 	LD 	A,#07 		; Yes, set A := #07
 ;879A C3 F9 2B 	JP 	#2BF9 		; Return
 ;
-;
-;	;; fruit shape/color/points table
-;
-;879d  00 14 06				; Cherry     = sprite 0, color 14, score table 06
-;87a0  01 0f 07				; Strawberry = sprite 1, color 0f, score table 07
-;87a3  02 15 08				; Orange     = sprite 2, color 15, score table 08
-;87a6  03 07 09				; Pretzel    = sprite 3, color 07, score table 09
-;87a9  04 14 0a				; Apple      = sprite 4, color 14, score table 0a
-;87ac  05 15 0b				; Pear	     = sprite 5, color 15, score table 0b
-;87af  06 16 0c				; Banana     = sprite 6, color 16, score table 0c
-;87b2  07 00 0d				; Junior!    = sprite 7, color 00, score table 0d
+;------------------------------------------------------------------------------
+;; fruit shape/color/points table
+;879d
+fruit_shape_table
+			db $00,$14,$06 ; Cherry     = sprite 0, color 14, score table 06
+			db $01,$0f,$07 ; Strawberry = sprite 1, color 0f, score table 07
+			db $02,$15,$08 ; Orange     = sprite 2, color 15, score table 08
+			db $03,$07,$09 ; Pretzel    = sprite 3, color 07, score table 09
+			db $04,$14,$0a ; Apple      = sprite 4, color 14, score table 0a
+			db $05,$15,$0b ; Pear	      = sprite 5, color 15, score table 0b
+			db $06,$16,$0c ; Banana     = sprite 6, color 16, score table 0c
+			db $07,$00,$0d ; Junior!    = sprite 7, color 00, score table 0d
 ;
 ;	; For reference, the score table is at 0x2b17
 ;	; arrive here from #871D
