@@ -366,7 +366,14 @@ task_add mx %00
 	    rts
 
 
-
+;------------------------------------------------------------------------------
+;$$JGA HORRIBLE TEMP RNG
+;$$JGA FIXME
+RANDOM mx %00
+		lda <dpJiffy
+		xba
+		eor <dpJiffy
+		rts
 ;------------------------------------------------------------------------------
 
 JasonTestStuff
@@ -4117,6 +4124,17 @@ change_sound_pills mx %00
 	    sta |CH2_E_NUM
 ;0eac  c9        ret     		; return
 	    rts
+
+;------------------------------------------------------------------------------
+; clear fruit
+; arrive from #0246 as timed task #04
+;1000
+clear_fruit mx %00
+;1000  af        xor     a		; A := #00
+;1001  32d44d    ld      (#4dd4),a	; clear fruit
+			stz |FVALUE
+;1004  c9        ret     		; return
+			rts
 
 ;------------------------------------------------------------------------------
 ;
@@ -7952,14 +7970,20 @@ DOFRUIT mx %00
 ;        ;; uses r register to get a random number
 ;
 ;8768  ed5f      ld      a,r             ; Load the DRAM refresh counter 
+		jsr RANDOM
 ;876a  e61f      and     #1f             ; Mask off the bottom 5 bits
+		and #$1F
 ;
 ;                ;; Compute ((R % 32) % 7)
+:remain7
 ;876c  90        sub     b               ; Subtract 7
+		sec
+		sbc #7
 ;876d  30fd      jr      nc,#876c        ; If >=0 loop
+		bpl :remain7
 ;876f  80        add     a,b             ; Add 7 back
-		; $$JGA TODO Make this Random
-		and #7  ; until then, it's not random
+		clc
+		adc #7
 ;
 :useboardnum
 ;8770  219d87    ld      hl,#879d        ; Level / fruit data table      
@@ -8095,14 +8119,19 @@ DOFRUIT mx %00
 ;	;; select the proper fruit path from the table at 87f8
 ;
 ;8784  21f887    ld      hl,#87f8	; load HL with fruit path entry lookup table
+			ldx #FPATH_ENTRY_TABLE  ; table of tables
 ;8787  cdcd87    call    #87cd		; set up fruit path
+			jsr setup_fruit_path
 ;878a  23        inc     hl		; HL := HL + 1
 ;878b  5e        ld      e,(hl)		; load E with table data
 ;878c  23        inc     hl		; next table entry
 ;878d  56        ld      d,(hl)		; load D with table data
+			lda |3,y
 ;878e  ed53d24d  ld      (#4dd2),de	; store into fruit position
+			sta |fruit_y
 ;8792  c9        ret			; return
-;
+			rts
+
 ;; jumped from #2BF4 for fruit drawing subroutine
 ;; A has the level number
 ;; keeps the fruit level at banana after level 7
@@ -8129,46 +8158,87 @@ fruit_shape_table
 ;	; arrive here from #871D
 FruitPathDone mx %00
 ;87b5  3ad34d    ld      a,(#4dd3)	; load A with fruit position
+			lda |fruit_x
+			and #$FF
 ;87b8  c620      add     a,#20		; add 20
+			clc
+			adc #$20
 ;87ba  fe40      cp      #40		; > 40 ?
+			cmp #$40
 ;87bc  3852      jr      c,#8810         ; yes, jump ahead and return
+		    bcs fruit_exit_screen
+
 ;87be  2a424c    ld      hl,(#4c42)	; else load HL with value in #4C42 (EG. #8808, #8B71,)
+			lda |PATH
 ;87c1  110888    ld      de,#8808	; load DE with start of data table
 ;87c4  37        scf     		; Set Carry Flag.
 ;87c5  3f        ccf   			; Invert Carry Flag (cleared in this case)  
 ;87c6  ed52      sbc     hl,de		; subtract DE (value = #8808) from HL
+			sec
+			sbc #fruit_data
 ;87c8  2023      jr      nz,#87ed        ; If not zero then jump ahead
+			bne not_fruit_data
 ;
 ;87ca  210088    ld      hl,#8800	; else if zero then load HL with start of data table for fruit exit
-;
+			ldx #FPATH_EXIT_TABLE
+setup_fruit_path mx %00
+			stx <temp0
 ;87cd  cdbd94    call    #94bd		; load BC with valued from table based on level
+			jsr ChooseMaze
 ;87d0  69        ld      l,c		; 
 ;87d1  60        ld      h,b		; copy BC into HL
+			tay 					; pointer to paths table, for this level
+
 ;87d2  ed5f      ld      a,r		; load A with a random number
+			jsr RANDOM
 ;87d4  e603      and     #03		; mask bits, now between #00 and #03
+			and #3
+
 ;87d6  47        ld      b,a		; copy to B		
 ;87d7  87        add     a,a		; A := A*2
 ;87d8  87        add     a,a		; A := A*2
 ;87d9  80        add     a,b		; A := A+B (A is now randomly #00, #05, #0A, or #0F)
+			pha
+			asl
+			asl
+			adc 1,s
+			sta 1,s
 ;87da  d7        rst     #10		; load A with (HL + A), HL := HL + A
+			tya
+			adc 1,s
+			sta 1,s
+			ply
 ;87db  5f        ld      e,a		; copy to E
 ;87dc  23        inc     hl		; next table entry
 ;87dd  56        ld      d,(hl)		; load D with next value from table.  DE now has fruit path address from table.
+			lda |0,y
 ;87de  ed53424c  ld      (#4c42),de	; store DE into #4C42
+			sta |PATH
 ;87e2  23        inc     hl		; next table entry
 ;87e3  7e        ld      a,(hl)		; load A with next value from table
-;
+			lda |2,y
+			and #$FF
+set_f_count
 ;87e4  32404c    ld      (#4c40),a	; store into #4C40
+			sta |COUNT
 ;87e7  3e1f      ld      a,#1f		; A := #1F
+			and #$1F
 ;87e9  32414c    ld      (#4c41),a	; store into #4C41
+			sta |BCNT
 ;87ec  c9        ret     		; return
-;
+			rts
+;------------------------------------------------------------------------------
 ;; arrive here from #87C8
-;
+;87ed
+not_fruit_data mx %00
 ;87ed  210888    ld      hl,#8808	; load HL with start of table data
+			lda #fruit_data
 ;87f0  22424c    ld      (#4c42),hl	; store 08 88 into the addresses in #4C42 and #4C43
+			sta |PATH
 ;87f3  3e1d      ld      a,#1d		; A := #1D (resets counter)
+			lda #$1D
 ;87f5  c3e487    jp      #87e4		; jump back
+			bra set_f_count
 
 ;------------------------------------------------------------------------------
 ;	; fruit path entry lookup table.  referenced in #8784
@@ -8198,14 +8268,20 @@ FPATH_EXIT_TABLE
 ;
 ;; data used from #87C1 and #87ED
 ;
+fruit_data
 ;8808  FA FF 55 55 01 80 AA 02		; fruit path ?
+		db $FA,$FF,$55,$55,$01,$80,$AA,$02
 ;
-;
+;------------------------------------------------------------------------------
 ;; arrive here from #87BC, when fruit exits screen on its own (not eaten)
-;
+;8810
+fruit_exit_screen mx %00
+
 ;8810  3e00      ld      a,#00		; A := #00
 ;8812  320d4c    ld      (#4c0d),a	; store into fruit sprite entry (clears fruit)
+			stz |fruitspritecolor
 ;8815  c30010    jp      #1000		; jump back to program (clears #4DD4 and returns from sub)
+			jmp clear_fruit
 ;
 ;; check for fruit being eaten ... jumped from #19AD
 ;; HL has pacman X,Y
