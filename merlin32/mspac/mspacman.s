@@ -2244,35 +2244,45 @@ Power1
 		db $49,$09,$17
 		db $09,$17,$09,$0E,$E0,$E0,$E0,$29,$09,$17,$09,$17,$09,$00,$00
 
-
-	;; entrance fruit paths for maze 1:  #8b4f - #8b81
+;------------------------------------------------------------------------------
+;; entrance fruit paths for maze 1:  #8b4f - #8b81
 ;8b4f
-		db $63,$8B				; #8B63
+ent_fpaths_maze1
+		da :path0 			;db $63,$8B	; #8B63
 		db $13,$94,$0C
-		db $68,$8B				; #8B68
+		da :path1 			;db $68,$8B	; #8B68
 		db $22,$94,$F4
-		db $71,$8B				; #8B71
+		da :path2 			;db $71,$8B	; #8B71
 		db $27,$4C,$F4
-		db $7B,$8B				; #8B7B
+		da :path3 			;db $7B,$8B	; #8B7B
 		db $1C,$4C,$0C
+:path0
 		db $80,$AA,$AA,$BF,$AA
+:path1
 		db $80,$0A,$54,$55,$55,$55,$FF,$5F,$55
+:path2
 		db $EA,$FF,$57,$55,$F5,$57,$FF,$15,$40,$55
+:path3
 		db $EA,$AF,$02,$EA,$FF,$FF,$AA
 
 	;; exit fruit paths for maze 1
 ;8b82
-		db $94,$8B				; #8B94
+exit_fpaths_maze1
+		da :path0 		;db $94,$8B	; #8B94
 		db $14,$00,$00
-		db $99,$8B				; #8B99
+		da :path1 		;db $99,$8B	; #8B99
 		db $17,$00,$00
-		db $9F,$8B				; #8B9F
+		da :path2 		;db $9F,$8B	; #8B9F
 		db $1A,$00,$00
-		db $A6,$8B				; #8BA6
+		da :path3 		;db $A6,$8B	; #8BA6
 		db $1D
+:path0
 		db $55,$40,$55,$55,$BF
+:path1
 		db $AA,$80,$AA,$AA,$BF,$AA
+:path2
 		db $AA,$80,$AA,$02,$80,$AA,$AA
+:path3
 		db $55,$00,$00,$00,$55,$55,$FD,$AA
 
 
@@ -2353,38 +2363,48 @@ Power2
 		db $42,$16,$0A,$16,$0A,$16,$0A,$20
 		db $30,$20,$20,$DE,$E0,$22,$20,$20,$20,$20,$16,$0A,$16,$16,$00,$00
 
+;------------------------------------------------------------------------------
 	;; entrance fruit paths for maze 2:  #8E40-8E72
 	;; $$TODO  fix all these address pointers to point to labels
-
 ;8e40
-		db $54,$8E				; #8E54
+ent_fpaths_maze2
+		da :path0 ;db $54,$8E				; #8E54
 		db $13,$C4,$0C
-		db $59,$8E				; #8E59
+		da :path1 ;db $59,$8E				; #8E59
 		db $1E,$C4,$F4
-		db $61,$8E				; #8E61
+		da :path2 ;db $61,$8E				; #8E61
 		db $26,$14,$F4
-		db $6B,$8E				; #8E6B
+		da :path3 ;db $6B,$8E				; #8E6B
 		db $1D,$14,$0C
+:path0
 		db $02,$AA,$AA,$80,$2A
+:path1
 		db $02,$40,$55,$7F,$55,$15,$50,$05
+:path2
 		db $EA,$FF,$57,$55,$F5,$FF,$57,$7F,$55,$05
+:path3
 		db $EA,$FF,$FF,$FF,$EA,$AF,$AA,$02
 
 
 	;; exit fruit paths for maze 2
 	;; $$TODO  fix all these address pointers to point to labels
 ;8e73
-		db $87,$8E				; #8E87
+exit_fpaths_maze2
+		da :path0 ;db $87,$8E				; #8E87
 		db $12,$00,$00
-		db $8C,$8E				; #8E8C
+		da :path1 ;db $8C,$8E				; #8E8C
 		db $1D,$00,$00
-		db $94,$8E				; #8E94
+		da :path2 ;db $94,$8E				; #8E94
 		db $21,$00,$00
-		db $9D,$8E				; #8E9D
-		db $2C,$00,$00,$
+		da :path3 ;db $9D,$8E				; #8E9D
+		db $2C,$00,$00
+:path0
 		db $55,$7F,$55,$D5,$FF
+:path1
 		db $AA,$BF,$AA,$2A,$A0,$EA,$FF,$FF
+:path2
 		db $AA,$2A,$A0,$02,$00,$00,$A0,$AA,$02
+:path3
 		db $55,$15,$A0,$2A,$00,$54,$05,$00,$00,$55,$FD
 
 
@@ -2459,34 +2479,44 @@ Power3
 
 	;; entrance fruit paths for maze 3:  #911A-9141
 ;911a
-		db $2E,$91				; #912E
+ent_fpaths_maze3
+		da :path0 ;db $2E,$91				; #912E
 		db $15,$54,$0C
-		db $34,$91				; #9134
+		da :path1 ;db $34,$91				; #9134
 		db $1E,$54,$F4
-		db $34,$91				; #9134
+		da :path2 ;db $34,$91				; #9134
 		db $1E,$54,$F4
-		db $3C,$91				; #913C
+		da :path3 ;db $3C,$91				; #913C
 		db $15,$54,$0C
 
 ;912e
+:path0
 		db $EA,$FF,$AB,$FA,$AA,$AA
+:path1
+:path2
 		db $EA,$FF,$57,$55,$55,$D5,$57,$55
+:path3
 		db $AA,$AA,$BF,$FA
 
 	;; exit fruit paths for maze 3
 ;9142
-		db $56,$91				; #9156
+exit_fpaths_maze3
+		da :path0 ;db $56,$91				; #9156
 		db $22,$00,$00
-		db $5f,$91				; #915F
+		da :path1 ;db $5f,$91				; #915F
 		db $25,$00,$00
-		db $5f,$91				; #915F
+		da :path2 ;db $5f,$91				; #915F
 		db $25,$00,$00
-		db $6f,$91				; #916F
+		da :path3 ;db $6f,$91				; #916F
 		db $28,$00,$00
 
 ;9156
+:path0
 		db $05,$00,$00,$54,$05,$54,$7F,$F5,$0B
+:path1
+:path2
 		db $0A,$00,$00,$A8,$0A,$A8,$BF,$FA,$AB,$AA,$AA,$82,$AA,$00,$A0,$AA
+:path3
 		db $55,$41,$55,$00,$A0,$02,$40,$F5,$57,$BF
 
 
@@ -2562,34 +2592,43 @@ Power4
 
 	;; entrance fruit paths for maze 4:  #940A - #943B
 ;940a
-		db $1E,$94				; #941E
+ent_fpaths_maze4
+		da :path0 ;db $1E,$94				; #941E
 		db $14,$8C,$0C
-		db $23,$94				; #9423
+		da :path1 ;db $23,$94				; #9423
 		db $1D,$8C,$F4
-		db $2B,$94				; #942B
+		da :path2 ;db $2B,$94				; #942B
 		db $2A,$74,$F4
-		db $36,$94				; #9436
+		da :path3 ;db $36,$94				; #9436
 		db $15,$74,$0C
+:path0
 		db $80,$AA,$BE,$FA,$AA
+:path1
 		db $00,$50,$FD,$55,$F5,$D5,$57,$55
+:path2
 		db $EA,$FF,$57,$D5,$5F,$FD,$15,$50,$01,$50,$55
+:path3
 		db $EA,$AF,$FE,$2A,$A8,$AA
 
 
 	;; exit fruit paths for maze 4
 ;943c
-		db $50,$94				; #9450
+exit_fpaths_maze4
+		da :path0 ;db $50,$94				; #9450
 		db $15,$00,$00
-		db $56,$94				; #9456
+		da :path1 ;db $56,$94				; #9456
 		db $18,$00,$00
-		db $5C,$94				; #945C
+		da :path2 ;db $5C,$94				; #945C
 		db $19,$00,$00	
-		db $63,$94				; #9463
+		da :path3 ;db $63,$94				; #9463
 		db $1C,$00,$00
-
+:path0
 		db $55,$50,$41,$55,$FD,$AA
+:path1
 		db $AA,$A0,$82,$AA,$FE,$AA
+:path2
 		db $AA,$AF,$02,$2A,$A0,$AA,$AA
+:path3
 		db $55,$5F,$01,$00,$50,$55,$BF
 
 ;------------------------------------------------------------------------------
@@ -8130,20 +8169,32 @@ FruitPathDone mx %00
 ;87f0  22424c    ld      (#4c42),hl	; store 08 88 into the addresses in #4C42 and #4C43
 ;87f3  3e1d      ld      a,#1d		; A := #1D (resets counter)
 ;87f5  c3e487    jp      #87e4		; jump back
-;
+
+;------------------------------------------------------------------------------
 ;	; fruit path entry lookup table.  referenced in #8784
-;
+; 87f8
+FPATH_ENTRY_TABLE
 ;87f8  4f 8b				; #8B4F ; fruit paths for maze 1
+			da ent_fpaths_maze1
 ;87fa  40 8e				; #8E40 ; fruit paths for maze 2
+			da ent_fpaths_maze2
 ;87fc  1a 91				; #911A ; fruit paths for maze 3
+			da ent_fpaths_maze3
 ;87fe  0a 94				; #940A ; fruit paths for maze 4
-;
+			da ent_fpaths_maze4
+
+;------------------------------------------------------------------------------
 ;	; fruit path exit lookup table data used from #87CA
-;
+;8800
+FPATH_EXIT_TABLE
 ;8800  82 8B				; #8B82 ; fruit paths for maze 1
+			da exit_fpaths_maze1
 ;8802  73 8E				; #8E73	; fruit paths for maze 2
+			da exit_fpaths_maze2
 ;8804  42 91				; #9142	; fruit paths for maze 3
+			da exit_fpaths_maze3
 ;8806  3c 94				; #943C	; fruit paths for maze 4
+			da exit_fpaths_maze4
 ;
 ;; data used from #87C1 and #87ED
 ;
@@ -8210,6 +8261,9 @@ bounce_table
     db $00,$01,$00,$01,$00,$01,$00,$01,$00,$FF,$FF,$FF,$FF,$00,$00,$FF
 ;88C0
     db $FF
+
+;------------------------------------------------------------------------------
+
 
 ;------------------------------------------------------------------------------
 
