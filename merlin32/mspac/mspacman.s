@@ -40,6 +40,19 @@ bcsl mac
 skip@
     <<<
 
+bpll mac
+	bmi skip@
+	jmp ]1
+skip@
+    <<<
+
+bmil mac
+	bpl skip@
+	jmp ]1
+skip@
+    <<<
+
+
 ; External Addresses
 
 		ext title_pic
@@ -7785,7 +7798,7 @@ DOFRUIT mx %00
 ;871c  35        dec     (hl)		; decrement
 	    dec |COUNT
 ;871d  fab587    jp      m,#87b5		; if negative, jump out to this subroutine
-	    bmi FruitPathDone
+	    bmil FruitPathDone
 
     ; I'm spending a little bit wrapping my head around
     ; what this is supposed to be doing
