@@ -9,7 +9,7 @@
 ;-------------------------------------------------------------------------------
 
 title_pic ent             ; make sure start is visible outside the file
-	putbin data\borderpanel.256
+;	putbin data\borderpanel.256
 
 
 
