@@ -7328,44 +7328,72 @@ startuptest mx %00
 
 ;2376  32c050    ld      (#50c0),a	; kick dog
 ;2379  21c04c    ld      hl,#4cc0	; HL := #4CC0
+		lda #foreground_tasks
 ;237c  22804c    ld      (#4c80),hl	; store into  pointer to the end of the tasks list
+		sta |tasksTail
 ;237f  22824c    ld      (#4c82),hl	; store into  pointer to the beginning of the tasks list
+		sta |tasksHead
 ;2382  3eff      ld      a,#ff		; set data to #FF
 ;2384  0640      ld      b,#40		; set counter to #40
 ;2386  cf        rst     #8		; store data into #4CC0 through #4CFF = clears task list
+		lda #$FFFF
+		sta |foreground_tasks
+		ldx #foreground_tasks   ; source
+		ldy #foreground_tasks+2 ; dest
+		lda #64-3				; len - 1
+		mvn ^foreground_tasks,^foreground_tasks
+
 ;2387  3e01      ld      a,#01		; A := #01
 ;2389  320050    ld      (#5000),a 	; enable software interrupts
 ;238C: FB	ei			; enable hardware interrupts
+
+		;This should already be true
 
 ; process the task list, a core game loop
 
 process_tasks mx %00
 
 ;238d  2a824c    ld      hl,(#4c82)	; load HL with the pointer to beginning of tasks list
+			ldx |tasksTail
 ;2390  7e        ld      a,(hl)		; load A with the task value
 ;2391  a7        and     a		; examine value
+			lda |0,x
+			bit #$80
 ;2392  fa8d23    jp      m,#238d		; if sign negative (EG #FF), loop again; nothing to do
+			bne process_tasks
+			tay
 
 ;2395  36ff      ld      (hl),#ff	; else store #FF into task value
 ;2397  2c        inc     l		; next task parameter
 ;2398  46        ld      b,(hl)		; load B with task parameter
 ;2399  36ff      ld      (hl),#ff	; store #FF into task parameter value
 ;239b  2c        inc     l		; next task
+			lda #$FFFF	; clear the task
+			sta |0,x
+			inx			; increment to next task
+			inx
+			cpx #foreground_tasks+64
 ;239c  2002      jr      nz,#23a0        ; If HL has not reached #4C00 then skip next step
+			bcc :no_wrap
 ;239e  2ec0      ld      l,#c0		; else load L with #C0 to make HL #4CC0
+			ldx #foreground_tasks		; wrap around task list
+:no_wrap
 ;23a0  22824c    ld      (#4c82),hl	; store result into the task pointer
+			stx |tasksTail
 
 ;23A3: 21 8D 23	ld	hl,#238D	; load HL with return address
 ;23A6: E5	push	hl		; push to stack
-			pea #process_tasks-1
+			pea #process_tasks-1   ; next rts will return to this loop
 
 ;23A7: E7	rst	#20		; jump based on A
+			tya 	 
+			and #$FF 	; mask task number
 			asl
 			tax
+			tya
+			xba
+			and	 #$FF	; mask argument value
 			jmp (|task_table,x)
-
-
-
 
 ;------------------------------------------------------------------------------
 ; subroutine called from #0909, per intermediate jump at #0EAD

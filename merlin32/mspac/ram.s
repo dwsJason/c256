@@ -50,8 +50,10 @@ fruitspritecolor	dw 0	;	4c0d	fruit sprite entry
 ;
 ;	4c80	\ pointer to the end of the tasks list
 ;	4c81	/
+tasksTail dw 0
 ;	4c82	\ pointer to the beginning of the tasks list
 ;	4c83	/
+tasksHead dw 0
 ;	4c84	8 bit counter (0x00 to 0xff) used by sound routines
 ;	4c85	8 bit counter (0xff to 0x00) (unused)
 ;	4c86	counter 0: 0..5 10..15 20..25  ..  90..95 - hundreths
@@ -98,6 +100,8 @@ fruitspritecolor	dw 0	;	4c0d	fruit sprite entry
 ;		these tasks are assigned using RST #28, with the two data bytes immedately after the call used for the routine number and parameter
 ;		alternately, tasks can be assigned by manually loading B and C with routine and parameter, and then executing call #0042
 ;		tasks are decoded at routine starting at #238D
+foreground_tasks ds 64
+
 ;
 ; Game variables
 ; ** note - need to be sorted
