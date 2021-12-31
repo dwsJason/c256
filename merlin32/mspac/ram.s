@@ -16,6 +16,9 @@ tile_ram    ds 1024
 ; $4400
 palette_ram ds 1024
 
+
+RAM_START ds 0
+
 ;
 ; MsPacman RAM
 ;
@@ -679,6 +682,9 @@ CH1_W_VOL       EQU     4edb
 ;	4FC0-4FEF	Unused
 ;	4FF0-4FFF	Sprite RAM
 
+RAM_END ds 0
+
+
 
 ;	5000	IN0	; When Nothing pressed 			#FF
 ;			; Joystick 1 UP clears bit 0		#FE
@@ -690,6 +696,8 @@ CH1_W_VOL       EQU     4edb
 ;			; Coin 2 inserted clears bit 6		#BF
 ;			; Service 1 pressed clears bit 7	#7F
 IN0	dw $FFFF
+
+
 
 ;	5040	IN1	; When Nothing pressed			#FF
 ;			; Joystick 2 UP clears bit 0		#FE

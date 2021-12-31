@@ -265,10 +265,10 @@ start   ent             ; make sure start is visible outside the file
 ; Begin Actual MsPacman!!!
 ;
 ;------------------------------------------------------------------------------
-
+;0000
 rst0 mx %00
 		sei					; Disable Interrupts
-;		jmp	startuptest
+		jmp	startuptest
 
 ;;$$TODO, port the rst28 - Add task, with argument
 rst28 mx %00
@@ -281,7 +281,8 @@ rst30 mx %00
 	; rst 38 (vblank)
 	; INTERRUPT MODE 1 handler
 rst38 mx %00
-	    rts
+;		jmp 			; 1f9b
+		rts
 
 ;;$$TODO - Task
 ;; A=00TN, Y=param
@@ -371,6 +372,11 @@ InstallJiffy mx %00
 		phk 				   ; 3
 		plb 				   ; 4
 		inc |{MyDP+dpJiffy}    ; 6
+
+jsr38	nop
+		nop
+		nop
+
 		plb 				   ; 4
 		rtl
 
@@ -7163,6 +7169,204 @@ check_difficulty mx %00
 :rts
 ;2107  c9        ret     		; return
 	    rts
+
+;------------------------------------------------------------------------------
+;230B
+; This is called on "RESET"
+startuptest mx %00
+
+		; Clears 5000-5007
+
+;230b  210050    ld      hl,#5000	; load HL with starting memory address
+;230e  0608      ld      b,#08		; For B = 1 to 8
+;2310  af        xor     a		; A := #00
+;2311  77        ld      (hl),a		; clear memory
+;2312  2c        inc     l		    ; next memory
+;2313  10fc      djnz    #2311           ; next B
+
+		; We don't have to do that.
+
+		;lda #$FFFF
+		;sta |IN0
+		;sta |IN1
+
+	;; Clear screen
+	;; 40 -> 4000-43ff (Video RAM)
+;2315
+
+;2315  210040    ld      hl,#4000	; load HL with start of Video RAM
+;2318  0604      ld      b,#04		; For B = 1 to 4
+
+;231a  32c050    ld      (#50c0),a	; kick the dog
+;231d  320750    ld      (#5007),a	; kick coin counter?
+;2320  3e40      ld      a,#40		; A := #40 (clear character)
+
+;2322  77        ld      (hl),a		; clear screen memory
+;2323  2c        inc     l		; next address (low byte)
+;2324  20fc      jr      nz,#2322        ; loop #FF times
+;2326  24        inc     h		; next address (high byte)
+;2327  10f1      djnz    #231a           ; Next B
+
+		; tile_ram all pointing to tile $40, which is blank
+
+		lda #$4040
+		sta |tile_ram
+		ldx #tile_ram		; Source
+		ldy #tile_ram+2		; Dest
+		lda #1024-3			; (Length-1)
+		mvn ^tile_ram,^tile_ram
+
+	;; 0f -> 4400 - 47ff (Color RAM)
+
+;2329  0604      ld      b,#04		; For B = 1 to 4
+
+;232b  32c050    ld      (#50c0),a	; kick the dog
+;232e  af        xor     a		; A := #00
+;232f  320750    ld      (#5007),a	; kick coin counter?
+;2332  3e0f      ld      a,#0f		; A := #0F
+
+;2334  77        ld      (hl),a		; set color
+;2335  2c        inc     l		; next address (low byte)
+;2336  20fc      jr      nz,#2334        ; loop #FF times
+;2338  24        inc     h		; next high address
+;2339  10f0      djnz    #232b           ; Next B
+
+		; palette_ram all set to palette $0F
+
+		lda #$0F0F
+		sta |palette_ram
+		ldx #palette_ram	; Source
+		ldy #palette_ram+2	; Dest
+		lda #1024-3 		; (Length-1)
+		mvn ^palette_ram,^palette_ram
+
+	;; test the interrupt hardware now
+	; INTERRUPT MODE 1
+
+;233b  ed56      im      1		; set interrupt mode 1
+	
+;233d  00        nop 		   	; no other setup is necessary..
+;233e  00        nop     		; interrupts all go through 0x0038
+;233f  00        nop     
+;2340  00        nop
+     
+		; I guess hook into the jiffy timer here
+		; insert jsr rst38 into the JiffyTimer function
+		; which gets called a vblank
+		; (this is only safe to do with interrupts disabled)
+		lda #$20				; jsr
+		sta |jsr38
+		lda #rst38
+		sta |jsr38+1
+
+	; Pac's routine: (Puckman, Pac-Man Plus)
+	; INTERRUPT MODE 2
+	; 233b  ed5e      im      2		; interrupt mode 2
+	; 233d  3efa      ld      a,#fa
+	; 233f  d300      out     (#00),a	; interrupt vector -> 0xfa #3ffa vector to #3000
+	; see also "INTERRUPT MODE 2" above...
+
+
+;2341  af        xor     a		; A := #00
+;2342  320750    ld      (#5007),a	; clear coin counter
+;2345  3c        inc     a		; A := #01    (a++)
+;2346  320050    ld      (#5000),a	; Enable interrupts (pcb)
+;2349  fb        ei			; Enable interrupts (cpu)
+		cli
+;234a  76        halt			; WAIT for interrupt then jump 0x0038 
+		wai
+
+	;; main program init
+	;; perhaps a contiuation from 3295
+
+;234b  32c050    ld      (#50c0),a	; kick dog
+;234e  31c04f    ld      sp,#4fc0	; set stack pointer
+		; no watch dog on this box
+
+		; stack is probably good - but I'll set it again
+		; just in-case there's a stack leak, and it gets fixed here
+        lda #$FEFF      ; I really don't know much RAM the kernel is using in bank 0
+        tcs
+
+	;; reset custom registers.  Set them to 0
+
+;2351  af        xor     a		; A := #00
+;2352  210050    ld      hl,#5000	; load HL with starting address #5000
+;2355  010808    ld      bc,#0808	; load counters with #08 and #08
+;2358  cf        rst     #8		; clear #5000 through #5007
+
+	;; clear ram
+
+;2359  21004c    ld      hl,#4c00	; load HL with start of RAM
+;235c  06be      ld      b,#be		; load counter with #BE
+;235e  cf        rst     #8		; clear #4000 through #40BD
+;235f  cf        rst     #8		; clear #40BE through #41BD
+;2360  cf        rst     #8		; clear #41BE through #42BD
+;2361  cf        rst     #8		; clear #42BE through #43BD
+
+		stz |RAM_START
+		ldx #RAM_START
+		ldy #RAM_START+2
+		lda #{RAM_END-RAM_START}-3
+		mvn ^RAM_START,^RAM_START
+
+	;; clear sound registers, color ram, screen, task list 
+
+;2362  214050    ld      hl,#5040	; load HL with start of sound output
+;2365  0640      ld      b,#40		; set counter at #40
+;2367  cf        rst     #8		; clear #5040 through #5079
+
+;2368  32c050    ld      (#50c0),a	; kick dog
+;236b  cd0d24    call    #240d		; clear color ram
+		jsr task_clearColor
+
+;236e  32c050    ld      (#50c0),a	; kick dog
+;2371  0600      ld      b,#00		; set parameter to clear entire screen
+		lda #0
+;2373  cded23    call    #23ed		; clear entire screen
+		jsr task_clearScreen
+
+;2376  32c050    ld      (#50c0),a	; kick dog
+;2379  21c04c    ld      hl,#4cc0	; HL := #4CC0
+;237c  22804c    ld      (#4c80),hl	; store into  pointer to the end of the tasks list
+;237f  22824c    ld      (#4c82),hl	; store into  pointer to the beginning of the tasks list
+;2382  3eff      ld      a,#ff		; set data to #FF
+;2384  0640      ld      b,#40		; set counter to #40
+;2386  cf        rst     #8		; store data into #4CC0 through #4CFF = clears task list
+;2387  3e01      ld      a,#01		; A := #01
+;2389  320050    ld      (#5000),a 	; enable software interrupts
+;238C: FB	ei			; enable hardware interrupts
+
+; process the task list, a core game loop
+
+process_tasks mx %00
+
+;238d  2a824c    ld      hl,(#4c82)	; load HL with the pointer to beginning of tasks list
+;2390  7e        ld      a,(hl)		; load A with the task value
+;2391  a7        and     a		; examine value
+;2392  fa8d23    jp      m,#238d		; if sign negative (EG #FF), loop again; nothing to do
+
+;2395  36ff      ld      (hl),#ff	; else store #FF into task value
+;2397  2c        inc     l		; next task parameter
+;2398  46        ld      b,(hl)		; load B with task parameter
+;2399  36ff      ld      (hl),#ff	; store #FF into task parameter value
+;239b  2c        inc     l		; next task
+;239c  2002      jr      nz,#23a0        ; If HL has not reached #4C00 then skip next step
+;239e  2ec0      ld      l,#c0		; else load L with #C0 to make HL #4CC0
+;23a0  22824c    ld      (#4c82),hl	; store result into the task pointer
+
+;23A3: 21 8D 23	ld	hl,#238D	; load HL with return address
+;23A6: E5	push	hl		; push to stack
+			pea #process_tasks-1
+
+;23A7: E7	rst	#20		; jump based on A
+			asl
+			tax
+			jmp (|task_table,x)
+
+
+
+
 ;------------------------------------------------------------------------------
 ; subroutine called from #0909, per intermediate jump at #0EAD
 ;86EE
