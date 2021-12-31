@@ -281,14 +281,189 @@ rst30 mx %00
 	; rst 38 (vblank)
 	; INTERRUPT MODE 1 handler
 rst38 mx %00
-;		jmp 			; 1f9b
-		rts
+		jmp VBL_Handler  ; 008d
 
 ;;$$TODO - Task
 ;; A=00TN, Y=param
 ;0042
 task_add mx %00
 	    rts
+
+
+;------------------------------------------------------------------------------
+;; part of the interrupt routine (non-test)
+;; continuation of RST 38 partially...  (vblank)
+;; (gets called from the #1f9b patch, from #0038)
+;008d
+VBL_Handler
+
+;008d  f5        push    af		; save AF [restored at #01DA]
+;008e  32c050    ld      (#50c0),a	; kick the dog
+;0091  af        xor     a		; 0 -> a
+;0092  320050    ld      (#5000),a	; disable hardware interrupts
+;0095  f3        di			; disable cpu interrupts
+
+		; interrupt shouldn't require disabling in the handler
+		; they should already be disabled
+
+; save registers. they are restored starting at #01BF
+
+;0096  c5        push    bc		; save BC
+;0097  d5        push    de		; save DE
+;0098  e5        push    hl		; save HL
+;0099  dde5      push    ix		; save IX
+;009b  fde5      push    iy		; save IY
+
+        ;;
+        ;; VBLANK - 1 (SOUND)
+        ;;
+        ;; load the sound into the hardware
+	;;
+
+	   ;$$JGA TODO - when emulating audio
+	   ;$$JGA TODO - copy the registers when emulating audio
+;009d  ld      hl,#CH1_FREQ0             ; pointer to frequencies and volumes of the 3 voices
+;00a0  ld      de,#5050                  ; hardware address
+;00a3  ld      bc,#0010                  ; #10 (16 decimal) byte to copy
+;00a6  ldir                              ; copy
+
+        ;; voice 1 wave select
+
+;00a8  ld      a,(#CH1_W_NUM)            ; if we play a wave
+;00ab  and     a
+;00ac  ld      a,(#CH1_W_SEL)            ; then WaveSelect = CH1_W_SEL
+;00af  jr      nz,#00b4
+;
+;00b1  ld      a,(#CH1_E_TABLE0)         ; else WaveSelect = CH1_E_TABLE0
+;
+;00b4  ld      (#5045),a                 ; write WaveSelect to hardware
+;
+;        ;; voice 2 wave select
+;
+;00b7  ld      a,(#CH2_W_NUM)
+;00ba  and     a
+;00bb  ld      a,(#CH2_W_SEL)
+;00be  jr      nz,#00c3
+;
+;00c0  ld      a,(#CH2_E_TABLE0)
+;00c3  ld      (#504a),a
+;
+;        ;; voice 3 wave select
+;
+;00c6  ld      a,(#CH3_W_NUM)
+;00c9  and     a
+;00ca  ld      a,(#CH3_W_SEL)
+;00cd  jr      nz,#00d2
+;
+;00cf  ld      a,(#CH3_E_TABLE0)
+;00d2  ld      (#504f),a
+;
+
+	;$$JGA TODO
+	; copy last frame calculated sprite data into sprite buffer
+
+;00d5  21024c    ld      hl,#4c02	; load HL with source address (calculated sprite data)
+;00d8  11224c    ld      de,#4c22	; load DE with destination (sprite buffer)
+;00db  011c00    ld      bc,#001c	; load counter with #1C bytes to copy
+;00de  edb0      ldir    		; copy
+
+	;$$JGA TODO
+	; update sprite data, adjusting to hardware
+
+;00e0  dd21204c  ld      ix,#4c20	; load IX with start of sprite buffer	
+;00e4  dd7e02    ld      a,(ix+#02) 	; load A with red ghost sprite
+;00e7  07        rlca
+;00e8  07        rlca			; rotate 2 bits up 
+;00e9  dd7702    ld      (ix+#02),a	; store
+;00ec  dd7e04    ld      a,(ix+#04)	; load A with pink ghost sprite
+;00ef  07        rlca    
+;00f0  07        rlca    		; rotate 2 bits up
+;00f1  dd7704    ld      (ix+#04),a	; store
+;00f4  dd7e06    ld      a,(ix+#06)	; load A with blue (inky) ghost sprite
+;00f7  07        rlca    
+;00f8  07        rlca    		; rotate 2 bits up
+;00f9  dd7706    ld      (ix+#06),a	; store
+;00fc  dd7e08    ld      a,(ix+#08)	; load A with orange ghost sprite
+;00ff  07        rlca    
+;0100  07        rlca    		; rotate 2 bits up
+;0101  dd7708    ld      (ix+#08),a	; store
+;0104  dd7e0a    ld      a,(ix+#0a)	; load A with ms pac sprite
+;0107  07        rlca    
+;0108  07        rlca    		; rotate 2 bits up
+;0109  dd770a    ld      (ix+#0a),a	; store
+;010c  dd7e0c    ld      a,(ix+#0c)	; load A with fruit sprite
+;010f  07        rlca    
+;0110  07        rlca    		; rotate 2 bits up
+;0111  dd770c    ld      (ix+#0c),a	; store
+
+;0114  3ad14d    ld      a,(#4dd1)	; load A with killed ghost animation state
+			lda |dead_ghost_anim_state
+;0117  fe01      cp      #01		; is there a ghost being eaten ?
+			cmp #1
+;0119  2038      jr      nz,#0153        ; no , skip ahead
+			bne :not_eaten
+
+			;;$$JGA TODO
+;011b  dd21204c  ld      ix,#4c20	; else load IX with sprite data buffer start
+;011f  3aa44d    ld      a,(#4da4)	; load A with the unhandled killed ghost #
+;0122  87        add     a,a		; A := A * 2
+;0123  5f        ld      e,a		; copy to E
+;0124  1600      ld      d,#00		; D := #00
+;0126  dd19      add     ix,de		; add to index.  now has the eaten ghost sprite
+;0128  2a244c    ld      hl,(#4c24)	; load HL with start of ghost sprite address
+;012b  ed5b344c  ld      de,(#4c34)	; load DE with sprite number and color for spriteram
+;012f  dd7e00    ld      a,(ix+#00)	; load A with eaten ghost sprite
+;0132  32244c    ld      (#4c24),a	; store
+;0135  dd7e01    ld      a,(ix+#01)	; load A with next ghost sprite
+;0138  32254c    ld      (#4c25),a	; store
+;013b  dd7e10    ld      a,(ix+#10)	; load A with eaten ghost spriteram
+;013e  32344c    ld      (#4c34),a	; store
+;0141  dd7e11    ld      a,(ix+#11)	; load A with next ghost spriteram
+;0144  32354c    ld      (#4c35),a	; store
+;0147  dd7500    ld      (ix+#00),l	; 
+;014a  dd7401    ld      (ix+#01),h
+;014d  dd7310    ld      (ix+#10),e
+;0150  dd7211    ld      (ix+#11),d	; store L, H, E, and D
+
+:not_eaten
+;0153  3aa64d    ld      a,(#4da6)	; load A with power pill effect (1=active, 0=no effect)
+			lda |powerpill
+;0156  a7        and     a		; is a power pill active ?
+;0157  ca7601    jp      z,#0176		; no, skip ahead
+			beq :no_power
+
+; power pill active
+
+		;; $$JGA TODO
+;015a  ed4b224c  ld      bc,(#4c22)	; else swap pac for first ghost.  load BC with red ghost sprite
+;015e  ed5b324c  ld      de,(#4c32)	; load DE with highest sprite for spriteram
+;0162  2a2a4c    ld      hl,(#4c2a)	; load HL with fruit sprite
+;0165  22224c    ld      (#4c22),hl	; store into highest priority sprite
+;0168  2a3a4c    ld      hl,(#4c3a)	; load HL with ms pac spriteram
+;016b  22324c    ld      (#4c32),hl	; store into highest priority spriteram
+;016e  ed432a4c  ld      (#4c2a),bc	; store first ghost sprite
+;0172  ed533a4c  ld      (#4c3a),de	; store first ghost spriteram
+
+:no_power
+
+;0176  21224c    ld      hl,#4c22	; load source address with start of sprites
+;0179  11f24f    ld      de,#4ff2	; load destiantion address with spriteram2
+;017c  010c00    ld      bc,#000c	; set counter at #0C bytes
+
+; green eyed ghost bug encountered here
+; 4FF2,3 - 
+; 4FF2,3 - red ghost (8x,11)
+; 4FF4,5 - pink ghost (8x,11)
+; 4FF6,7 - blue ghost (8x,11)
+; 4FF8,9 - orange ghost (8x,11)
+
+
+;017f  edb0      ldir    		; copy
+
+;0181  21324c    ld      hl,#4c32	; load source address with start of spriteram	
+;0184  116250    ld      de,#5062	; load destination address with hardware sprite
+;0187  010c00    ld      bc,#000c	; set counter at #0C bytes
+;018a  edb0      ldir			; copy [write updated sprites to spriteram]
 
 
 ;------------------------------------------------------------------------------
@@ -2111,11 +2286,6 @@ FLASHEN	mx %00
 ; All the pacman RAM definitions
 ;
 		put ram.s
-
-;
-; All the pacman Task functions
-;
-		put tasks.s
 
 ;------------------------------------------------------------------------------
 ; ResetPills
@@ -7394,6 +7564,58 @@ process_tasks mx %00
 			xba
 			and	 #$FF	; mask argument value
 			jmp (|task_table,x)
+
+;------------------------------------------------------------------------------
+;
+; All the pacman Task functions
+;
+		put tasks.s
+
+;------------------------------------------------------------------------------
+;;
+;; MSPACMAN sound tables
+;;
+;; 2 effects for channel 1
+;3b30
+EFFECT_TABLE_1
+	db $73,$20,$00,$0c,$00,$0a,$1f,$00  ; extra life sound
+;3b38
+	db $72,$20,$fb,$87,$00,$02,$0f,$00	; credit sound
+
+;; 8 effects for channel 2
+;3B40
+EFFECT_TABLE_2
+;3B40
+	db $59,$01,$06,$08,$00,$00,$02,$00 ; end of energizer
+;3B48
+	db $59,$01,$06,$09,$00,$00,$02,$00 ; higher frequency when 155 dots eaten
+;3B50
+    db $59,$02,$06,$0a,$00,$00,$02,$00 ; higher frequency when 179 dots eaten
+;3B58
+    db $59,$03,$06,$0b,$00,$00,$02,$00 ; higher frequency when 12 dots left
+;3B60
+	db $59,$04,$06,$0c,$00,$06,$02,$00 ; reset higher frequency when 12 or less dots left
+;3b68
+	db $24,$00,$06,$08,$02,$00,$0a,$00 ; engergizer eaten
+;3B70
+	db $36,$07,$87,$6f,$00,$00,$04,$00 ; eyes returning sound
+;3B78
+	db $70,$04,$00,$00,$00,$00,$08,$00 ; unused ???
+
+	;; 6 effects for channel 3
+EFFECT_TABLE_3
+;3b80
+	db $1c,$70,$8b,$08,$00,$01,$06,$00 ; dot eating sound 1
+;3B88
+	db $1c,$70,$8b,$08,$00,$01,$06,$00 ; dot eating sound 2
+;3b90
+	db $56,$0c,$ff,$8c,$00,$02,$08,$00 ; fruit eating sound
+;3B98
+	db $56,$00,$02,$0a,$07,$03,$0c,$00 ; blue ghost eaten sound
+;3bA0
+	db $36,$38,$fe,$12,$f8,$04,$0f,$fc ; ghosts bumping during act 1 sound
+;3BA8
+	db $22,$01,$01,$06,$00,$01,$07,$00 ; fruit bouncing sound
 
 ;------------------------------------------------------------------------------
 ; subroutine called from #0909, per intermediate jump at #0EAD

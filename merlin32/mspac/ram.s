@@ -56,6 +56,9 @@ tasksTail dw 0
 tasksHead dw 0
 ;	4c84	8 bit counter (0x00 to 0xff) used by sound routines
 ;	4c85	8 bit counter (0xff to 0x00) (unused)
+SOUND_COUNTER dw 0    ; counter, incremented each VBLANK
+                      ; (used to adjust sound volume)
+
 ;	4c86	counter 0: 0..5 10..15 20..25  ..  90..95 - hundreths
 ;	4c87	counter 1: 0..9 10..19 20..29  ..  50..59 - seconds
 ;	4c88	counter 2: 0..9 10..19 20..29  ..  50..59 - minutes
@@ -602,29 +605,27 @@ powerpills ds 4
 
         ;; these 16 values are copied to the hardware every vblank interrupt.
 
-CH1_FREQ0       EQU     4e8c    ; 20 bits
-CH1_FREQ1       EQU     4e8d
-CH1_FREQ2       EQU     4e8e
-CH1_FREQ3       EQU     4e8f
-CH1_FREQ4       EQU     4e90
-CH1_VOL         EQU     4e91
-CH2_FREQ1       EQU     4e92    ; 16 bits
-CH2_FREQ2       EQU     4e93
-CH2_FREQ3       EQU     4e94
-CH2_FREQ4       EQU     4e95
-CH2_VOL         EQU     4e96
-CH3_FREQ1       EQU     4e97    ; 16 bits
-CH3_FREQ2       EQU     4e98
-CH3_FREQ3       EQU     4e99
-CH3_FREQ4       EQU     4e9a
-CH3_VOL         EQU     4e9b
+CH1_FREQ0       ds 1	;EQU     4e8c    ; 20 bits
+CH1_FREQ1       ds 1    ;EQU     4e8d
+CH1_FREQ2       ds 1    ;EQU     4e8e
+CH1_FREQ3       ds 1    ;EQU     4e8f
+CH1_FREQ4       ds 1    ;EQU     4e90
+CH1_VOL         ds 1    ;EQU     4e91
+CH2_FREQ1       ds 1    ;EQU     4e92    ; 16 bits
+CH2_FREQ2       ds 1    ;EQU     4e93
+CH2_FREQ3       ds 1    ;EQU     4e94
+CH2_FREQ4       ds 1    ;EQU     4e95
+CH2_VOL         ds 1    ;EQU     4e96
+CH3_FREQ1       ds 1    ;EQU     4e97    ; 16 bits
+CH3_FREQ2       ds 1    ;EQU     4e98
+CH3_FREQ3       ds 1    ;EQU     4e99
+CH3_FREQ4       ds 1    ;EQU     4e9a
+CH3_VOL         ds 1    ;EQU     4e9b
 
-SOUND_COUNTER   EQU     4c84    ; counter, incremented each VBLANK
-                                ; (used to adjust sound volume)
 
-EFFECT_TABLE_1  EQU     3b30    ; channel 1 effects. 8 bytes per effect
-EFFECT_TABLE_2  EQU     3b40    ; channel 2 effects. 8 bytes per effect
-EFFECT_TABLE_3  EQU     3b80    ; channel 3 effects. 8 bytes per effect
+;EFFECT_TABLE_1  EQU     3b30    ; channel 1 effects. 8 bytes per effect
+;EFFECT_TABLE_2  EQU     3b40    ; channel 2 effects. 8 bytes per effect
+;EFFECT_TABLE_3  EQU     3b80    ; channel 3 effects. 8 bytes per effect
 
 ;#if MSPACMAN
 ;SONG_TABLE_1    EQU     9685    ; channel 1 song table
@@ -636,55 +637,65 @@ EFFECT_TABLE_3  EQU     3b80    ; channel 3 effects. 8 bytes per effect
 ;SONG_TABLE_3    EQU     3bd0
 ;#endif
 
-CH1_E_NUM       EQU     4e9c    ; effects to play sequentially (bitmask)
-CH1_E_1         EQU     4e9d    ; unused
-CH1_E_CUR_BIT   EQU     4e9e    ; current effect
-CH1_E_TABLE0    EQU     4e9f    ; table of parameters, initially copied from ROM
-CH1_E_TABLE1    EQU     4ea0
-CH1_E_TABLE2    EQU     4ea1
-CH1_E_TABLE3    EQU     4ea2
-CH1_E_TABLE4    EQU     4ea3
-CH1_E_TABLE5    EQU     4ea4
-CH1_E_TABLE6    EQU     4ea5
-CH1_E_TABLE7    EQU     4ea6
-CH1_E_TYPE      EQU     4ea7
-CH1_E_DURATION  EQU     4ea8
-CH1_E_DIR       EQU     4ea9
-CH1_E_BASE_FREQ EQU     4eaa
-CH1_E_VOL       EQU     4eab
+CH1_E_NUM       ds 1    ;EQU     4e9c    ; effects to play sequentially (bitmask)
+CH1_E_1         ds 1    ;EQU     4e9d    ; unused
+CH1_E_CUR_BIT   ds 1    ;EQU     4e9e    ; current effect
+CH1_E_TABLE0    ds 1    ;EQU     4e9f    ; table of parameters, initially copied from ROM
+CH1_E_TABLE1    ds 1    ;EQU     4ea0
+CH1_E_TABLE2    ds 1    ;EQU     4ea1
+CH1_E_TABLE3    ds 1    ;EQU     4ea2
+CH1_E_TABLE4    ds 1    ;EQU     4ea3
+CH1_E_TABLE5    ds 1    ;EQU     4ea4
+CH1_E_TABLE6    ds 1    ;EQU     4ea5
+CH1_E_TABLE7    ds 1    ;EQU     4ea6
+CH1_E_TYPE      ds 1    ;EQU     4ea7
+CH1_E_DURATION  ds 1    ;EQU     4ea8
+CH1_E_DIR       ds 1    ;EQU     4ea9
+CH1_E_BASE_FREQ ds 1    ;EQU     4eaa
+CH1_E_VOL       ds 1    ;EQU     4eab
 
 ; 4EAC repeats the above for channel 2
-CH2_E_NUM		dw 0
+CH2_E_NUM		ds 16
 
 ; 4EBC repeats the above for channel 3
 
-CH1_W_NUM       EQU     4ecc    ; wave to play (bitmask)
-CH1_W_1         EQU     4ecd    ; unused
-CH1_W_CUR_BIT   EQU     4ece    ; current wave
-CH1_W_SEL       EQU     4ecf
-CH1_W_4         EQU     4ed0
-CH1_W_5         EQU     4ed1
-CH1_W_OFFSET1   EQU     4ed2    ; address in ROM to find the next byte
-CH1_W_OFFSET2   EQU     4ed3    ; (16 bits)
-CH1_W_8         EQU     4ed4
-CH1_W_9         EQU     4ed5
-CH1_W_A         EQU     4ed6
-CH1_W_TYPE      EQU     4ed7
-CH1_W_DURATION  EQU     4ed8
-CH1_W_DIR       EQU     4ed9
-CH1_W_BASE_FREQ EQU     4eda
-CH1_W_VOL       EQU     4edb
+CH3_E_NUM		ds 16
+
+CH1_W_NUM       ds 1    ;EQU     4ecc    ; wave to play (bitmask)
+CH1_W_1         ds 1    ;EQU     4ecd    ; unused
+CH1_W_CUR_BIT   ds 1    ;EQU     4ece    ; current wave
+CH1_W_SEL       ds 1    ;EQU     4ecf
+CH1_W_4         ds 1    ;EQU     4ed0
+CH1_W_5         ds 1    ;EQU     4ed1
+CH1_W_OFFSET1   ds 1    ;EQU     4ed2    ; address in ROM to find the next byte
+CH1_W_OFFSET2   ds 1    ;EQU     4ed3    ; (16 bits)
+CH1_W_8         ds 1    ;EQU     4ed4
+CH1_W_9         ds 1    ;EQU     4ed5
+CH1_W_A         ds 1    ;EQU     4ed6
+CH1_W_TYPE      ds 1    ;EQU     4ed7
+CH1_W_DURATION  ds 1    ;EQU     4ed8
+CH1_W_DIR       ds 1    ;EQU     4ed9
+CH1_W_BASE_FREQ ds 1    ;EQU     4eda
+CH1_W_VOL       ds 1    ;EQU     4edb
 ;
 ; 4EDC repeats the above for channel 2
+
+CH2_W_NUM 		ds 16
+
 ; 4EEC repeats the above for channel 3
-;
+
+CH3_W_NUM       ds 16
+
 ;
 ; Runtime
 ;
 ;	4F00		Is set to 1 during intermissions and parts of the attract mode, otherwise 0
 ;	4F01-4FBF	Stack
+;Stack ds $C0
+
 ;	4FC0-4FEF	Unused
 ;	4FF0-4FFF	Sprite RAM
+SpriteRAM ds 16
 
 RAM_END ds 0
 
