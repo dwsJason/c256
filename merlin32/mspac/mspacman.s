@@ -480,6 +480,8 @@ VBL_Handler
 			jsr check_timed_tasks
 
 ;0192  cdc803    call    #03c8		; runs subprograms based on game mode, power-on stuff, attract mode, push start screen, and core loops for game playing
+			jsr gamemode_dispatch
+
 ;0195  3a004e    ld      a,(#4e00)	; load A with game mode
 ;0198  a7        and     a		; is the game still in power-on mode ?
 ;0199  2812      jr      z,#01ad         ; yes, skip over next calls
@@ -783,6 +785,115 @@ ttask6 mx %00
 			rts
 
 ;------------------------------------------------------------------------------
+;; enable sound out and other stuff
+; called from #0192
+;03c8
+gamemode_dispatch mx %00
+;03c8  3a004e    ld      a,(#4e00)	; load A with game mode
+;03cb  e7        rst     #20		; jump based on A
+			lda |mainstate
+			asl
+			tax
+			jmp (:dispatch,x)
+:dispatch
+			da power_on	     ;#03D4;#4E00 = 0 ;GAME POWER ON
+			da attract_mode  ;#03FE;#4E00 = 1 ;ALL ATTRACT MODES.  this runs until a credit is inserted
+			da oneortwo      ;#05E5;#4E00 = 2 ;PLAYER 1 OR 2 SCREEN.  draw screen and wait for start to be pressed
+			da gameplay_mode ;#06BE;#4E00 = 3 ;PLAYER 1 OR 2 PLAYING.  runs core game loop
+
+;------------------------------------------------------------------------------
+; arrive here after power on
+;03d4
+power_on
+;03d4  3a014e	ld	a,(#4e01)	; load A with main routine 0, subroutine #
+;03d5  e7        rst     #20		; jump based on A
+			lda |mainroutine0
+			asl
+			tax
+			jmp (:table,x)
+:table
+			da :init ; #03DC
+			da :rts  ; #000C.  returns immediately (to #0195)
+
+; arrive here after powering on
+; this sets up the following tasks
+;03DC
+:init
+;03DC: EF        rst	#28		; insert task to clear the whole screen
+;03DD: 00 00				; data for above, task #00         
+			lda #$0000
+			jsr rst28
+
+;03DF: EF        rst	#28		; insert task to clear the color RAM
+;03E0: 06 00				; data for above, task #06
+			lda #$0006
+			jsr rst28
+;03e2  ef        rst     #28		; insert task color the maze
+;03e3  01 00				; data for above, task #01
+			lda #$0001
+			jsr rst28
+;03e5  ef        rst     #28		; insert task to check all dip switches and assign memories to the settings indicated
+;03e6  14 00				; data for above, task #14
+			lda #$0014
+			jsr rst28
+;03e8  ef        rst     #28		; insert task - draws "high score" and scores.  clears player 1 and 2 scores to zero.
+;03e9  18 00				; data for above, task #18
+			lda #$0018
+			jsr rst28
+;03eb  ef        rst     #28		; insert task - resets a bunch of memories
+;03ec  04 00				; data for above, task #04
+			lda #$0004
+			jsr rst28
+;03ee  ef        rst     #28		; insert task - clear fruit, pacman, and all ghosts
+;03ef  1e 00				; data for above, task #1E
+			lda #$001e
+			jsr rst28
+
+;03f1  ef        rst     #28		; insert task - set game to demo mode
+;03f2  07 00				; data for above, task #07
+			lda #$0007
+			jsr rst28
+
+;03F4: 21 01 4E	ld	hl,#4E01	; load HL with main routine 0, subroutine #
+;03F7: 34	inc	(hl)		; increase so this sub doesn't run again.
+			inc |mainroutine0
+;03f8  210150    ld      hl,#5001	; load HL with sound address
+;03fb  3601      ld      (hl),#01	; enable sound
+			;$$JGA TODO fix the enable sound
+:rts
+;03fd  c9        ret     		; return
+			rts
+;------------------------------------------------------------------------------
+; attract mode main routine
+;03fe
+attract_mode mx %00
+;03fe  cda12b    call    #2ba1		; write # of credits on screen
+			jsr task_drawCredits
+;0401  3a6e4e    ld      a,(#4e6e)	; load A with # of credits
+			lda |no_credits
+;0404  a7        and     a		; == #00 ?
+;0405  280c      jr      z,#0413         ; yes, skip ahead
+			beq JPATTRACT
+
+;0407  af        xor     a		; else A := #00
+;0408  32044e    ld      (#4e04),a	; clear level state subroutine #
+			stz |levelstate
+;040b  32024e    ld      (#4e02),a	; clear main routine 1, subroutine #
+			stz |mainroutine1
+;040e  21004e    ld      hl,#4e00	; load HL with game mode
+;0411  34        inc     (hl)		; increase game mode to press start screen
+			inc |mainstate
+;0412  c9        ret     		; return (to #0195)
+			rts
+	; table lookup
+; OTTOPATCH
+;PATCH FOR NEW ATTRACT MODE
+;ORG 0413H
+JPATTRACT
+;0413  c35c3e    jp      #3e5c		; jump to mspac patch when there are no credits - controls the demo mode
+			jmp ATTRACT
+  								 
+;------------------------------------------------------------------------------
 ; called from # 0246 from jump table based on game state
 ; or, timed task number #02 has been encountered, arrive from #0246
 ; also arrive from #3E93 during marquee mode in demo
@@ -795,6 +906,20 @@ ttask2
 			rts
 
 ;------------------------------------------------------------------------------
+; arrive from #03CB
+; arrive here when credit has been inserted and game is waiting for start button to be pressed
+oneortwo mx %00
+			rts
+;05E5: 3A 03 4E	ld	a,(#4E03)	; load A with main routine 2, subroutine #
+;05E8: E7	rst	#20		; jump based on A
+
+;05E9: F3 05				; #05F3		; inserts tasks to draw info on screen
+;05EB: 1B 06				; #061B		; display 1/2 player and check start buttons
+;05ED: 74 06				; #0674		; run when start button pressed, gets game ready to be played
+;05EF: 0C 00				; #000C		; returns immediately
+;05F1: A8 06				; #06A8		; draw remaining lives at bottom of screen and start game
+
+;------------------------------------------------------------------------------
 ; also arrive here from #0246.   This is timed task #01
 ttask1 mx %00
 ;06a3  21 03 4E	ld	hl,#4E03	; load HL with main routine 2, subroutine #
@@ -802,6 +927,52 @@ ttask1 mx %00
 			inc |mainroutine2
 ;06a7  c9        ret     		; return
 			rts
+;------------------------------------------------------------------------------
+; arrive here from #03CB or from #057C, when someone or demo is playing
+gameplay_mode mx %00
+			rts
+;06BE: 3A 04 4E      ld   a,(#4E04)	; load A with level state
+;06C1: E7            rst  #20		; jump based on A
+
+;06C2: 79 08				; #0879		; set up game initialization
+;06C4: 99 08 			; #0899		; set up tasks for beginning of game
+;06C6: 0C 00 			; #000C		; returns immediately
+;06C8: CD 08 			; #08CD		; demo mode or player is playing
+;06CA: 0D 09 			; #090D		; when player has collided with hostile ghost (died)
+;06CC: 0C 00 			; #000C		; returns immediately
+;06CE: 40 09				; #0940		; check for game over, do things if true
+;06D0: 0C 00 			; #000C		; returns immediately
+;06D2: 72 09 			; #0972		; end of demo mode when ms pac dies in demo.  clears a bunch of memories.
+;06D4: 88 09 			; #0988		; sets a bunch of tasks and displays "ready" or "game over"
+;06D6: 0C 00 			; #000C		; returns immediately
+;06D8: D2 09 			; #09D2		; begin start of maze demo after marquee
+;06DA: D8 09 			; #09D8		; clears sounds and sets a small delay.  run at end of each level
+;06DC: 0C 00 			; #000C		; returns immediately
+;06DE: E8 09				; #09E8		; flash screen
+;06E0: 0C 00 			; #000C		; returns immediately
+;06E2: FE 09				; #09FE		; flash screen
+;06E4: 0C 00 			; #000C		; returns immediately
+;06E6: 02 0A 			; #0A02		; flash screen
+;06E8: 0C 00 			; #000C		; returns immediately
+;06EA: 04 0A 			; #0A04		; flash screen
+;06EC: 0C 00				; #000C		; returns immediately
+;06EE: 06 0A				; #0A06		; flash screen
+;06F0: 0C 00 			; #000C		; returns immediately
+;06F2: 08 0A 			; #0A08		; flash screen
+;06F4: 0C 00 			; #000C		; returns immediately
+;06F6: 0A 0A 			; #0A0A		; flash screen
+;06F8: 0C 00 			; #000C		; returns immediately
+;06FA: 0C 0A 			; #0A0C		; flash screen
+;06FC: 0C 00 			; #000C		; returns immediately
+;06FE: 0E 0A				; #0A0E		; set a bunch of tasks
+;0700: 0C 00 			; #000C		; returns immediately
+;0702: 2C 0A 			; #0A2C		; clears all sounds and runs intermissions when needed
+;0704: 0C 00 			; #000C		; returns immediately
+;0706: 7C 0A 			; #0A7C		; clears sounds, increases level, increases difficulty if needed, resets pill maps
+;0708: A0 0A 			; #0AA0		; get game ready to play and set this sub back to #03
+;070A: 0C 00 			; #000C		; returns immediately
+;070C: A3 0A 			; #0AA3		; sets sub # back to #03
+
 
 ;------------------------------------------------------------------------------
 ;$$JGA HORRIBLE TEMP RNG
@@ -7963,6 +8134,40 @@ process_tasks mx %00
 		put tasks.s
 
 ;------------------------------------------------------------------------------
+;; new code for ms-pacman.  used during demo mode, when there are no credits
+;3e5c
+ATTRACT mx %00
+;3e5c  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
+			lda |mainroutine1
+;3e5f  fe10      cp      #10		; == #10 ?  #10 indicates that the maze demo is running, not the marquee
+			cmp #$10
+;3e61  c4d03e    call    nz,#3ed0	; no, call this sub.  it controls the flashing bulbs around the marquee
+			beq :skip
+			jsr marque_flash
+:skip
+;3e64  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
+;3e67  e7        rst     #20		; jump based on A
+;
+;3e68  5f 04				; #045F		; A == #00	; display "ms. Pac Man"
+;3e6a  96 3e				; #3E96		; A == #01 	; draw the midway logo and copyright
+;3e6c  8b 3e				; #3E8B		; A == #02	; display "Ms. Pac Man"
+;3e6e  0c 00				; #000C  	; A == #03	; returns immediately
+;3e70  bd 3e				; #3EBD		; A == #04	; display "with"
+;3e72  9c 3e				; #3E9C		; A == #05	; display "Blinky"
+;3e74  83 34				; #3483		; A == #06	; move blinky across the marquee and up left side
+;3e76  a2 3e				; #3EA2		; A == #07	; clear "with" and display "Pinky"
+;3e78  88 34				; #3488		; A == #08	; move pinky across the marquee and up left side
+;3e7a  ab 3e				; #3EAB		; A == #09	; display "Inky"
+;3e7c  8d 34				; #348D		; A == #0A	; move Inky across the marquee and up left side
+;3e7e  b1 3e				; #3EB1		; A == #0B	; display "Sue"
+;3e80  92 34				; #3492		; A == #0C	; move Sue across the marquee and up left side
+;3e82  c3 3e 				; #3EC3		; A == #0D	; display "Starring"
+;3e84  b7 3e 				; #3EB7		; A == #0E	; display "MS. Pac-Man"
+;3e86  97 34				; #3497		; A == #0F	; move ms pacman across the marquee
+;3e88  c9 3e   				; #3EC9		; A == #10	; start demo mode where ms. pac plays herself
+
+
+;------------------------------------------------------------------------------
 ;;
 ;; MSPACMAN sound tables
 ;;
@@ -8007,6 +8212,197 @@ EFFECT_TABLE_3
 	db $36,$38,$fe,$12,$f8,$04,$0f,$fc ; ghosts bumping during act 1 sound
 ;3BA8
 	db $22,$01,$01,$06,$00,$01,$07,$00 ; fruit bouncing sound
+
+
+;------------------------------------------------------------------------------
+; this sub controls the flashing bulbs around the marquee in the attract screen
+;3ed0
+marque_flash mx %00
+;3ed0  3a014f    ld      a,(#4f01)	; load A with counter
+			lda |marque_counter
+;3ed3  3c        inc     a		; increase
+			inc
+;3ed4  e60f      and     #0f		; mask bits, now between #00 and #0F
+			and #$0F
+;3ed6  32014f    ld      (#4f01),a	; store result
+			sta |marque_counter
+
+;3ed9  4f        ld      c,a		; copy to C
+;3eda  cb81      res     0,c		; reset bit #0 on C
+;3edc  0600      ld      b,#00		; B:= #00
+;3ede  dd21813f  ld      ix,#3f81	; load IX with start of table data
+			ldx #:mtable
+			bit #1
+;3ee2  cb47      bit     0,a		; test bit 0 of A
+			beq :colors
+;3ee4  2833      jr      z,#3f19    ; if zero then jump ahead to do other part of routine
+			and #$FFFE
+			clc
+			adc #:mtable
+;3ee6  dd09      add     ix,bc		; add counter to index of table data
+			tax
+
+			sep #$20
+
+;3ee8  dd6e00    ld      l,(ix+#00)
+;3eeb  dd6601    ld      h,(ix+#01)
+			ldy |0,x
+;3eee  3687      ld      (hl),#87	; moves white spot by one
+			lda #$87
+			sta |0,y
+;3ef0  dd6e10    ld      l,(ix+#10)
+;3ef3  dd6611    ld      h,(ix+#11)
+			ldy |$10,x
+;3ef6  3687      ld      (hl),#87	; moves white spot by one
+			sta |0,y
+;3ef8  dd6e20    ld      l,(ix+#20)
+;3efb  dd6621    ld      h,(ix+#21)
+			ldy |$20,x
+;3efe  368a      ld      (hl),#8a	; moves white spot by one	
+			lda #$8a
+			sta |0,y
+;3f00  dd6e30    ld      l,(ix+#30)
+;3f03  dd6631    ld      h,(ix+#31)
+			ldy |$30,x
+;3f06  3681      ld      (hl),#81	; moves white spot by one
+			lda #$81
+			sta |0,y
+;3f08  dd6e40    ld      l,(ix+#40)
+;3f0b  dd6641    ld      h,(ix+#41)
+			ldy |$40,x
+;3f0e  3681      ld      (hl),#81	; moves white spot by one
+			sta |0,y
+;3f10  dd6e50    ld      l,(ix+#50)
+;3f13  dd6651    ld      h,(ix+#51)
+			ldy |$50,x
+;3f16  3684      ld      (hl),#84	; moves white spot by one
+			lda #$84
+			sta |0,y
+			rep #$20
+;3f18  c9        ret     		; return
+			rts
+:colors
+;3f19  0d        dec     c		; decrement C
+			dec
+;3f1a  af        xor     a		; A := #00
+;3f1b  b9        cp      c		; compare
+;			bmi :neg
+;3f1c  fa213f    jp      m,#3f21		; if negative, skip next step
+;3f1f  06ff      ld      b,#ff		; load B with #FF
+
+;3f21  0d        dec     c		; decrement C
+			dec
+;3f22  dd09      add     ix,bc		; add to index of table data
+			clc
+			adc #:mtable
+			tay
+
+			sep #$20
+;3f24  dd6e00    ld      l,(ix+#00)
+;3f27  dd6601    ld      h,(ix+#01)
+			ldx |0,y
+;3f2a  35        dec     (hl)		; color marquee spot red
+			dec |0,x
+;3f2b  dd6e02    ld      l,(ix+#02)
+;3f2e  dd6603    ld      h,(ix+#03)
+			ldx |2,y
+;3f31  3688      ld      (hl),#88	; color next spot white
+			lda #$88
+			sta |0,x
+;3f33  dd6e10    ld      l,(ix+#10)
+;3f36  dd6611    ld      h,(ix+#11)
+			ldx |$10,y
+;3f39  35        dec     (hl)		; color marquee spot red
+			dec |0,x
+;3f3a  dd6e12    ld      l,(ix+#12)
+;3f3d  dd6613    ld      h,(ix+#13)
+			ldx |$12,y
+;3f40  3688      ld      (hl),#88	; color next spot white
+			lda #$88
+			sta |0,x
+;3f42  dd6e20    ld      l,(ix+#20)
+;3f45  dd6621    ld      h,(ix+#21)
+			ldx |$20,y
+;3f48  35        dec     (hl)		; color marquee spot red
+			dec |0,x
+;3f49  dd6e22    ld      l,(ix+#22)
+;3f4c  dd6623    ld      h,(ix+#23)
+			ldx |$22,y
+;3f4f  368b      ld      (hl),#8b	; color next spot white
+			lda #$8b
+			sta |0,x
+;3f51  dd6e30    ld      l,(ix+#30)
+;3f54  dd6631    ld      h,(ix+#31)
+			ldx |$30,y
+;3f57  35        dec     (hl)		; color marquee spot red
+			dec |0,x
+;3f58  dd6e32    ld      l,(ix+#32)
+;3f5b  dd6633    ld      h,(ix+#33)
+			ldx |$32,y
+;3f5e  3682      ld      (hl),#82	; color next spot white
+			lda #$82
+			sta |0,x
+;3f60  dd6e40    ld      l,(ix+#40)
+;3f63  dd6641    ld      h,(ix+#41)
+			ldx |$40,y
+;3f66  35        dec     (hl)		; color marquee spot red
+			dec |0,x
+;3f67  dd6e42    ld      l,(ix+#42)
+;3f6a  dd6643    ld      h,(ix+#43)
+			ldx |$42,y
+;3f6d  3682      ld      (hl),#82	; color next spot white
+			lda #$82
+			sta |0,x
+;3f6f  dd6e50    ld      l,(ix+#50)
+;3f72  dd6651    ld      h,(ix+#51)
+			ldx |$50,y
+;3f75  35        dec     (hl)		; color marquee spot red
+			dec |0,x
+;3f76  dd6e52    ld      l,(ix+#52)
+;3f79  dd6653    ld      h,(ix+#53)
+			ldx |$52,y
+;3f7c  3683      ld      (hl),#83	; BUG.  Spot stays red.  SHOULD BE #85, not #83, to color spot white
+; BUGFIX04 - Marquee left side animation fix - Don Hodges
+;3f7c 36 85
+			lda #$85
+			sta |0,x
+			rep #$20
+;3f7e  c9        ret     		; return
+			rts
+
+; data Used above in #3EDE, for the flashing marquee
+;3F7F:
+		da tile_ram+$2D0
+:mtable
+;3F81:  B0 42 90 42 70 42 50 42 30 42 10 42 F0 41
+		da tile_ram+$2B0,tile_ram+$290,tile_ram+$270,tile_ram+$250
+		da tile_ram+$230,tile_ram+$210,tile_ram+$1F0
+;3F8F:  D0 41 B0 41 90 41 70 41 50 41 30 41 10 41 F0 40
+		da tile_ram+$1D0,tile_ram+$1B0,tile_ram+$190,tile_ram+$170
+		da tile_ram+$150,tile_ram+$130,tile_ram+$110,tile_ram+$0F0
+;3F9F:  D0 40 B0 40 AF 40 AE 40 AD 40 AC 40 AB 40 AA 40
+		da tile_ram+$0D0,tile_ram+$0B0,tile_ram+$0AF,tile_ram+$0AE
+		da tile_ram+$0AD,tile_ram+$0AC,tile_ram+$0AB,tile_ram+$0AA
+;3FAF:  A9 40 C9 40 E9 40 09 41 29 41 49 41 69 41 89 41
+		da tile_ram+$0A9,tile_ram+$0C9,tile_ram+$0E9,tile_ram+$109
+		da tile_ram+$129,tile_ram+$149,tile_ram+$169,tile_ram+$189
+;3FBF:  A9 41 C9 41 E9 41 09 42 29 42 49 42 69 42 89 42
+		da tile_ram+$1A9,tile_ram+$1C9,tile_ram+$1E9,tile_ram+$209
+		da tile_ram+$229,tile_ram+$249,tile_ram+$269,tile_ram+$289
+;3FCF:  A9 42 C9 42 CA 42 CB 42 CC 42 CD 42 CE 42 CF 42
+		da tile_ram+$2A9,tile_ram+$2C9,tile_ram+$2CA,tile_ram+$2CB
+		da tile_ram+$2CC,tile_ram+$2CD,tile_ram+$2CE,tile_ram+$2CF
+;3FDF:  D0 42
+		da tile_ram+$2D0
+
+; unused ?
+
+;3FE1:     C9 42 CA 42 CB 42 CC 42 CD 42 CE 42 CF 42
+		da tile_ram+$2C9,tile_ram+$2CA,tile_ram+$2CB,tile_ram+$2CC
+		da tile_ram+$2CD,tile_ram+$2CE,tile_ram+$2CF
+;3FEF:  D0 42 42 CF 42 D0 42 00 4F C9 00
+		da tile_ram+$2D0
+
 
 ;------------------------------------------------------------------------------
 ; subroutine called from #0909, per intermediate jump at #0EAD

@@ -595,8 +595,11 @@ powerpills ds 4
 ;	4e6c	number of coins inserted
 ;	4e6d	number of credits per coin
 ;	4e6e	number of credits, 0xff for free play
+no_credits dw 0
 ;	4e6f	number of lives
+no_lives dw 0
 ;	4e70	number of players (0=1 player, 1=2 players)
+no_players dw 0
 ;	4e71	bonus/life
 ;		0x10 = 10000	0x15 = 15000
 ;		0x20 = 20000	0xff = none
@@ -702,6 +705,7 @@ CH3_W_NUM       ds 16
 ;
 ;	4F00		Is set to 1 during intermissions and parts of the attract mode, otherwise 0
 ;	4F01-4FBF	Stack
+marque_counter dw 0
 ;Stack ds $C0
 
 ;	4FC0-4FEF	Unused
