@@ -477,6 +477,8 @@ VBL_Handler
 			jsr update_timers
 
 ;018f  cd2102    call    #0221		; check timed tasks and execute them if it is time to do so
+			jsr check_timed_tasks
+
 ;0192  cdc803    call    #03c8		; runs subprograms based on game mode, power-on stuff, attract mode, push start screen, and core loops for game playing
 ;0195  3a004e    ld      a,(#4e00)	; load A with game mode
 ;0198  a7        and     a		; is the game still in power-on mode ?
@@ -657,6 +659,151 @@ update_timers mx %00
 :data db $06,$A0,$0A,$60,$0A,$60,$0A,$A0
 
 ;------------------------------------------------------------------------------
+; checks timed tasks
+; counts down timer and executes the task if the timer has expired
+; called from #018F
+check_timed_tasks mx %00
+:pTask = temp0
+:counter_mask = temp1
+:loop_count = temp2
+;0221: 21 90 4C	ld	hl,#4C90	; load HL with task list address
+			lda #irq_tasks
+			sta <:pTask
+
+;0224: 3A 8A 4C	ld	a,(#4C8A)	; load A with number of counter limits changes in this frame
+			lda |counter_limits
+			sta <:counter_mask
+;0227: 4F	ld	c,a		; save to C for testing in line #0232
+;0228: 06 10	ld	b,#10		; for B = 1 to #10
+			lda #16
+			sta <:loop_count
+
+:task_loop
+;022A: 7E	ld	a,(hl)		; load A with task list first value (timer)
+			lda (:pTask)
+;022B: A7	and	a		; == #00 ?  (is this task empty?)
+			and #$FF
+;022C: 28 2F	jr	z,#025D		; Yes, jump ahead and loop for next task
+			beq :next_task
+
+;022E: E6 C0	and	#C0		; else mask bits with binary 1100 0000 - the left 2 bits (6 and 7) are the time units
+			and #$C0
+			sep #$20
+			clc
+;0230: 07	rlca
+			rol		
+;0231: 07	rlca			; rotate twice left.  The time unit bits are now rightmost, in bits 0 and 1.  EG #02 for seconds
+			rol
+			rol
+			rep #$20
+;0232: B9	cp	c		; compare to counter.  is it time to count down the timer?
+			cmp <:counter_mask
+;0233: 30 28	jr	nc,#025D	; if no, jump ahead and loop for next task
+			bcs :next_task
+
+;0235: 35	dec	(hl)		; else decrease the task timer
+			lda (:pTask)
+			dec
+			sta (:pTask)
+;0236: 7E	ld	a,(hl)		; load A with new task timer
+			;lda (:pTask)
+;0237: E6 3F	and	#3F		; mask bits with binary 0011 1111. This will erase the units in the left 2 bits. is the timer counted all the way down?
+			and #$3F
+;0239: 20 22	jr	nz,#025D	; no, jump ahead and loop for next task
+			bne :next_task
+
+;023B: 77	ld	(hl),a		; yes, store A into task timer.  this should be zero and effectively clears the task
+			sep #$20
+			sta (:pTask)
+			rep #$20
+
+;023C: C5	push	bc		; save BC
+			pei <:counter_mask
+			pei <:loop_count
+;023D: E5	push	hl		; save HL
+			pei <:pTask
+;023E: 2C	inc	l		; HL now has the coded task number address
+			inc <:pTask
+;023F: 7E	ld	a,(hl)		; load A with task number, used for jump table below
+			lda (<:pTask)
+			and #$FF
+			asl
+			tax
+;0240: 2C	inc	l		; HL now has the coded task parameter address
+			inc <:pTask
+;0241: 46	ld	b,(hl)		; load B with task parameter
+			lda (<:pTask)
+;0242: 21 5B 02	ld	hl,#025B	; load HL with return address
+			pea :return_addy-1
+;0245: E5	push	hl		; push to stack so a RET call will return to #025B
+;0246: E7	rst	#20		; jump based on A
+			jmp (:table,x)
+:table
+			da ttask0 ; A==0, #0894 ; increases main subroutine number (#4E04) and returns 
+			da ttask1 ; A==1, #06A3	; increments main routine 2, subroutine # (#4E03)
+			da ttask2 ; A==2, #058E ; increases the main routine # (#4E02)
+			da ttask3 ; A==3, #1272 ; increases killed ghost animation state when a ghost is eaten
+			da clear_fruit ; A==4, #1000 ; clears the fruit sprite
+			da ttask5 ; A==5, #100B ; clears the fruit score sprite
+			da ttask6 ; A==6, #0263 ; clears the "READY!" message
+			da ttask7 ; A==7, #212B ; to increase state in 1st cutscene (#4E06) (pac-man only)
+			da ttask8 ; A==8, #21F0 ; to increase state in 2nd cutscene (#4E07) (pac-man only)
+			da ttask9 ; A==9, #22B9 ; to increase state in 3rd cutscene (#4E08) (pac-man only)
+:return_addy
+;025B: E1            pop  hl		; restore HL
+			pla
+			sta <:pTask
+;025C: C1            pop  bc		; restore BC
+			pla
+			sta <:loop_count
+			pla
+			sta <:counter_mask
+:next_task
+;025D: 2C            inc  l
+;025E: 2C            inc  l
+;025F: 2C            inc  l		; next task
+			inc <:pTask
+			inc <:pTask
+			inc <:pTask
+;0260: 10 C8         djnz #022A		; next B
+			dec <:loop_count
+			bne :task_loop
+;0262: C9            ret			; return    
+			rts
+
+;------------------------------------------------------------------------------
+; timed task #06 - clears ready message
+;0263
+ttask6 mx %00
+;0263  EF        rst     #28		; insert task #1C, parameter 86 to clear the "READY!" message
+;0264  1C 86				; task data
+			lda #$861C
+			jsr rst28
+;0266  C9        ret     		; return
+			rts
+
+;------------------------------------------------------------------------------
+; called from # 0246 from jump table based on game state
+; or, timed task number #02 has been encountered, arrive from #0246
+; also arrive from #3E93 during marquee mode in demo
+;058e
+ttask2
+;058e  21024e    ld      hl,#4E02	; load HL with main routine 1, subroutine #
+;0591  34        inc     (hl)		; increase
+			inc |mainroutine1
+;0592  c9        ret     		; return
+			rts
+
+;------------------------------------------------------------------------------
+; also arrive here from #0246.   This is timed task #01
+ttask1 mx %00
+;06a3  21 03 4E	ld	hl,#4E03	; load HL with main routine 2, subroutine #
+;06a6  34        inc     (hl)		; increase
+			inc |mainroutine2
+;06a7  c9        ret     		; return
+			rts
+
+;------------------------------------------------------------------------------
 ;$$JGA HORRIBLE TEMP RNG
 ;$$JGA FIXME
 RANDOM mx %00
@@ -760,6 +907,38 @@ WaitVBL mx %00
 		pla
 		plp
 		rts
+
+
+;------------------------------------------------------------------------------
+;
+; JBSI
+
+HEXIN EQU 0 ;2 bytes
+DECWORK EQU 2 ;2 bytes
+DECOUT EQU 4 ;2 bytes
+
+* On Entry:
+* Word to convert at HEXIN
+* e=0, m=0, x=0
+* DPage=0
+* On Exit:
+* A=Low 4 decimal digits
+* X,Y,DB,DPage preserved
+* e=0, m=0, x=0, Decimal flag cleared
+* DECOUT=Highest decimal digit
+* HEXIN & DECWORK altered
+HEXDEC
+	SEP #9    		; set BCD, and Set c=1, SED + SEC
+	TDC    			; load A with Zero
+	ROL HEXIN
+LOOP
+	STA DECWORK
+	ADC DECWORK
+	ROL DECOUT
+	ASL HEXIN
+	BNE LOOP
+	CLD
+	RTS
 
 ;------------------------------------------------------------------------------
 ;
@@ -2755,37 +2934,18 @@ GetLevelColor mx %00
 		db  $18,$18,$18,$18		; color code for levels 14 - 17
 		db  $1d,$1d,$1d,$1d 	; color code for levels 18 - 21
 
+
 ;------------------------------------------------------------------------------
-;
-; JBSI
+; arrive here from #09CF
+; this is also timed task #00, arrive from #0246
+;0894
+ttask0 mx %00
 
-HEXIN EQU 0 ;2 bytes
-DECWORK EQU 2 ;2 bytes
-DECOUT EQU 4 ;2 bytes
-
-* On Entry:
-* Word to convert at HEXIN
-* e=0, m=0, x=0
-* DPage=0
-* On Exit:
-* A=Low 4 decimal digits
-* X,Y,DB,DPage preserved
-* e=0, m=0, x=0, Decimal flag cleared
-* DECOUT=Highest decimal digit
-* HEXIN & DECWORK altered
-HEXDEC
-	SEP #9    		; set BCD, and Set c=1, SED + SEC
-	TDC    			; load A with Zero
-	ROL HEXIN
-LOOP
-	STA DECWORK
-	ADC DECWORK
-	ROL DECOUT
-	ASL HEXIN
-	BNE LOOP
-	CLD
-	RTS
-
+;0894  21044e    ld      hl,#4e04	; load HL with main subroutine number
+;0897  34        inc     (hl)		; increment
+;0898  c9        ret     		; return
+			inc |levelstate
+			rts
 ;------------------------------------------------------------------------------
 ; demo or game is playing
 ;
@@ -2857,6 +3017,7 @@ game_playing mx %00
 	    jsr DOFRUIT
 
 	    rts   			; return ( to #0195 ) 
+
 
 ;------------------------------------------------------------------------------
 ; called from #08FD
@@ -3864,6 +4025,18 @@ clear_fruit mx %00
 			rts
 
 ;------------------------------------------------------------------------------
+; this is timed task #05, arrive from #0246
+;100B
+ttask5 mx %00
+;100B: C3 78 36	jp	#3678		; ms pac patch to erase the fruit score
+;3678
+;3678  210000    ld      hl,#0000	; clear HL
+;367b  22d24d    ld      (#4dd2),hl	; clears the fruit score sprite 
+;367e  c9        ret    			; return
+			stz |FRUITP
+			rts
+
+;------------------------------------------------------------------------------
 ;
 ; called from #0909
 ;
@@ -4423,7 +4596,7 @@ ghost_eat_process mx %00
 	    lda |dead_ghost_anim_state
 ;124d  a7        and     a		; is this ghost killed, showing points per kill ?
 ;124e  2027      jr      nz,#1277        ; no, skip ahead
-	    bne :next
+	    bne next_gep
 ;
 ;1250  3ad04d    ld      a,(#4dd0)	; yes, load A with current number of killed ghosts
 	    lda |num_killed_ghosts
@@ -4459,7 +4632,7 @@ ghost_eat_process mx %00
 	    jsr rst30
 
 ; arrive here from task table when a ghost has been eaten.  Task #03, arrive from #0246
-
+ttask3 mx %00
 ;1272  21d14d    ld      hl,#4dd1	; load HL with killed ghost animation state
 ;1275  34        inc     (hl)		; increase to next type
 	    inc |dead_ghost_anim_state
@@ -4467,7 +4640,7 @@ ghost_eat_process mx %00
 	    rts
 
 ; arrive here when score for eating a ghost is set to dissapear
-:next
+next_gep
 ;1277: 36 20	ld	(hl),#20	; set ghost sprite to eyes
 	    lda #$20
 	    sta |allsprite,x
@@ -7529,6 +7702,34 @@ check_difficulty mx %00
 :rts
 ;2107  c9        ret     		; return
 	    rts
+
+;------------------------------------------------------------------------------
+;212b
+ttask7 mx %00
+;212b  21064e    ld      hl,#4e06	; load HL with state in first cutscene
+;212e  34        inc     (hl)		; increase
+			inc |cs_state0
+;212f  c9        ret     		; return
+			rts
+
+;------------------------------------------------------------------------------
+;21f0
+ttask8 mx %00
+;21f0  21074e    ld      hl,#4e07	; load HL with state in second cutscene
+;21f3  34        inc     (hl)		; increase
+			inc |cs_state1
+;21f4  c9        ret     		; return
+			rts
+
+
+;------------------------------------------------------------------------------
+;22b9
+ttask9 mx %00
+;22b9  21084e    ld      hl,#4e08	; load HL with state in third cutscene
+;22bc  34        inc     (hl)		; increase
+			inc |cs_state2
+;22bd  c9        ret     		; return
+			rts
 
 ;------------------------------------------------------------------------------
 ;230B

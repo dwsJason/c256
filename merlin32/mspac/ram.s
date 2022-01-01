@@ -82,7 +82,7 @@ counter_limits db 0
 ;	4c8b	random number generation (unused)
 unused_rng0 db 0
 ;	4c8c	random number generation (unused)
-unised_rng1 db 0
+unused_rng1 db 0
 ;	4c90-4cbf scheduled tasks list (run inside IRQ)
 ;		16 entries, 3 bytes per entry
 ;		Format:
@@ -99,7 +99,8 @@ unised_rng1 db 0
 ;		byte 2: parameter for b
 ;		these tasks are assigned using RST #30, with the three data bytes immediatly after the call used for the timer, index and parameter
 ;		these tasks are decoded at routine starting at #0221		
-;
+irq_tasks ds 48
+
 ;	4cc0-4ccf tasks to execute outside of IRQ
 ;		0xFF fill for empty task
 ;		16 entries, 2 bytes per entry
@@ -519,11 +520,15 @@ mainroutine2 dw 0
 levelstate dw 0
 
 ;	4e06	state in first cutscene (pac-man only)
+cs_state0 dw 0
 ;	4e07	state in second cutscene (pac-man only)
+cs_state1 dw 0
 ;	4e08	state in third cutscene (pac-man only)
+cs_state2 dw 0
 ;
 ;	4e09	current player number:  0=P1, 1=P2
-;
+player_no dw 0
+
 ;	4e0a-4e0b pointer to current difficulty settings
 ;
 ;	4C40	COUNT current place in fruit path
