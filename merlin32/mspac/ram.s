@@ -60,11 +60,16 @@ SOUND_COUNTER dw 0    ; counter, incremented each VBLANK
                       ; (used to adjust sound volume)
 
 ;	4c86	counter 0: 0..5 10..15 20..25  ..  90..95 - hundreths
+counter0 db 0
 ;	4c87	counter 1: 0..9 10..19 20..29  ..  50..59 - seconds
+counter1 db 0
 ;	4c88	counter 2: 0..9 10..19 20..29  ..  50..59 - minutes
+counter2 db 0
 ;	4c89	counter 3: 0..9 10..19 20..29  ..  90..99 - hours
+counter3 db 0
 ;
 ;	4c8a	number of counter limits changes in this frame (to init time)
+counter_limits db 0
 ;		0x01	1 hundredth
 ;		0x02	10 hundredths
 ;		0x03	1 second
@@ -75,8 +80,9 @@ SOUND_COUNTER dw 0    ; counter, incremented each VBLANK
 ;		0x08	10 hours
 ;		0x09	100 hours
 ;	4c8b	random number generation (unused)
+unused_rng0 db 0
 ;	4c8c	random number generation (unused)
-;
+unised_rng1 db 0
 ;	4c90-4cbf scheduled tasks list (run inside IRQ)
 ;		16 entries, 3 bytes per entry
 ;		Format:

@@ -103,6 +103,9 @@ MyDP = $100
 
 ;------------------------------------------------------------------------------
 ; Direct Page Equates
+;
+; $$TODO, Separate out Interrupt based temp, vs non-interrupt based temp
+;
 		dum $80
 lzsa_sourcePtr	ds 4
 lsza_destPtr	ds 4
@@ -465,6 +468,193 @@ VBL_Handler
 ;0187  010c00    ld      bc,#000c	; set counter at #0C bytes
 ;018a  edb0      ldir			; copy [write updated sprites to spriteram]
 
+;------------------------------------------------------------------------------
+;
+; Core game loop
+;
+
+;018c  cddc01    call    #01dc		; update all timers
+			jsr update_timers
+
+;018f  cd2102    call    #0221		; check timed tasks and execute them if it is time to do so
+;0192  cdc803    call    #03c8		; runs subprograms based on game mode, power-on stuff, attract mode, push start screen, and core loops for game playing
+;0195  3a004e    ld      a,(#4e00)	; load A with game mode
+;0198  a7        and     a		; is the game still in power-on mode ?
+;0199  2812      jr      z,#01ad         ; yes, skip over next calls
+
+;019B  cd9d03    call    #039d		; check for double size pacman in intermission (pac-man only)
+;019E  cd9014    call    #1490		; when player 1 or 2 is played without cockatil mode, update all sprites
+;01a1  cd1f14    call    #141f		; when player 2 is played on cockatil mode, update all sprites
+;01a4  cd6702    call    #0267		; debounce rack input / add credits
+;01a7  cdad02    call    #02ad		; debounce coin input / add credits
+;01aa  cdfd02    call    #02fd		; blink coin lights
+					; print player 1 and player two
+					; check for game mode 3
+					; draw cprt stuff
+
+;01ad  3a004e    ld      a,(#4e00)	; load A with game mode
+;01b0  3d        dec     a		; are we in the demo mode ?
+;01b1  2006      jr      nz,#01b9        ; no, skip next 2 steps		; set to jr #01b9 to enable sound in demo
+;01B3: 32 AC 4E	ld	(#4EAC),a	; yes, clear sound channel 2
+;01B6: 32 BC 4E	ld	(#4EBC),a	; clear sound channel 3
+
+        ;; VBLANK - 2 (SOUND)
+        ;;
+        ;; Process sound
+
+;01b9    call    #2d0c                   ; process effects
+;01bc    call    #2cc1                   ; process waves
+
+; restore registers.  they were saved at #0096
+
+;01bf  fde1      pop     iy		; restore IY
+;01c1  dde1      pop     ix		; restore IX
+;01c3  e1        pop     hl		; restore HL
+;01c4  d1        pop     de		; restore DE
+;01c5  c1        pop     bc		; restore BC
+
+;
+
+;01c6  3a004e    ld      a,(#4e00)	; load A with game mode
+;01c9  a7        and     a		; is this the initialization?
+;01ca  2808      jr      z,#01d4         ; yes, skip ahead
+
+;01cc  3a4050    ld      a,(#5040)	; else load A with IN1
+;01cf  e610      and     #10		; is the service mode switch set ?
+
+	; elimiate test mode ; HACK7
+	;01d1  00        nop
+	;01d2  00        nop
+	;01d3  00        nop
+	;
+
+;01d1  ca0000    jp      z,#0000		; yes, reset
+
+;01d4  3e01      ld      a,#01		; else A := #01
+;01d6  320050    ld      (#5000),a	; reenable hardware interrupts
+;01d9  fb        ei      		; enable cpu interrupts
+;01da  f1        pop     af		; restore AF [was saved at #008D]
+;01db  c9        ret     		; return
+			rts
+
+;------------------------------------------------------------------------------
+
+	; called from #018C
+	; this sub increments the timers and random numbers from #4C84 to #4C8C
+update_timers mx %00
+:c = temp0
+:loop_count = temp1
+
+;01dc  21844c    ld      hl,#4c84	; load HL with sound counter address
+;01df  34        inc     (hl)		; increment
+;01e0  23        inc     hl		; load HL with 2nd sound counter address
+;01e1  35        dec     (hl)		; decrement
+			sep #$20
+    		inc |SOUND_COUNTER
+			dec |SOUND_COUNTER+1
+			;rep #$20
+;01e2  23        inc     hl		; next address.  HL now has #4C86
+;01e3  111902    ld      de,#0219	; load DE with start of table data
+			ldy #0
+;01e6  010104    ld      bc,#0401	; C := #01,  For B = 1 to 4, 
+			ldx #1
+			stx <:c
+
+			ldx #4
+			stx <:loop_count
+
+			txy
+:loop
+;01e9  34        inc     (hl)		; increase memory
+			inc |counter0,x
+;01ea  7e        ld      a,(hl)		; load A with this value
+			lda |counter0,x
+;01eb  e60f      and     #0f		; mask bits, now between #00 and #0F
+			and #$0F
+;01ed  eb        ex      de,hl		; DE <-> HL
+;01ee  be        cp      (hl)		; compare with value in table
+			cmp |:data,y
+;01ef  2013      jr      nz,#0204        ; if not equal, break out of loop
+			bne :break_loop
+;01f1  0c        inc     c		; else C := C + 1
+			inc <:c
+;01f2  1a        ld      a,(de)		; load A with the value
+			lda |counter0,x
+;01f3  c610      add     a,#10		; add #10
+			clc
+			adc #$10
+;01f5  e6f0      and     #f0		; mask bits
+			and #$F0
+;01f7  12        ld      (de),a		; store result
+			sta |counter0,x
+;01f8  23        inc     hl		; next table value
+			iny
+;01f9  be        cp      (hl)		; compare with value in table
+			cmp |:data,y
+
+;01fa  2008      jr      nz,#0204        ; if not equal, break out of loop
+			bne :break_loop
+;01fc  0c        inc     c		; else C := C + 1
+			inc <:c
+;01fd  eb        ex      de,hl		; DE <-> HL
+;01fe  3600      ld      (hl),#00	; clear the value in HL
+			stz |counter0,x
+;0200  23        inc     hl		; next HL
+			inx
+;0201  13        inc     de		; next table value
+			iny
+;0202  10e5      djnz    #01e9           ; loop
+			dec <:loop_count
+			bne :loop
+
+; set up psuedo random number generator values, #4C8A, #4C8B, #4C8C
+:break_loop
+;0204  218a4c    ld      hl,#4c8a	; load HL with timer address
+;0207  71        ld      (hl),c		; store C which was computed above
+			lda <:c
+			sta |counter_limits
+;0208  2c        inc     l		; next address.  HL now has #4C8B
+			inx
+;0209  7e        ld      a,(hl)		; load A with the value from this timer
+			lda |counter0,x
+;020a  87        add     a,a		; A := A * 2
+			asl
+;020b  87        add     a,a		; A := A * 2
+			asl
+;020c  86        add     a,(hl)		; A := A + (HL) (A is now 5 times what it was)
+			clc
+			adc |counter0,x
+;020d  3c        inc     a		; increment.   (A is now 5 times plus 1 what it was)
+			inc
+;020e  77        ld      (hl),a		; store new value
+			sta |counter0,x
+;020f  2c        inc     l		; next address.  HL now has #4C8C
+			inx
+;0210  7e        ld      a,(hl)		; load A with the value from this timer
+			lda |counter0,x
+;0211  87        add     a,a		; A := A * 2
+			asl
+;0212  86        add     a,(hl)		; A := A + (HL) (A is now 3 times what it was)  
+			clc
+			adc |counter0,x
+;0213  87        add     a,a		; A := A * 2
+			asl
+;0214  87        add     a,a		; A := A * 2
+			asl
+;0215  86        add     a,(hl)		; A := A + (HL) (A is now 13 times what it was)
+			clc
+			adc |counter0,x
+;0216  3c        inc     a		; increment.  (A is now 13 times plus 1 what it was)
+			inc
+;0217  77        ld      (hl),a		; store result
+			sta |counter0,x
+;0218  c9        ret			; return
+		rep #$20
+		rts
+
+; data used in subroutine above, loaded at #01E3
+;0219
+:data db $06,$A0,$0A,$60,$0A,$60,$0A,$A0
 
 ;------------------------------------------------------------------------------
 ;$$JGA HORRIBLE TEMP RNG
