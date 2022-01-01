@@ -892,7 +892,38 @@ attract_mode mx %00
 JPATTRACT
 ;0413  c35c3e    jp      #3e5c		; jump to mspac patch when there are no credits - controls the demo mode
 			jmp ATTRACT
-  								 
+  	   
+ 						 
+;------------------------------------------------------------------------------
+; ms. pac code resumes here
+; arrive here from #3E67 when subroutine # = 00
+; sets up the attract mode
+;045f
+setup_attract mx %00
+;045f  ef        rst     #28		; insert task #00 - clears the maze
+;0460  00 01
+			lda #$0100
+			jsr rst28
+;0462  ef        rst     #28		; insert task #01 - colors the screen
+;0464  01 00
+			lda #$0001
+			jsr rst28
+;0465  ef        rst     #28		; insert task #04 - resets a bunch of memories
+;0466  04 00
+			lda #$0004
+			jsr rst28
+;0468  ef        rst     #28		; insert task #1E - clear fruit, pacman and all ghosts
+;0469  1e 00
+			lda #$001e
+			jsr rst28
+
+;046b  0e0c      ld      c,#0c		; load C with text code for "Ms Pac Man"
+;046d  cd8505    call    #0585		; draw text to screen, increase subroutine #
+
+;0470  c9        ret     		; return (to #0195)
+			rts
+ 						 
+ 						 
 ;------------------------------------------------------------------------------
 ; called from # 0246 from jump table based on game state
 ; or, timed task number #02 has been encountered, arrive from #0246
@@ -8147,8 +8178,13 @@ ATTRACT mx %00
 :skip
 ;3e64  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
 ;3e67  e7        rst     #20		; jump based on A
-;
+			lda |mainroutine1
+			asl
+			tax
+			jmp (:table,x)
+:table
 ;3e68  5f 04				; #045F		; A == #00	; display "ms. Pac Man"
+			da setup_attract
 ;3e6a  96 3e				; #3E96		; A == #01 	; draw the midway logo and copyright
 ;3e6c  8b 3e				; #3E8B		; A == #02	; display "Ms. Pac Man"
 ;3e6e  0c 00				; #000C  	; A == #03	; returns immediately
