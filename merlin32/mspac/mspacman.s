@@ -308,23 +308,40 @@ task_add mx %00
 ; when rst #30 is called, the 3 data bytes following the call are inserted
 ; into the timed task list at the next available location.  Up to #10 (16 decimal)
 ; locations are searched before giving up.
-;;$$TODO, A=TNTM Y=param  TN=Task number, TM=Timer
+; A=TNTM Y=param  TN=Task number, TM=Timer
 ;0030
 rst30 mx %00
+			phy
+			pha
 ;0030: 11 90 4C	ld	de,#4C90	; load DE with starting address of task table
 ;0033: 06 10	ld	b,#10		; For B = 1 to #10
+			sep #$20
+			ldx #irq_tasks
 
 	; continuation of rst 30 from #0035 (Task manager)
-
+:loop
 ;0051: 1A	ld	a,(de)		; load A with task
+			lda |0,x
 ;0052: A7	and	a		; == #00 ?
 ;0053: 28 06	jr	z,#005B 	; yes, skip ahead, we will insert the new task here
+			beq :insert_task_here
 
 ;0055: 1C	inc	e		; else inc E by 3
 ;0056: 1C	inc	e
 ;0057: 1C	inc	e		; DE now at next task
+			inx
+			inx
+			inx
 ;0058: 10 F7	djnz	#0051		; Next B, loops up to #10 times
+			cpx #irq_tasks+48
+			bcc :loop
+			rep #$20
+			pla
+			ply
 ;005A: C9	ret			; return
+			rts
+
+:insert_task_here mx %10
 
 ;005B: E1	pop	hl		; HL = data address of the 3 data bytes to be inserted
 ;005C: 06 03	ld	b,#03		; For B = 1 to 3
@@ -335,8 +352,15 @@ rst30 mx %00
 ;0061: 1C	inc	e		; next DE
 ;0062: 10 FA	djnz	#005E		; next B
 ;0064: E9	jp	(hl)		; return to program (HL now has return address following the 3 data bytes)
-
-		rts
+			pla
+			sta |0,x
+			pla
+			sta |1,x
+			pla
+			sta |2,x
+			pla			; Y was wide here
+			rep #$20
+			rts
 
 	; rst 38 (vblank)
 	; INTERRUPT MODE 1 handler
