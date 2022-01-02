@@ -8636,73 +8636,51 @@ string_table
 	da :s07 ; #3786	; 07        PUSH START BUTTON
 	da :s08 ; #379D	; 08        1 PLAYER ONLY 
 	da :s09 ; #37B1	; 09        1 OR 2 PLAYERS
-	da 0 ; #3D21	; 0a        "     "
-	da 0 ; #3D00	; 0b        ADDITIONAL    AT   000
+	da st0A ; #3D21	; 0a        "     "
+	da st0B ; #3D00	; 0b        ADDITIONAL    AT   000
 	da :s0C ; #37FD	; 0c        "MS PAC-MAN"
-	da 0 ; #3D67	; 0d        BLINKY
-	da 0 ; #3DE3	; 0e        WITH
-			;		BBBBBBBB
-;36c3  863d	; #3d86	; 0f        PINKY  
-;36c5  023e	; #3E02	; 10        STARRING
-;			;		DDDDDDDD
-;36c7  4c38	; #384C	; 11        . 10 Pts (pac-man only)
-;36c9  5a38	; #385A	; 12        o 50 Pts (pac-man only)
-;36cb  3c3d	; #3D3C	; 13        (C) MIDWAY MFG CO
-;36cd  573d	; #3D57	; 14        MAD DOG
-;			;		-SHADOW
-;36cf  d33d	; #3DD3	; 15        JUNIOR
-;			;		AAAAAAAA
-;36d1  763d	; #3D76	; 16        KILLER
-;			;		-SPEEDY
-;36d3  f23d	; #3DF2	; 17        THE CHASE
-;			;		CCCCCCCC
-;36d5  0100	; #0001	; 18 	    - unused -
-;36d7  0200	; #0002	; 19	    - unused -
-;36d9  0300	; #0003	; 1a	    - unused -
-;
-;36db  bc38	; #38BC	; 1b        100
-;36dd  c438	; #38C4	; 1c        SUPER PAC-MAN
-;			;		300
-;36df  ce38	; #38CE	; 1d        MAN
-;			;		500
-;36e1  d838	; #38D8	; 1e        AN
-;			;		700
-;36e3  e238	; #38E2	; 1f        - ? -
-;			;		1000
-;36e5  ec38	; #3820	; 20        - ? -
-;			;		2000
-;36e7  f638	; #38F6	; 21        - ? -
-;			;		3000
-;36e9  0039	; #3900	; 22        - ? -
-;			;		5000
-;36eb  0a39	; #390A	; 23        MEMORY  OK
-;36ed  1a39	; #391A	; 24        BAD    R M
-;36ef  6f39	; #396F	; 25        FREE  PLAY       
-;36f1  2a39	; #392A	; 26        1 COIN  1 CREDIT 
-;36f3  5839	; #3958	; 27        1 COIN  2 CREDITS
-;36f5  4139	; #3941	; 28        2 COINS 1 CREDIT 
-;36f7  113e	; #3E11	; 29        MS. PAC-MEN	(service mode screen)
-;	4f3e	;			PAC-MAN
-;36f8  8639	; #3986	; 2a        BONUS  NONE
-;36fb  9739	; #3997	; 2b        BONUS
-;36fd  b039	; #39B0	; 2c        TABLE  
-;36ff  bd39	; #39BD	; 2d        UPRIGHT
-;3701  ca39	; #39CA	; 2e        000		for test screen
-;3703  a53d	; #3DA5	; 2f        INKY    
-;3705  213e	; #3E21	; 30        "        "
-;			;		FFFFFFFF
-;3707  c63d	; #3DC6	; 31        SUE 
-;			;		CLYDE
-;3709  403e	; #3E40	; 32        THEY MEET
-;			;		HHHHHHHH
-;370b  953d	; #3D95	; 33        MS. PAC-MAN  (For "Starring" bit)
-;			;		BASHFUL
-;370d  113e	; #3E11	; 34        MS. PAC-MEN	 (service mode screen)
-;			;		EEEEEEEE
-;370f  b43d	; #3DB4	; 35        1980,1981
-;			;		POKEY
-;3711  303e	; #3E30	; 36        ACT III
-;			;		GGGGGGGG
+	da st0D ; #3D67	; 0d        BLINKY
+	da st0E ; #3DE3	; 0e        WITH
+	da st0F	; #3d86	; 0f        PINKY  
+	da st10	; #3E02	; 10        STARRING
+	da :s11	; #384C	; 11        . 10 Pts (pac-man only)
+	da :s12	; #385A	; 12        o 50 Pts (pac-man only)
+	da st13	; #3D3C	; 13        (C) MIDWAY MFG CO
+	da st14	; #3D57	; 14        MAD DOG
+	da st15	; #3DD3	; 15        JUNIOR
+	da st16	; #3D76	; 16        KILLER
+	da st17	; #3DF2	; 17        THE CHASE
+	da $001	; #0001	; 18 	    - unused -
+	da $002	; #0002	; 19	    - unused -
+	da $003	; #0003	; 1a	    - unused -
+
+	da :s1B	; #38BC	; 1b        100
+	da :s1C	; #38C4	; 1c        SUPER PAC-MAN
+	da :s1D	; #38CE	; 1d        MAN
+	da :s1E	; #38D8	; 1e        AN
+	da :s20	; #3820	; 20        - ? -
+	da :s21	; #38F6	; 21        - ? -
+	da :s22	; #3900	; 22        - ? -
+	da :s23	; #390A	; 23        MEMORY  OK
+	da :s24	; #391A	; 24        BAD    R M
+	da :s25	; #396F	; 25        FREE  PLAY       
+	da :s26	; #392A	; 26        1 COIN  1 CREDIT 
+	da :s27	; #3958	; 27        1 COIN  2 CREDITS
+	da :s28	; #3941	; 28        2 COINS 1 CREDIT 
+	da st29	; #3E11	; 29        MS. PAC-MEN	(service mode screen)
+	da :s2A	; #3986	; 2a        BONUS  NONE
+	da :s2B	; #3997	; 2b        BONUS
+	da :s2C	; #39B0	; 2c        TABLE  
+	da :s2D	; #39BD	; 2d        UPRIGHT
+	da :s2E	; #39CA	; 2e        000		for test screen
+	da st2F	; #3DA5	; 2f        INKY    
+	da st30	; #3E21	; 30        "        "
+	da st31	; #3DC6	; 31        SUE 
+	da st32	; #3E40	; 32        THEY MEET
+	da st33	; #3D95	; 33        MS. PAC-MAN  (For "Starring" bit)
+	da st34	; #3E11	; 34        MS. PAC-MEN	 (service mode screen)
+	da st35	; #3DB4	; 35        1980,1981
+	da st36	; #3E30	; 36        ACT III
 
 	;; there's another one of these for the text over at 3D00
 
@@ -8711,64 +8689,196 @@ string_table
 pms mac
 	dw ]1
 	asc ]2
-	db ]3,]4,]5,]6
 	<<<
 
-:s00 pms $83d4;'HIGH@SCORE';$2f;$8f;$2f;$80
-:s01 pms $803b;'CREDIT@@@';$2f;$8f;$2f;$80
-:s02 pms $803b;'FREE@PLAY';$2f;$8f;$2f;$80
-:s03 pms $028c;'PLAYER@ONE';$2f;$85;$2f;$10
-:s04 pms $028c;'PLAYER@TWO';$2f;$85;$2f;$80
-:s05 pms $0292;'GAME@@OVER';$2f;$81;$2f;$80
-:s06 pms $0252;'READY[';$2f;$89;$2f;$90
-:s07 pms $02ed;'PUSH@START@BUTTON';$2f;$87;$2f;$80
-:s08 pms $02af;'1@PLAYER@ONLY@';$2f;$87;$2f;$80
-:s09 pms $02af;'1@OR@2@PLAYERS';$2f;$87;$00;$2F
+:s00 pms $83d4;'HIGH@SCORE',$2f,$8f,$2f,$80
+:s01 pms $803b;'CREDIT@@@',$2f,$8f,$2f,$80
+:s02 pms $803b;'FREE@PLAY',$2f,$8f,$2f,$80
+:s03 pms $028c;'PLAYER@ONE',$2f,$85,$2f,$10
+:s04 pms $028c;'PLAYER@TWO',$2f,$85,$2f,$80
+:s05 pms $0292;'GAME@@OVER',$2f,$81,$2f,$80
+:s06 pms $0252;'READY[',$2f,$89,$2f,$90
+:s07 pms $02ed;'PUSH@START@BUTTON',$2f,$87,$2f,$80
+:s08 pms $02af;'1@PLAYER@ONLY@',$2f,$87,$2f,$80
+:s09 pms $02af;'1@OR@2@PLAYERS',$2f,$87,$00,$2F
 			db $00,$80,$00
 ;37c8
 	pms $0396;'BONUS@PUCKMAN@FOR@@@000@]^_';$2f;$8e;$2f;$80
 ;37e9
-	dw $02ba
-	asc '\@()*+;-.@1980'
-	db $2f,$83,$2f,$80
-:s0C pms $0365;'@@@@@@@@&MS@PAC';$3b;$4d;$41;$4e
-	db $27,$40,$2f,$87,$2f,$80
-;3817      $0180,"&AKABEI&",$2f,$81,$2f,$80
-;3825      $0145,"&MACKY&",$2f,$81,$2f,$80
-;3832      $0148,"&PINKY&",$2f,$83,$2f,$80
-;383f      $0148,"&MICKY&",$2f,$83,$2f,$80
-;384d      $1002,"@10@]^_",$2f,$9f,$2f,$80
-;385b      $1402,"@50@]^_",$2f,$9f,$2f,$80
-;3868      $025d,"()*+,-.",$2f,$83,$2f,$80
-;3875      $02c5,"@OIKAKE;;;;",$2f,$81,$2f,$80
-;3886      $02c5,"@URCHIN;;;;;",$2f,$81,$2f,$80
-;3898      $02c8,"@MACHIBUSE;;",$2f,$83,$2f,$80
-;38aa      $02c8,"@ROMP;;;;;;;",$2f,$83,$2f,$80
-;38be      $8581,"",$2f,$81,$2f,$90
-;38c4      $026e,"SUPER@PAC;MAN",$2f,$89,$2f,$80
-;38d5      $802f,"MAN",$2f,$89,$2f,$80
-;38e6      $8e8d,"",$2f,$8f,$2f,$90
-;38ec      $8030,"@@@@",$2f,$94,$2f,$90
-;38fa      $8e8d,"",$2f,$89,$2f,$90
-;3904      $8e8d,"",$2f,$89,$2f,$90
-;390a      $0304,"MEMORY@@OK",$2f,$8f,$2f,$80
-;391a      $0304,"BAD@@@@R@M",$2f,$8f,$2f,$80
-;392a      $0308,"1@COIN@@1@CREDIT@",$2f,$8f,$2f,$80
-;3941      $0308,"2@COINS@1@CREDIT@",$2f,$8f,$2f,$80
-;3958      $0308,"1@COIN@@2@CREDITS",$2f,$8f,$2f,$80
-;396f      $0308,"FREE@@PLAY@@@@@@@",$2f,$8f,$2f,$80
-;3986      $030a,"BONUS@@NONE",$2f,$8f,$2f,$80
-;3997      $030a,"BONUS@",$2f,$8f,$2f,$80
-;39a3      $030c,"PUCKMAN",$2f,$8f,$2f,$80
-;39b0      $030e,"TABLE@@",$2f,$8f,$2f,$80
-;39bd      $030e,"UPRIGHT",$2f,$8f,$2f,$80
-;39ca      $020a,"000",$2f,$8f,$2f,$80
-;39d3      $016b,"&AOSUKE&",$2f,$85,$2f,$3d
-;3a09      $02cb,"@KIMAGURE;;",$2f,$85,$2f,$80
-;3a1a      $02cb,"@STYLIST;;;;",$2f,$85,$2f,$80
-;3a2c      $02ce,"@OTOBOKE;;;",$2f,$87,$2f,$80
-;3a3d      $02ce,"@CRYBABY;;;;",$2f,$87,$2f,$80
+	pms $02ba;'\@()*+',$3b,'-.@1980',$2f,$83,$2f,$80
+;37FD
+:s0C pms $0365;'@@@@@@@@&MS@PAC',$3b,'MAN',$27,$40,$2f,$87,$2f,$80
+;3817
+	pms $0180;'&AKABEI&',$2f,$81,$2f,$80
+:s20
+;3825
+	pms $0145;'&MACKY&',$2f,$81,$2f,$80
+;3832
+	pms $0148;'&PINKY&',$2f,$83,$2f,$80
+;383f
+	pms $0148;'&MICKY&',$2f,$83,$2f,$80
+;384d
+:s11
+	pms $1002;'@10@]^_',$2f,$9f,$2f,$80
+;385b
+:s12
+	pms $1402;'@50@]^_',$2f,$9f,$2f,$80
+;3868      
+	pms $025d;'()*+,-.',$2f,$83,$2f,$80
+;3875     
+	pms $02c5;'@OIKAKE',$3b,$3b,$3b,$3b,$2f,$81,$2f,$80
+;3886      
+	pms $02c5;'@URCHIN',$3b,$3b,$3b,$3b,$3b,$2f,$81,$2f,$80
+;3898      
+	pms $02c8;'@MACHIBUSE',$3b,$3b,$2f,$83,$2f,$80
+;38aa      
+	pms $02c8;'@ROMP',$3b,$3b,$3b,$3b,$3b,$3b,$3b,$2f,$83,$2f,$80
+;38bc
+:s1B pms $8025;''
+;38be
+	pms $8581;'',$2f,$81,$2f,$90
+;38c4
+:s1C
+	pms $026e;'SUPER@PAC',$3b',MAN',$2f,$89,$2f,$80
+:s1D
+	; this is messed up, maybe not used
+;38d5
+	pms $802f;'MAN',$2f,$89,$2f,$80
+:s1E
+:s1F
+;38e6
+	pms $8e8d;'',$2f,$8f,$2f,$90
+;38ec
+	pms $8030;'@@@@',$2f,$94,$2f,$90
+:s21
+;38fa
+	pms $8e8d;'',$2f,$89,$2f,$90
+:s22
+;3904
+	pms $8e8d;'',$2f,$89,$2f,$90
+;390a 
+:s23 pms $0304;'MEMORY@@OK',$2f,$8f,$2f,$80
+;391a
+:s24 pms $0304;'BAD@@@@R@M',$2f,$8f,$2f,$80
+;392a
+:s26 pms $0308;'1@COIN@@1@CREDIT@',$2f,$8f,$2f,$80
+;3941
+:s28 pms $0308;'2@COINS@1@CREDIT@',$2f,$8f,$2f,$80
+;3958
+:s27 pms $0308;'1@COIN@@2@CREDITS',$2f,$8f,$2f,$80
+;396f
+:s25 pms $0308;'FREE@@PLAY@@@@@@@',$2f,$8f,$2f,$80
+;3986
+:s2A pms $030a;'BONUS@@NONE',$2f,$8f,$2f,$80
+;3997
+:s2B pms $030a;'BONUS@',$2f,$8f,$2f,$80
+;39a3
+	pms $030c;'PUCKMAN',$2f,$8f,$2f,$80
+;39b0
+:s2C pms $030e;'TABLE@@',$2f,$8f,$2f,$80
+;39bd
+:s2D pms $030e;'UPRIGHT',$2f,$8f,$2f,$80
+;39ca
+:s2E pms $020a;'000',$2f,$8f,$2f,$80
+;39d3
+	pms $016b;'&AOSUKE&',$2f,$85,$2f,$3d
+;3a09
+	pms $02cb;'@KIMAGURE',$3b,$3b,$2f,$85,$2f,$80
+;3a1a
+	pms $02cb;'@STYLIST',$3b,$3b,$3b,$3b,$2f,$85,$2f,$80
+;3a2c
+	pms $02ce;'@OTOBOKE',$3b,$3b,$3b,,$2f,$87,$2f,$80
+;3a3d
+	pms $02ce;'@CRYBABY',$3b,$3b,$3b,$3b,$2f,$87,$2f,$80
 
+
+	;; text strings 2  (copyright, ghost names, intermission)
+
+;3D00:  96 03 40 41 44 44 49 54 49 4F 4E 41 4C 40 40 40  ..@ADDITIONAL@@@
+;3D10:  40 41 54 40 40 40 30 30 30 40 5D 5E 5F 2F 95 2F  @AT@@@000@]^_/./
+;3D20:  80 5A 02 40 40 40 40 40 40 40 2F 07 07 07 01 01  .Z.@@@@@@@/.....
+;3D30:  01 01 2F 80 50 40 40 40 2F 87 2F 80 5B 02 5C 40  ../.P@@@/./.[.\@
+;3D40:  4D 49 44 57 41 59 40 4D 46 47 40 43 4F 40 40 40  MIDWAY@MFG@CO@@@
+;3D50:  40 2F 81 2F 80 2F 80 C5 02 3B 4D 41 44 40 44 4F  @/././...;MAD@DO
+;3D60:  47 40 40 2F 81 2F 80 6E 02 40 40 40 42 4C 49 4E  G@@/./.n.@@@BLIN
+;3D70:  4B 59 2F 81 2F 80 C8 02 3B 4B 49 4C 4C 45 52 40  KY/./...;KILLER@
+;3D80:  40 40 2F 83 2F 80 6E 02 40 40 40 50 49 4E 4B 59  @@/./.n.@@@PINKY
+;3D90:  40 2F 83 2F 80 6E 02 4D 53 40 50 41 43 3B 4D 41  @/./.n.MS@PAC;MA
+;3DA0:  4E 2F 89 2F 80 6E 02 40 40 40 49 4E 4B 59 40 40  N/./.n.@@@INKY@@
+;3DB0:  2F 85 2F 80 3D 02 40 40 31 39 38 30 3A 31 39 38  /./.=.@@1980:198
+;3DC0:  31 40 2F 81 2F 80 6E 02 40 40 40 40 53 55 45 2F  1@/./.n.@@@@SUE/
+;3DD0:  87 2F 80 6B 02 4A 55 4E 49 4F 52 40 40 40 40 2F  ./.k.JUNIOR@@@@/
+;3DE0:  8F 2F 80 6B 02 57 49 54 48 40 40 40 40 40 2F 8F  ./.k.WITH@@@@@/.
+;3DF0:  2F 80 6B 02 54 48 45 40 43 48 41 53 45 40 2F 8F  /.k.THE@CHASE@/.
+;3E00:  2F 80 6B 02 53 54 41 52 52 49 4E 47 40 2F 8F 2F  /.k.STARRING@/./
+;3E10:  80 0C 03 4D 53 40 50 41 43 3B 4D 45 4E 2F 8F 2F  ...MS@PAC;MEN/./
+;3E20:  80 6B 02 40 40 40 40 40 40 40 40 40 2F 85 2F 80  .k.@@@@@@@@@/./.
+;3E30:  6B 02 41 43 54 40 49 49 49 26 40 40 2F 87 2F 80  k.ACT@III&@@/./.
+;3E40:  6B 02 54 48 45 59 40 4D 45 45 54 2F 8F 2F 80 0C  k.THEY@MEET/./..
+;3E50:  03 4F 54 54 4F 4D 45 4E 2F 8F 2F 80              .OTTOMEN/./.
+
+;3d00      
+st0B pms $0396;'@ADDITIONAL@@@@AT@@@000@]^_',$2f,$95,$2f,$80
+;3d00  P   0x0396, "BONUS@PAC;MAN@FOR@@@000@]^_", 	0x2f, 0x8e, 0x2f, 0x80, 
+;3d21
+st0A pms $025A;'@@@@@@@',$2F,$07,$07,$07,$01,$01,$01,$01
+;3d21  P   0x033a, "\@1980@MIDWAY@MFG%CO%", 		0x2f, 0x83, 0x2f, 0x80, 
+;3d32      0x802f, "P@@@", 				0x2f, 0x87, 0x2f, 0x80, 
+;3d3c    
+st13 pms $025b;'\@MIDWAY@MFG@CO@@@@',$2f,$81,$2f,$80
+;3d3c  P   0x033d, "\@1980@MIDWAY@MFG%CO%", 		0x2f, 0x83, 0x2f, 0x80, 
+
+;3d57      
+st14 pms $02c5;$3b,'MAD@DOG@@',$2f,$81,$2f,$80
+;3d57  P   0x02c5, ";SHADOW@@@", 	0x2f, 0x81, 0x2f, 0x80, 
+;3d67
+st0D pms $026e;'@@@BLINKY',$2f,$81,$2f,$80
+;3d67  P   0x0165, "&BLINKY&@", 		0x2f, 0x81, 0x2f, 0x80, 
+;3d76    
+st16 pms $02c8;$3b,'KILLER@@@',$2f,$83,$2f,$80
+;3d76  P   0x02c8, ";SPEEDY@@@", 	0x2f, 0x83, 0x2f, 0x80, 
+;3d86    
+st0F pms $026e;'@@@PINKY@',$2f,$83,$2f,$80
+;3d86  P   0x0168, "&PINKY&@@", 		0x2f, 0x83, 0x2f, 0x80, 
+;3d95    
+st33 pms $026e;'MS@PAC',$3b,'MAN',$2f,$89,$2f,$80
+;3d95  P   0x02cb, ";BASHFUL@@", 	0x2f, 0x85, 0x2f, 0x80, 
+;3da5    
+st2F pms $026e;'@@@INKY@@',$2f,$85,$2f,$80
+;3da5  P   0x016b, "&INKY&@@@", 		0x2f, 0x85, 0x2f, 0x80, 
+;3db4    
+st35 pms $023d;'@@1980:1981@',$2f,$81,$2f,$80
+;3db4  P   0x02ce, ";POKEY@@@@", 	0x2f, 0x87, 0x2f, 0x80, 
+;3dc6
+st31 pms $026e;'@@@@SUE',$2f,$87,$2f,$80
+;3dc4  P   0x016e, "&CLYDE&@@", 		0x2f, 0x87, 0x2f, 0x80, 
+;3dd3    
+st15 pms $026b;'JUNIOR@@@@',$2f,$8f,$2f,$80
+;3dd3  P   0x02c5, ";AAAAAAAA;", 	0x2f, 0x81, 0x2f, 0x80, 
+;3de3    
+st0E pms $026b;'WITH@@@@@',$2f,$8f,$2f,$80
+;3de3  P   0x0165, "&BBBBBBB&", 		0x2f, 0x81, 0x2f, 0x80, 
+;3df2    
+st17 pms $026b;'THE@CHASE@',$2f,$8f,$2f,$80
+;3df2  P   0x02c8, ";CCCCCCCC;", 	0x2f, 0x83, 0x2f, 0x80, 
+;3e02    
+st10 pms $026b;'STARRING@',$2f,$8f,$2f,$80
+;3e02  P   0x0168, "&DDDDDDD&", 		0x2f, 0x83, 0x2f, 0x80, 
+;3e11
+st34    
+st29 pms $030c;'MS@PAC',$3b,'MEN',$2f,$8f,$2f,$80
+;3e11  P   0x02cb, ";EEEEEEEE;", 	0x2f, 0x85, 0x2f, 0x80, 
+;3e21    
+st30 pms $026b;'@@@@@@@@@',$2f,$85,$2f,$80
+;3e21  P   0x016b, "&FFFFFFF&", 		0x2f, 0x85, 0x2f, 0x80, 
+;3e30    
+st36 pms $026b;'ACT@III&@@',$2f,$87,$2f,$80
+;3e30  P   0x02ce, ";GGGGGGGG;", 	0x2f, 0x87, 0x2f, 0x80, 
+;3e40    
+st32 pms $026b;'THEY@MEET',$2f,$8f,$2f,$80
+;3e40  P   0x016e, "&HHHHHHH&", 		0x2f, 0x87, 0x2f, 0x80, 
+;3e4f      0x030c, "OTTOMEN", 		0x2f, 0x8f, 0x2f, 0x80, 
+;3e4f  P   0x030c, "PAC;MAN", 		0x2f, 0x8f, 0x2f, 0x80, 
 
 ;------------------------------------------------------------------------------
 ;; new code for ms-pacman.  used during demo mode, when there are no credits
