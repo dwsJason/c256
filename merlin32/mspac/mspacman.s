@@ -272,25 +272,76 @@ start   ent             ; make sure start is visible outside the file
 rst0 mx %00
 		sei					; Disable Interrupts
 		jmp	startuptest
-
+;------------------------------------------------------------------------------
 ;;$$TODO, port the rst28 - Add task, with argument
+;0028
 rst28 mx %00
-		rts
+; continuation of rst 28 from #002E
+; this sub can be called with call #0042, if B and C are loaded manually
+; B and C have the data bytes
+;; A=PNTN, PN = parameter, TN = task number
+;0042
+task_add mx %00
+;0042  2a804c    ld      hl,(#4c80)	; load HL with address pointing to the beginning of the task list
+			ldx |tasksTail
+;0045  70        ld      (hl),b		; store task 
+;0046  2c        inc     l		; next address
+;0047  71        ld      (hl),c		; store parameter
+;0048  2c        inc     l		; next address
+			sta |0,x
 
+			inx
+			inx
+			cpx #foreground_tasks+64
+;0049  2002      jr      nz,#004d	; If non zero, skip next step
+			bcc :no_wrap
+;004b  2ec0      ld      l,#c0		; else load L with C0 to cycle HL back to #4CC0 (spins #C0-#FF)
+			ldx #foreground_tasks		; wrap around task list
+:no_wrap
+;004d  22804c    ld      (#4c80),hl	; store new task pointer back (4c80, 4c81) = hl
+			stz |tasksTail
+;0050  c9        ret     		; return to program
+			rts
+
+;------------------------------------------------------------------------------
+; rst #30
+; when rst #30 is called, the 3 data bytes following the call are inserted
+; into the timed task list at the next available location.  Up to #10 (16 decimal)
+; locations are searched before giving up.
 ;;$$TODO, A=TNTM Y=param  TN=Task number, TM=Timer
+;0030
 rst30 mx %00
+;0030: 11 90 4C	ld	de,#4C90	; load DE with starting address of task table
+;0033: 06 10	ld	b,#10		; For B = 1 to #10
+
+	; continuation of rst 30 from #0035 (Task manager)
+
+;0051: 1A	ld	a,(de)		; load A with task
+;0052: A7	and	a		; == #00 ?
+;0053: 28 06	jr	z,#005B 	; yes, skip ahead, we will insert the new task here
+
+;0055: 1C	inc	e		; else inc E by 3
+;0056: 1C	inc	e
+;0057: 1C	inc	e		; DE now at next task
+;0058: 10 F7	djnz	#0051		; Next B, loops up to #10 times
+;005A: C9	ret			; return
+
+;005B: E1	pop	hl		; HL = data address of the 3 data bytes to be inserted
+;005C: 06 03	ld	b,#03		; For B = 1 to 3
+
+;005E: 7E	ld	a,(hl)		; load A with table value
+;005F: 12	ld 	(de),a		; store into task list
+;0060: 23	inc	hl		; next HL
+;0061: 1C	inc	e		; next DE
+;0062: 10 FA	djnz	#005E		; next B
+;0064: E9	jp	(hl)		; return to program (HL now has return address following the 3 data bytes)
+
 		rts
 
 	; rst 38 (vblank)
 	; INTERRUPT MODE 1 handler
 rst38 mx %00
 		jmp VBL_Handler  ; 008d
-
-;;$$TODO - Task
-;; A=00TN, Y=param
-;0042
-task_add mx %00
-	    rts
 
 
 ;------------------------------------------------------------------------------
@@ -919,10 +970,30 @@ setup_attract mx %00
 
 ;046b  0e0c      ld      c,#0c		; load C with text code for "Ms Pac Man"
 ;046d  cd8505    call    #0585		; draw text to screen, increase subroutine #
+			lda #$0C
+			jsr draw_text
 
 ;0470  c9        ret     		; return (to #0195)
 			rts
  						 
+ 						 
+;------------------------------------------------------------------------------
+; called from #046D and other places.  C is preloaded with the text code to display
+;0585
+draw_text mx %00
+;0585  061c      ld      b,#1c		; load B with task code for text display
+			xba
+			ora #$001C
+;0587  cd4200    call    #0042		; insert task to display text, parameter = variable text
+			jsr task_add
+
+;058a  f7        rst     #30		; insert timed task to increase the main routine # (#4E02)
+;058b  4a 02 00		    		; timer = #4A, task = 2, parameter = 0
+; BUGFIX03 - Blue maze - Don Hodges
+;058b  41 02 00		    		; 41 is 1/10 second rather than 1 second
+			lda #$0241
+			ldy #0
+			jsr rst30
  						 
 ;------------------------------------------------------------------------------
 ; called from # 0246 from jump table based on game state
@@ -5993,8 +6064,8 @@ movement_check equ *
 :fruit_eaten
 ;19B2: 06 19	ld	b,#19		; else a fruit is eaten.  load B with task #19
 ;19B4: 4F	ld	c,a		; load C with task from A register
-	    tay
-	    lda #$19
+	    xba
+	    ora #$0019
 ;19B5: CD 42 00	call	#0042		; set task #19 with parameter variable A.  updates score.  B has code for items scored, draw score on screen, check for high score and extra lives
 	    jsr task_add
 
@@ -6076,7 +6147,8 @@ movement_check equ *
 ;19F1: CB 39	srl	c		; shift right (div by 2).  now C is either #00 or #01
 	    lsr
 	    tay
-	    lda #$19
+		xba
+	    ora #$0019
 
 ;19F3: CD 42 00	call	#0042		; set task #19 with variable parameter
 	    phy
@@ -8117,7 +8189,7 @@ startuptest mx %00
 process_tasks mx %00
 
 ;238d  2a824c    ld      hl,(#4c82)	; load HL with the pointer to beginning of tasks list
-			ldx |tasksTail
+			ldx |tasksHead
 ;2390  7e        ld      a,(hl)		; load A with the task value
 ;2391  a7        and     a		; examine value
 			lda |0,x
@@ -8142,7 +8214,7 @@ process_tasks mx %00
 			ldx #foreground_tasks		; wrap around task list
 :no_wrap
 ;23a0  22824c    ld      (#4c82),hl	; store result into the task pointer
-			stx |tasksTail
+			stx |tasksHead
 
 ;23A3: 21 8D 23	ld	hl,#238D	; load HL with return address
 ;23A6: E5	push	hl		; push to stack
