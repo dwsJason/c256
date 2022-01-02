@@ -1133,72 +1133,72 @@ oneortwo mx %00
 			lda |no_credits
 ;062f  fe01      cp      #01		; 1 credit?
 			cmp #1
-0631  3a4050    ld      a,(#5040)	; load A with IN1 (player start buttons)
-0634  280c      jr      z,#0642         ; don't check p2 with 1 credit
-0636  cb77      bit     6,a		; check for player 2 start button
-0638  2008      jr      nz,#0642        ; if not, pressed, skip ahead to check for player 1 start
-063a  3e01      ld      a,#01		; else set 2 players
-063c  32704e    ld      (#4e70),a	; store into # of players (0=1 player, 1=2 players)
-063f  c34906    jp      #0649		; jump ahead
-0642  cb6f      bit     5,a		; player 1 start being pressed ?
-0644  c0        ret     nz		; no, return
+;0631  3a4050    ld      a,(#5040)	; load A with IN1 (player start buttons)
+;0634  280c      jr      z,#0642         ; don't check p2 with 1 credit
+;0636  cb77      bit     6,a		; check for player 2 start button
+;0638  2008      jr      nz,#0642        ; if not, pressed, skip ahead to check for player 1 start
+;063a  3e01      ld      a,#01		; else set 2 players
+;063c  32704e    ld      (#4e70),a	; store into # of players (0=1 player, 1=2 players)
+;063f  c34906    jp      #0649		; jump ahead
+;0642  cb6f      bit     5,a		; player 1 start being pressed ?
+;0644  c0        ret     nz		; no, return
 
-0645  af        xor     a		; A := #00
-0646  32704e    ld      (#4e70),a	; store into # of players (0=1 player, 1=2 players)
-0649  3a6b4e    ld      a,(#4e6b)	; load A with number of coins per credit
-064c  a7        and     a		; Is free play activated?
-064d  2815      jr      z,#0664         ; Yes, skip ahead
-064f  3a704e    ld      a,(#4e70)	; else load A with # of players
-0652  a7        and     a		; Is this a 1 player game?
-0653  3a6e4e    ld      a,(#4e6e)	; load A with number of credits
-0656  2803      jr      z,#065b         ; If 1 player game, skip ahead and only subtract 1 credit
-0658  c699      add     a,#99		; else subtract 2 credits.  one here...
-065a  27        daa     		; decimal adjust
+;0645  af        xor     a		; A := #00
+;0646  32704e    ld      (#4e70),a	; store into # of players (0=1 player, 1=2 players)
+;0649  3a6b4e    ld      a,(#4e6b)	; load A with number of coins per credit
+;064c  a7        and     a		; Is free play activated?
+;064d  2815      jr      z,#0664         ; Yes, skip ahead
+;064f  3a704e    ld      a,(#4e70)	; else load A with # of players
+;0652  a7        and     a		; Is this a 1 player game?
+;0653  3a6e4e    ld      a,(#4e6e)	; load A with number of credits
+;0656  2803      jr      z,#065b         ; If 1 player game, skip ahead and only subtract 1 credit
+;0658  c699      add     a,#99		; else subtract 2 credits.  one here...
+;065a  27        daa     		; decimal adjust
 
-065b  c699      add     a,#99		; subtract a credit
-065d  27        daa     		; decimal adjust
-065e  326e4e    ld      (#4e6e),a	; save result in credits counter
-0661  cda12b    call    #2ba1		; write # of credits on screen
+;065b  c699      add     a,#99		; subtract a credit
+;065d  27        daa     		; decimal adjust
+;065e  326e4e    ld      (#4e6e),a	; save result in credits counter
+;0661  cda12b    call    #2ba1		; write # of credits on screen
 
-0664  21034e    ld      hl,#4e03	; load HL with main routine 2, subroutine #
-0667  34        inc     (hl)		; increase
-0668  af        xor     a		; A := #00
-0669  32d64d    ld      (#4dd6),a	; store in LED state ( 1: game waits for 1P/2P start button press)
-066c  3c        inc     a		; A := #01
-066d  32cc4e    ld      (#4ecc),a	; store in wave to play (begins intro music tune)
-0670  32dc4e    ld      (#4edc),a	; store in wave to play (beigns intro music tune)
-0673  c9        ret     		; return (to #0195)
-
+;0664  21034e    ld      hl,#4e03	; load HL with main routine 2, subroutine #
+;0667  34        inc     (hl)		; increase
+;0668  af        xor     a		; A := #00
+;0669  32d64d    ld      (#4dd6),a	; store in LED state ( 1: game waits for 1P/2P start button press)
+;066c  3c        inc     a		; A := #01
+;066d  32cc4e    ld      (#4ecc),a	; store in wave to play (begins intro music tune)
+;0670  32dc4e    ld      (#4edc),a	; store in wave to play (beigns intro music tune)
+;0673  c9        ret     		; return (to #0195)
+			rts
 	; arrive from #05E8 when start button has been pressed
 
-0674  ef        rst     #28		; set task #00, parameter #01 - clears the maze
-0675  00 01
-0677  ef        rst     #28		; set task #01, parameter #01 - colors the maze
-0678  01 01
-067a  ef        rst     #28		; set task #02, parameter #00 - draws the maze
-067b  02 00
-067d  ef        rst     #28		; set task #12, parameter #00 - sets up coded pill and power pill memories
-067e  12 00
-0680  ef        rst     #28		; set task #03, parameter #00 - draws the pellets
-0681  03 00
-0683  ef        rst     #28		; set task #1C, parameter #03 - draws text on screen "PLAYER 1"
-0684  1c 03
-0686  ef        rst     #28		; set task #1C, parameter #06 - draws text on screen "READY!" and clears the intermission indicator
-0687  1c 06
-0689  ef        rst     #28		; set task #18, parameter #00 - draws "high score" and scores.  clears player 1 and 2 scores to zero.
-068a  18 00
-068c  ef        rst     #28		; set task #1B, parameter #00 - draws fruit at bottom right of screen
-068d  1b 00
+;0674  ef        rst     #28		; set task #00, parameter #01 - clears the maze
+;0675  00 01
+;0677  ef        rst     #28		; set task #01, parameter #01 - colors the maze
+;0678  01 01
+;067a  ef        rst     #28		; set task #02, parameter #00 - draws the maze
+;067b  02 00
+;067d  ef        rst     #28		; set task #12, parameter #00 - sets up coded pill and power pill memories
+;067e  12 00
+;0680  ef        rst     #28		; set task #03, parameter #00 - draws the pellets
+;0681  03 00
+;0683  ef        rst     #28		; set task #1C, parameter #03 - draws text on screen "PLAYER 1"
+;0684  1c 03
+;0686  ef        rst     #28		; set task #1C, parameter #06 - draws text on screen "READY!" and clears the intermission indicator
+;0687  1c 06
+;0689  ef        rst     #28		; set task #18, parameter #00 - draws "high score" and scores.  clears player 1 and 2 scores to zero.
+;068a  18 00
+;068c  ef        rst     #28		; set task #1B, parameter #00 - draws fruit at bottom right of screen
+;068d  1b 00
 
-068f  af        xor     a		; A := #00
-0690  32134e    ld      (#4e13),a	; current board level = 0
-0693  3a6f4e    ld      a,(#4e6f)	; load number of lives to start
-0696  32144e    ld      (#4e14),a	; set number of lives
-0699  32154e    ld      (#4e15),a	; set number of lives displayed
-069c  ef        rst     #28		; set task #1A, parameter #00 - draws remaining lives at bottom of screen
-069d  1a 00
-069f  f7        rst     #30		; set timed task to increment main routine 2, subroutine # (#4E03)
-06a0  57 01 00				; task data: timer=#57, task=01, parameter=0.
+;068f  af        xor     a		; A := #00
+;0690  32134e    ld      (#4e13),a	; current board level = 0
+;0693  3a6f4e    ld      a,(#4e6f)	; load number of lives to start
+;0696  32144e    ld      (#4e14),a	; set number of lives
+;0699  32154e    ld      (#4e15),a	; set number of lives displayed
+;069c  ef        rst     #28		; set task #1A, parameter #00 - draws remaining lives at bottom of screen
+;069d  1a 00
+;069f  f7        rst     #30		; set timed task to increment main routine 2, subroutine # (#4E03)
+;06a0  57 01 00				; task data: timer=#57, task=01, parameter=0.
 
 ;------------------------------------------------------------------------------
 ; also arrive here from #0246.   This is timed task #01
@@ -1213,16 +1213,17 @@ ttask1 mx %00
 
 	;; draw lives displayed onto the screen
 
-06a8  21154e    ld      hl,#4e15	; load HL with lives displayed on screen loc
-06ab  35        dec     (hl)		; decrement
-06ac  cd6a2b    call    #2b6a		; draw remaining lives at bottom of screen 
-06af  af        xor     a		; A := #00
-06b0  32034e    ld      (#4e03),a	; clear main routine 2, subroutine #
-06b3  32024e    ld      (#4e02),a	; clear main routine 1, subroutine #
-06b6  32044e    ld      (#4e04),a	; clear level state subroutine #
-06b9  21004e    ld      hl,#4e00	; load HL with game mode address
-06bc  34        inc     (hl)		; inc game mode.  game mode is now 3 = game is just now starting
-06bd  c9        ret     		; return
+;06a8  21154e    ld      hl,#4e15	; load HL with lives displayed on screen loc
+;06ab  35        dec     (hl)		; decrement
+;06ac  cd6a2b    call    #2b6a		; draw remaining lives at bottom of screen 
+;06af  af        xor     a		; A := #00
+;06b0  32034e    ld      (#4e03),a	; clear main routine 2, subroutine #
+;06b3  32024e    ld      (#4e02),a	; clear main routine 1, subroutine #
+;06b6  32044e    ld      (#4e04),a	; clear level state subroutine #
+;06b9  21004e    ld      hl,#4e00	; load HL with game mode address
+;06bc  34        inc     (hl)		; inc game mode.  game mode is now 3 = game is just now starting
+;06bd  c9        ret     		; return
+			rts
 
 ;------------------------------------------------------------------------------
 ; arrive here from #03CB or from #057C, when someone or demo is playing
@@ -8459,33 +8460,39 @@ process_tasks mx %00
 ;	.byte	color2		; second character's color
 ;		...		; etc
 ;	 (no termination - just as many entries as there were characters)
-
+; Y as B
 DrawText mx %00
 	; drawText( b )  ; b is index
-2c5e  21a536    ld      hl,#36a5	; load HL with the text string lookup table
-2c61  df        rst     #18		; (hl+2*b) -> hl
+;2c5e  21a536    ld      hl,#36a5	; load HL with the text string lookup table
+;2c61  df        rst     #18		; (hl+2*b) -> hl
+			tya
+			asl
+			and #$FF
+			tax
+			lda |string_table,x
+			tax
 
 	; 1. get start offset into vid/color buffer
 	; e = (hl++) ; d = (hl)		; load two bytes in as a pointer
 	; indexOffset = de
-2c62  5e        ld      e,(hl)		; load E with value from table
-2c63  23        inc     hl		; next table entry
-2c64  56        ld      d,(hl)  	; DE contains start offset
+;2c62  5e        ld      e,(hl)		; load E with value from table
+;2c63  23        inc     hl		; next table entry
+;2c64  56        ld      d,(hl)  	; DE contains start offset
 
 	; 2. use offset for start of color, save to stack
 	; ix = 0x4400 + indexOffset
-2c65  dd210044  ld      ix,#4400	; load IX with start of color RAM
-2c69  dd19      add     ix,de		; add offset to calculate start pos in CRAM
-2c6b  dde5      push    ix		; save to stack for use later (#2C93)
+;2c65  dd210044  ld      ix,#4400	; load IX with start of color RAM
+;2c69  dd19      add     ix,de		; add offset to calculate start pos in CRAM
+;2c6b  dde5      push    ix		; save to stack for use later (#2C93)
 
 	; 3. use offset for start of character ram
 	; ix = characterRam + indexOffset
 	; offsetPerCharacter = -1	; de
 	; if (hl) & 0x80 then offsetPerCharacter = -0x20
-2c6d  1100fc    ld      de,#fc00	; load DE with offset for VRAM
-2c70  dd19      add     ix,de		; add to calculate start position in VRAM
-2c72  11ffff    ld      de,#ffff	; load DE with offset for top & bottom lines (offset equals negative 1)
-2c75  cb7e      bit     7,(hl)		; test bit 7 of HL.  Is this text for the top + bottom 2 lines ?
+;2c6d  1100fc    ld      de,#fc00	; load DE with offset for VRAM
+;2c70  dd19      add     ix,de		; add to calculate start position in VRAM
+;2c72  11ffff    ld      de,#ffff	; load DE with offset for top & bottom lines (offset equals negative 1)
+;2c75  cb7e      bit     7,(hl)		; test bit 7 of HL.  Is this text for the top + bottom 2 lines ?
 
 	; it should be noted that since the high bit on the offset address
 	; is used to denote that the string goes into the top or bottom
@@ -8494,98 +8501,98 @@ DrawText mx %00
 	; instead of 4000.  A patch is below as HACK12
 
 	; (this skips the offsetPerCharacter with -20 if necessary)
-2c77  2003      jr      nz,#2c7c        ; yes, skip next step
-2c79  11e0ff    ld      de,#ffe0	; no, load DE with offset for normal text (equals negative #20)
+;2c77  2003      jr      nz,#2c7c        ; yes, skip next step
+;2c79  11e0ff    ld      de,#ffe0	; no, load DE with offset for normal text (equals negative #20)
 
 	; 4. determine special entry, go to 2cac for that
 	; hl++
 	; a = stringToDraw * 2
 	; if( carry) goto BlankTextDraw	;AKA  if( stringToDraw# & 0x80) then goto BlankTextDraw
-BlankTextDrawCheck:
-2c7c  23        inc     hl		; next table entry
-2c7d  78        ld      a,b		; A := B.  B was preloaded with the code # of the text to display
-2c7e  010000    ld      bc,#0000	; clear BC
-2c81  87        add     a,a		; A : = A * 2.  Is this a special entry ?
-2c82  3828      jr      c,#2cac         ; special draw for entries 80+
+BlankTextDrawCheck
+;2c7c  23        inc     hl		; next table entry
+;2c7d  78        ld      a,b		; A := B.  B was preloaded with the code # of the text to display
+;2c7e  010000    ld      bc,#0000	; clear BC
+;2c81  87        add     a,a		; A : = A * 2.  Is this a special entry ?
+;2c82  3828      jr      c,#2cac         ; special draw for entries 80+
 
-textRenderLoop0:
+textRenderLoop0
 	; ch = current character  	; 'a' = (hl)
 	; if ch == 0x2f, goto SingleOrMultiColorCheck:
 	; *characterVram = ch		; ram[ix+0] = 'a'
 	; characterVram += de		; (+= but it really subtracts 1 or 0x20, contents of 'de')
 	; nchars ++  			; 'b'++
 	; goto textRenderLoop0
-2c84  7e        ld      a,(hl)		; load A with next character
-2c85  fe2f      cp      #2f		; == #2F ? (end of text code)
-2c87  2809      jr      z,#2c92         ; yes, done with VRAM, skip ahead to color
+;2c84  7e        ld      a,(hl)		; load A with next character
+;2c85  fe2f      cp      #2f		; == #2F ? (end of text code)
+;2c87  2809      jr      z,#2c92         ; yes, done with VRAM, skip ahead to color
 
-2c89  dd7700    ld      (ix+#00),a	; write character to screen
-2c8c  23        inc     hl		; next character
-2c8d  dd19      add     ix,de		; calculate next VRAM pos
-2c8f  04        inc     b		; increment counter
-2c90  18f2      jr      #2c84           ; loop
+;2c89  dd7700    ld      (ix+#00),a	; write character to screen
+;2c8c  23        inc     hl		; next character
+;2c8d  dd19      add     ix,de		; calculate next VRAM pos
+;2c8f  04        inc     b		; increment counter
+;2c90  18f2      jr      #2c84           ; loop
 
-SingleOrMultiColorCHeck:
+SingleOrMultiColorCHeck
 	; ix = startColorRamPos
-2c92  23        inc     hl		; next table entry
-2c93  dde1      pop     ix		; get CRAM start pos
+;2c92  23        inc     hl		; next table entry
+;2c93  dde1      pop     ix		; get CRAM start pos
 
 	; color = *colorToUse
 	; if (color) is > 80, goto TextSingleColorRender
-2c95  7e        ld      a,(hl)		; load A with color
-2c96  a7        and     a		; > #80 ?
-2c97  faa42c    jp      m,#2ca4		; yes, skip ahead
+;2c95  7e        ld      a,(hl)		; load A with color
+;2c96  a7        and     a		; > #80 ?
+;2c97  faa42c    jp      m,#2ca4		; yes, skip ahead
 
-TextMultiColorRender:
+TextMultiColorRender
 	; color = *colorToUse
 	; colorRam[ix] = color;
 	; colorToUse++
 	; move ix to the next screen position ( -=1 or -=0x20)
 	; b--; if b>0 then goto TextMultiColorRender
 	; return
-2c9a  7e        ld      a,(hl)		; else load A with color
-2c9b  dd7700    ld      (ix+#00),a	; color the screen position Color RAM
-2c9e  23        inc     hl		; next color
-2c9f  dd19      add     ix,de		; calc next CRAM pos
-2ca1  10f7      djnz    #2c9a           ; loop until b==0
-2ca3  c9        ret     		; return
+;2c9a  7e        ld      a,(hl)		; else load A with color
+;2c9b  dd7700    ld      (ix+#00),a	; color the screen position Color RAM
+;2c9e  23        inc     hl		; next color
+;2c9f  dd19      add     ix,de		; calc next CRAM pos
+;2ca1  10f7      djnz    #2c9a           ; loop until b==0
+;2ca3  c9        ret     		; return
 
 
 	;; same as above, but all the same color
-TextSingleColorRender:
+TextSingleColorRender
 	; colorRam[ix] = color
 	; move ix to the next screen position( -=1 or -=0x20)
 	; b--; if b>0 then goto TextSingleColorRender
 	; return
-2ca4  dd7700    ld      (ix+#00),a	; drop in CRAM
-2ca7  dd19      add     ix,de		; calc next CRAM pos
-2ca9  10f9      djnz    #2ca4           ; loop until b==0
-2cab  c9        ret     
+;2ca4  dd7700    ld      (ix+#00),a	; drop in CRAM
+;2ca7  dd19      add     ix,de		; calc next CRAM pos
+;2ca9  10f9      djnz    #2ca4           ; loop until b==0
+;2cab  c9        ret     
 
 	;; message # > 80 se 2nd color code
-BlankTextDraw:
+BlankTextDraw
 	; character = *characterToDraw
 	; if( color = 0x2f ) goto FinishUpBlankTextDraw
 	; characterRam[ix] = 0x40 ("@", which is ' ' in Pac-Man)
 	; characterToDraw++
 	; b++
-2cac  7e        ld      a,(hl)		; read next char
-2cad  fe2f      cp      #2f		; are we done ?
-2caf  280a      jr      z,#2cbb         ; yes, done with vram
+;2cac  7e        ld      a,(hl)		; read next char
+;2cad  fe2f      cp      #2f		; are we done ?
+;2caf  280a      jr      z,#2cbb         ; yes, done with vram
 
-2cb1  dd360040  ld      (ix+#00),#40	; clears the character
-2cb5  23        inc     hl		; next char
-2cb6  dd19      add     ix,de		; next screen pos
-2cb8  04        inc     b		; inc char count
-2cb9  18f1      jr      #2cac           ; loop
+;2cb1  dd360040  ld      (ix+#00),#40	; clears the character
+;2cb5  23        inc     hl		; next char
+;2cb6  dd19      add     ix,de		; next screen pos
+;2cb8  04        inc     b		; inc char count
+;2cb9  18f1      jr      #2cac           ; loop
 
-FinishUpBlankTextDraw:
+FinishUpBlankTextDraw
 	; while (*hl != 0x2f) hl++
 	; goto SingleOrMultiColorCheck +1
-2cbb  23        inc     hl		; next char
-2cbc  04        inc     b		; inc char count
-2cbd  edb1      cpir    		; loop until [hl] = 2f
-2cbf  18d2      jr      #2c93           ; do CRAM
+;2cbb  23        inc     hl		; next char
+;2cbc  04        inc     b		; inc char count
+;2cbd  edb1      cpir    		; loop until [hl] = 2f
+;2cbf  18d2      jr      #2c93           ; do CRAM
 
 	;; HACK12 - fixes the C000 top/bottom draw mirror issue
 	; 2c62  c300d0	jp	hack12
@@ -8605,13 +8612,162 @@ FinishUpBlankTextDraw:
         ;; called from #01BC
 	;;
 
-#if MSPACMAN
-2cc1  jp      #9797       		; sprite/cocktail stuff. we don't care for sound.
+;#if MSPACMAN
+;2cc1  jp      #9797       		; sprite/cocktail stuff. we don't care for sound.
                           		; The routine ends with "ld hl,#9685", "jp #2cc4"
                           		; so this is a Ms Pacman patch
-#else
-2cc1  ld      hl,#SONG_TABLE_1
-#endif
+;#else
+;2cc1  ld      hl,#SONG_TABLE_1
+;#endif
+
+;------------------------------------------------------------------------------
+;
+;; Indirect Lookup table for #2C5E routine  (0x48 entries)
+;; patched from Pac-Man.  Pac-man items are indented
+;36a5
+string_table
+	da :s00 ; #3713	; 00        HIGH SCORE
+	da :s01 ; #3723	; 01        CREDIT   
+	da :s02 ; #3732	; 02        FREE PLAY
+	da :s03 ; #3741	; 03        PLAYER ONE
+	da :s04 ; #375A	; 04        PLAYER TWO
+	da :s05 ; #376A	; 05        GAME  OVER
+	da :s06 ; #377A	; 06        READY!
+	da :s07 ; #3786	; 07        PUSH START BUTTON
+	da :s08 ; #379D	; 08        1 PLAYER ONLY 
+	da :s09 ; #37B1	; 09        1 OR 2 PLAYERS
+	da 0 ; #3D21	; 0a        "     "
+	da 0 ; #3D00	; 0b        ADDITIONAL    AT   000
+	da :s0C ; #37FD	; 0c        "MS PAC-MAN"
+	da 0 ; #3D67	; 0d        BLINKY
+	da 0 ; #3DE3	; 0e        WITH
+			;		BBBBBBBB
+;36c3  863d	; #3d86	; 0f        PINKY  
+;36c5  023e	; #3E02	; 10        STARRING
+;			;		DDDDDDDD
+;36c7  4c38	; #384C	; 11        . 10 Pts (pac-man only)
+;36c9  5a38	; #385A	; 12        o 50 Pts (pac-man only)
+;36cb  3c3d	; #3D3C	; 13        (C) MIDWAY MFG CO
+;36cd  573d	; #3D57	; 14        MAD DOG
+;			;		-SHADOW
+;36cf  d33d	; #3DD3	; 15        JUNIOR
+;			;		AAAAAAAA
+;36d1  763d	; #3D76	; 16        KILLER
+;			;		-SPEEDY
+;36d3  f23d	; #3DF2	; 17        THE CHASE
+;			;		CCCCCCCC
+;36d5  0100	; #0001	; 18 	    - unused -
+;36d7  0200	; #0002	; 19	    - unused -
+;36d9  0300	; #0003	; 1a	    - unused -
+;
+;36db  bc38	; #38BC	; 1b        100
+;36dd  c438	; #38C4	; 1c        SUPER PAC-MAN
+;			;		300
+;36df  ce38	; #38CE	; 1d        MAN
+;			;		500
+;36e1  d838	; #38D8	; 1e        AN
+;			;		700
+;36e3  e238	; #38E2	; 1f        - ? -
+;			;		1000
+;36e5  ec38	; #3820	; 20        - ? -
+;			;		2000
+;36e7  f638	; #38F6	; 21        - ? -
+;			;		3000
+;36e9  0039	; #3900	; 22        - ? -
+;			;		5000
+;36eb  0a39	; #390A	; 23        MEMORY  OK
+;36ed  1a39	; #391A	; 24        BAD    R M
+;36ef  6f39	; #396F	; 25        FREE  PLAY       
+;36f1  2a39	; #392A	; 26        1 COIN  1 CREDIT 
+;36f3  5839	; #3958	; 27        1 COIN  2 CREDITS
+;36f5  4139	; #3941	; 28        2 COINS 1 CREDIT 
+;36f7  113e	; #3E11	; 29        MS. PAC-MEN	(service mode screen)
+;	4f3e	;			PAC-MAN
+;36f8  8639	; #3986	; 2a        BONUS  NONE
+;36fb  9739	; #3997	; 2b        BONUS
+;36fd  b039	; #39B0	; 2c        TABLE  
+;36ff  bd39	; #39BD	; 2d        UPRIGHT
+;3701  ca39	; #39CA	; 2e        000		for test screen
+;3703  a53d	; #3DA5	; 2f        INKY    
+;3705  213e	; #3E21	; 30        "        "
+;			;		FFFFFFFF
+;3707  c63d	; #3DC6	; 31        SUE 
+;			;		CLYDE
+;3709  403e	; #3E40	; 32        THEY MEET
+;			;		HHHHHHHH
+;370b  953d	; #3D95	; 33        MS. PAC-MAN  (For "Starring" bit)
+;			;		BASHFUL
+;370d  113e	; #3E11	; 34        MS. PAC-MEN	 (service mode screen)
+;			;		EEEEEEEE
+;370f  b43d	; #3DB4	; 35        1980,1981
+;			;		POKEY
+;3711  303e	; #3E30	; 36        ACT III
+;			;		GGGGGGGG
+
+	;; there's another one of these for the text over at 3D00
+
+; and here it is in a more readable format
+; macro, so that we can keep each item 1 line in the definition
+pms mac
+	dw ]1
+	asc ]2
+	db ]3,]4,]5,]6
+	<<<
+
+:s00 pms $83d4;'HIGH@SCORE';$2f;$8f;$2f;$80
+:s01 pms $803b;'CREDIT@@@';$2f;$8f;$2f;$80
+:s02 pms $803b;'FREE@PLAY';$2f;$8f;$2f;$80
+:s03 pms $028c;'PLAYER@ONE';$2f;$85;$2f;$10
+:s04 pms $028c;'PLAYER@TWO';$2f;$85;$2f;$80
+:s05 pms $0292;'GAME@@OVER';$2f;$81;$2f;$80
+:s06 pms $0252;'READY[';$2f;$89;$2f;$90
+:s07 pms $02ed;'PUSH@START@BUTTON';$2f;$87;$2f;$80
+:s08 pms $02af;'1@PLAYER@ONLY@';$2f;$87;$2f;$80
+:s09 pms $02af;'1@OR@2@PLAYERS';$2f;$87;$00;$2F
+			db $00,$80,$00
+;37c8
+	pms $0396;'BONUS@PUCKMAN@FOR@@@000@]^_';$2f;$8e;$2f;$80
+;37e9
+	dw $02ba
+	asc '\@()*+;-.@1980'
+	db $2f,$83,$2f,$80
+:s0C pms $0365;'@@@@@@@@&MS@PAC';$3b;$4d;$41;$4e
+	db $27,$40,$2f,$87,$2f,$80
+;3817      $0180,"&AKABEI&",$2f,$81,$2f,$80
+;3825      $0145,"&MACKY&",$2f,$81,$2f,$80
+;3832      $0148,"&PINKY&",$2f,$83,$2f,$80
+;383f      $0148,"&MICKY&",$2f,$83,$2f,$80
+;384d      $1002,"@10@]^_",$2f,$9f,$2f,$80
+;385b      $1402,"@50@]^_",$2f,$9f,$2f,$80
+;3868      $025d,"()*+,-.",$2f,$83,$2f,$80
+;3875      $02c5,"@OIKAKE;;;;",$2f,$81,$2f,$80
+;3886      $02c5,"@URCHIN;;;;;",$2f,$81,$2f,$80
+;3898      $02c8,"@MACHIBUSE;;",$2f,$83,$2f,$80
+;38aa      $02c8,"@ROMP;;;;;;;",$2f,$83,$2f,$80
+;38be      $8581,"",$2f,$81,$2f,$90
+;38c4      $026e,"SUPER@PAC;MAN",$2f,$89,$2f,$80
+;38d5      $802f,"MAN",$2f,$89,$2f,$80
+;38e6      $8e8d,"",$2f,$8f,$2f,$90
+;38ec      $8030,"@@@@",$2f,$94,$2f,$90
+;38fa      $8e8d,"",$2f,$89,$2f,$90
+;3904      $8e8d,"",$2f,$89,$2f,$90
+;390a      $0304,"MEMORY@@OK",$2f,$8f,$2f,$80
+;391a      $0304,"BAD@@@@R@M",$2f,$8f,$2f,$80
+;392a      $0308,"1@COIN@@1@CREDIT@",$2f,$8f,$2f,$80
+;3941      $0308,"2@COINS@1@CREDIT@",$2f,$8f,$2f,$80
+;3958      $0308,"1@COIN@@2@CREDITS",$2f,$8f,$2f,$80
+;396f      $0308,"FREE@@PLAY@@@@@@@",$2f,$8f,$2f,$80
+;3986      $030a,"BONUS@@NONE",$2f,$8f,$2f,$80
+;3997      $030a,"BONUS@",$2f,$8f,$2f,$80
+;39a3      $030c,"PUCKMAN",$2f,$8f,$2f,$80
+;39b0      $030e,"TABLE@@",$2f,$8f,$2f,$80
+;39bd      $030e,"UPRIGHT",$2f,$8f,$2f,$80
+;39ca      $020a,"000",$2f,$8f,$2f,$80
+;39d3      $016b,"&AOSUKE&",$2f,$85,$2f,$3d
+;3a09      $02cb,"@KIMAGURE;;",$2f,$85,$2f,$80
+;3a1a      $02cb,"@STYLIST;;;;",$2f,$85,$2f,$80
+;3a2c      $02ce,"@OTOBOKE;;;",$2f,$87,$2f,$80
+;3a3d      $02ce,"@CRYBABY;;;;",$2f,$87,$2f,$80
 
 
 ;------------------------------------------------------------------------------
