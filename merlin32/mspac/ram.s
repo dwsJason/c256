@@ -494,7 +494,7 @@ fruit_x db 0
 ;	4dd4	entry to fruit points or 0 if no fruit
 fruit_entry dw 0
 ;	4dd6	used for LED state( 1: game waits for 1P/2P start button press)
-;
+led_state dw 0
 ; Main States
 ;
 ;	4e00	main routine number
@@ -603,6 +603,7 @@ no_players dw 0
 ;	4e71	bonus/life
 ;		0x10 = 10000	0x15 = 15000
 ;		0x20 = 20000	0xff = none
+bonus_life dw 0
 ;	4e72	cocktail mode (0=no, 1=yes)
 ;	4e73-4e74 pointer to difficulty settings
 ;		4e73: 68=normal 7d=hard checked at start of game
