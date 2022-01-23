@@ -705,6 +705,7 @@ CH3_W_NUM       ds 16
 ; Runtime
 ;
 ;	4F00		Is set to 1 during intermissions and parts of the attract mode, otherwise 0
+is_intermission dw 0
 ;	4F01-4FBF	Stack
 marque_counter dw 0
 ;Stack ds $C0

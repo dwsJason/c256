@@ -1000,7 +1000,16 @@ setup_attract mx %00
 ;0470  c9        ret     		; return (to #0195)
 			rts
  						 
- 						 
+ 			
+;------------------------------------------------------------------------------
+; arrive here in demo mode from #3ECD
+;057c
+start_mspac2_demo mx %00
+;057c  cdbe06    call    #06be		; jump to new subroutine based on game state
+			jsr gameplay_mode
+;057f  c9        ret   			; returns to #0195  
+			rts
+			 
 ;------------------------------------------------------------------------------
 ; called from #046D and other places.  C is preloaded with the text code to display
 ;0585
@@ -8711,6 +8720,406 @@ FinishUpBlankTextDraw mx %10
 ;#endif
 
 ;------------------------------------------------------------------------------
+; arrive here from #3E67 after Blinky has been introduced
+;3483
+move_blinky_marquee mx %00
+;3483  0e24      ld      c,#24		; load C with offset for moving Blinky
+;3485  c39c34    jp      #349c		; begin moving Blinky across marquee and up left side
+			bra play_cutscene
+
+;------------------------------------------------------------------------------
+; arrive here from #3E67 after Pinky has been introduced
+;3488
+move_pinky_marquee mx %00
+;3488  0e30      ld      c,#30		; load C with offset for moving Pinky
+;348a  c39c34    jp      #349c		; begin moving Pinky across marquee and up left side
+			bra play_cutscene
+
+;------------------------------------------------------------------------------
+; arrive here from #3E67 after Inky has been introduced
+;348d
+move_pinky_marquee mx %00
+;348d  0e3c      ld      c,#3c		; load C with offset for moving Inky
+;348f  c39c34    jp      #349c		; begin moving Inky across marquee and up left side
+			bra play_cutscene
+
+;------------------------------------------------------------------------------
+; arrive here from #3E67 after Sue has been introduced
+;3492
+move_sue_marquee mx %00
+;3492  0e48      ld      c,#48		; load C with offset for moving Sue
+;3494  c39c34    jp      #349c		; begin moving Sue across marquee and up left side
+			bra play_cutscene
+
+;------------------------------------------------------------------------------
+; arrive here from #3e67 after Ms. Pac Man has been introduced
+;3497
+move_mspac_marquee mx %00
+;3497  0e54      ld      c,#54		; load C with offset for moving MS pac man
+;3499  c39c34    jp      #349c		; begin moving ms pac man across marquee
+			;bra play_cutscene  ; drops through
+
+;------------------------------------------------------------------------------
+; main routine to handle intermissions and attract mode ANIMATIONS
+;349c
+play_cutscene mx %00
+;349c  3a004f    ld      a,(#4f00)	; load A with intermission indicator
+			lda |is_intermission
+;349f  a7        and     a		; is the intermission running ?
+;34a0  cc1136    call    z,#3611		; no, call this sub to get it started
+			bne :continue
+
+			jsr init_cutscene
+
+:continue
+
+34a3  0606      ld      b,#06		; B := #06
+34a5  dd210c4f  ld      ix,#4f0c	; load IX with stack.  This holds the list of addresses for the data
+
+; get the next ANIMATION code.. (codes return to here when done)
+34a9  dd6e00    ld      l,(ix+#00)
+34ac  dd6601    ld      h,(ix+#01)	; load HL with stack data.  this is an address for data
+34af  7e        ld      a,(hl)		; load data
+34b0  fef0      cp      #f0		; == #F0 ?
+34b2  cade34    jp      z,#34de		; handle code #F0 - LOOP
+34b5  fef1      cp      #f1
+34b7  ca6b35    jp      z,#356b		; handle code #F1 - SETPOS
+34ba  fef2      cp      #f2
+34bc  ca9735    jp      z,#3597		; handle code #F2 - SETN
+34bf  fef3      cp      #f3
+34c1  ca7735    jp      z,#3577		; handle code #F3 - SETCHAR
+34c4  fef5      cp      #f5
+34c6  ca0736    jp      z,#3607		; handle code #F5 - PLAYSOUND
+34c9  fef6      cp      #f6
+34cb  caa435    jp      z,#35a4		; handle code #F6 - PAUSE
+34ce  fef7      cp      #f7
+34d0  caf335    jp      z,#35f3		; handle code #F7 - SHOWACT ?
+34d3  fef8      cp      #f8
+34d5  cafd35    jp      z,#35fd		; handle code #F8 - CLEARACT ?
+34d8  feff      cp      #ff
+34da  cacb35    jp      z,#35cb		; handle code #FF - END
+
+34dd  76        halt			; wait for interrupt
+
+; for value == #F0 - LOOP
+    
+34de  e5        push    hl
+34df  3e01      ld      a,#01
+34e1  d7        rst     #10
+34e2  4f        ld      c,a
+34e3  212e4f    ld      hl,#4f2e
+34e6  df        rst     #18
+34e7  79        ld      a,c
+34e8  84        add     a,h
+34e9  cd5635    call    #3556
+34ec  12        ld      (de),a
+34ed  cd4136    call    #3641
+34f0  df        rst     #18
+34f1  7c        ld      a,h
+34f2  81        add     a,c
+34f3  12        ld      (de),a
+34f4  e1        pop     hl
+34f5  e5        push    hl
+34f6  3e02      ld      a,#02
+34f8  d7        rst     #10
+34f9  4f        ld      c,a
+34fa  212e4f    ld      hl,#4f2e
+34fd  df        rst     #18
+34fe  79        ld      a,c
+34ff  85        add     a,l
+3500  cd5635    call    #3556
+3503  1b        dec     de
+3504  12        ld      (de),a
+3505  cd4136    call    #3641
+3508  df        rst     #18
+3509  7d        ld      a,l
+350a  81        add     a,c
+350b  1b        dec     de
+350c  12        ld      (de),a
+350d  210f4f    ld      hl,#4f0f
+3510  78        ld      a,b
+3511  d7        rst     #10
+3512  e5        push    hl
+3513  3c        inc     a
+3514  4f        ld      c,a
+
+3515  213e4f    ld      hl,#4f3e
+3518  df        rst     #18		; load HL with address (EG 8663)
+3519  79        ld      a,c		; Copy C to A
+351a  cb2f      sra     a		; Shift right (div by 2)
+351c  d7        rst     #10		; dereference sprite number for intro.  loads A with value in HL+A
+351d  feff      cp      #ff		; are we done ?
+351f  c22635    jp      nz,#3526	; no, skip ahead
+
+3522  0e00      ld      c,#00		; else reset counter
+3524  18ef      jr      #3515           ; loop again
+
+3526  e1        pop     hl
+3527  71        ld      (hl),c
+3528  5f        ld      e,a
+3529  e1        pop     hl
+352a  3e03      ld      a,#03
+352c  d7        rst     #10
+352d  57        ld      d,a
+352e  d5        push    de
+352f  214e4f    ld      hl,#4f4e
+3532  df        rst     #18
+3533  e1        pop     hl
+3534  eb        ex      de,hl
+3535  72        ld      (hl),d
+3536  2b        dec     hl
+3537  3a094e    ld      a,(#4e09)
+353a  4f        ld      c,a
+353b  3a724e    ld      a,(#4e72)
+353e  a1        and     c
+353f  2804      jr      z,#3545         ; (4)
+
+3541  3ec0      ld      a,#c0
+3543  ab        xor     e
+3544  5f        ld      e,a
+
+3545  73        ld      (hl),e
+3546  21174f    ld      hl,#4f17
+3549  78        ld      a,b
+354a  d7        rst     #10
+354b  3d        dec     a
+354c  77        ld      (hl),a
+354d  110000    ld      de,#0000
+3550  2062      jr      nz,#35b4        ; (98)
+
+3552  1e04      ld      e,#04
+3554  185e      jr      #35b4           ; (94)
+
+3556  4f        ld      c,a
+3557  cb29      sra     c
+3559  cb29      sra     c
+355b  cb29      sra     c
+355d  cb29      sra     c
+355f  a7        and     a
+3560  f26835    jp      p,#3568
+
+; arrive here when ghost is moving up the left side of the marquee
+
+3563  f6f0      or      #f0
+3565  0c        inc     c
+3566  1802      jr      #356a           ; (2)
+
+3568  e60f      and     #0f
+356a  c9        ret     
+
+; for value == #F1 - SETPOS
+
+356b  eb        ex      de,hl
+356c  cd4136    call    #3641		; load HL with either #4CFE or #4Dc6
+356f  eb        ex      de,hl
+3570  d5        push    de
+3571  23        inc     hl
+3572  56        ld      d,(hl)
+3573  23        inc     hl
+3574  5e        ld      e,(hl)
+3575  1813      jr      #358a           ; (19)
+
+; for value == #F3 - SETCHAR
+
+3577  eb        ex      de,hl		; save HL into DE
+3578  210f4f    ld      hl,#4f0f	; HL := #4F0F (stack)
+357b  78        ld      a,b		; A := B
+357c  d7        rst     #10		; load A with the data in HL+A
+357d  3600      ld      (hl),#00	; clear this location
+357f  eb        ex      de,hl		; restore HL from DE
+3580  113e4f    ld      de,#4f3e	; DE := #4F3E (stack)
+3583  d5        push    de		; save DE
+3584  23        inc     hl		; next location
+3585  5e        ld      e,(hl)
+3586  23        inc     hl
+3587  56        ld      d,(hl)		; DE how has the address word after the code #F3
+3588  1800      jr      #358a		; does nothing (?) -- jumps to next instruction
+
+	; It's my gyess that the jr at 3588 and the lack of code #F4 
+	; are related.  In fitting with the style of the other F-commands,
+	; they all end with a jr to 0x358a, including this one. 
+	; I think that in the source code, they removed whatever #F4 
+	; was, but forgot to erase the jr just before it, so you end up with
+	; a jr to the next instruction.  -scott
+
+; cleanup for return from #F0, #F1, #F3
+358a  e1        pop     hl		; restore DE saved earlier into HL
+358b  d5        push    de		; save the address
+358c  df        rst     #18		; load HL with the data in (HL + 2*B)
+358d  eb        ex      de,hl		; DE <-> HL
+358e  d1        pop     de		; restore the address
+358f  72        ld      (hl),d
+3590  2b        dec     hl
+3591  73        ld      (hl),e
+3592  110300    ld      de,#0003	; 3 bytes used from the code program
+3595  181d      jr      #35b4           ; (29)
+
+; for value = #F2 - SETN
+
+3597  23        inc     hl
+3598  4e        ld      c,(hl)
+3599  21174f    ld      hl,#4f17
+359c  78        ld      a,b
+359d  d7        rst     #10
+359e  71        ld      (hl),c
+359f  110200    ld      de,#0002	; 
+35a2  1810      jr      #35b4           ; (16)
+
+; for value == #F6 - PAUSE
+
+35a4  21174f    ld      hl,#4f17
+35a7  78        ld      a,b
+35a8  d7        rst     #10
+
+35a9  3d        dec     a
+35aa  77        ld      (hl),a
+35ab  110000    ld      de,#0000
+35ae  2004      jr      nz,#35b4        ; (4)
+35b0  1e01      ld      e,#01		; 1 byte used from the code program
+35b2  1800      jr      #35b4           ; (0)
+
+; finish up for the above
+
+35b4  dd6e00    ld      l,(ix+#00)
+35b7  dd6601    ld      h,(ix+#01)	; load HL with next value
+35ba  19        add     hl,de		; add offset
+35bb  dd7500    ld      (ix+#00),l
+35be  dd7401    ld      (ix+#01),h
+35c1  dd2b      dec     ix
+35c3  dd2b      dec     ix
+35c5  1001      djnz    #35c8           ; (1)
+35c7  c9        ret     
+
+35c8  c3a934    jp      #34a9
+
+; for value == #FF (end code)
+
+35cb  211f4f    ld      hl,#4f1f
+35ce  78        ld      a,b
+35cf  d7        rst     #10
+35d0  3601      ld      (hl),#01
+35d2  21204f    ld      hl,#4f20
+35d5  7e        ld      a,(hl)
+35d6  23        inc     hl
+35d7  a6        and     (hl)
+35d8  23        inc     hl
+35d9  a6        and     (hl)
+35da  23        inc     hl
+35db  a6        and     (hl)
+35dc  23        inc     hl
+35dd  a6        and     (hl)
+35de  23        inc     hl
+35df  a6        and     (hl)
+35e0  110000    ld      de,#0000
+35e3  28cf      jr      z,#35b4         ; (-49)
+
+35e5  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
+35e8  a7        and     a		; == #00 ?
+35e9  ca9521    jp      z,#2195		; yes, jump back to program
+
+35ec  af        xor     a		; else A := #00
+35ed  32004f    ld      (#4f00),a	; clear the intermission indicator
+35f0  c38e05    jp      #058e		; jump back to program
+
+; for value == #F7 - SHOWACT ?
+
+35f3  78        ld      a,b
+35f4  ef        rst     #28		; insert task to display text "        "
+35f5  1c 30
+35f6  47        ld      b,a
+35f8  110100    ld      de,#0001
+35fb  18b7      jr      #35b4           ; (-73)
+
+; for value == #F8 - CLEARACT
+
+35fd  3e40      ld      a,#40
+35ff  32ac42    ld      (#42ac),a	; blank out the character where the 'ACT' # was displayed
+3602  110100    ld      de,#0001
+3605  18ad      jr      #35b4           ; (-83)
+
+; for value == #F5 - PLAYSOUND
+
+3607  23        inc     hl
+3608  7e        ld      a,(hl)
+3609  32 BC 4E  ld   	(#4EBC),a	; set sound channel #3.  used when ghosts bump during 1st intermission
+360c  11 02 00	ld      de,#0002
+360f  18 a3	jr      #35b4           ; (-93)
+
+; arrive here at intermissions and attract mode
+; called from above, with C preloaded with an offset depending on which intermission / attract mode we are in
+
+init_cutsceen
+
+3611  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
+3614  a7        and     a		; check for zero.  is a game being played?
+3615  2008      jr      nz,#361f        ; no, skip next 3 steps.  no sounds during attract mode
+
+3617  3e02      ld      a,#02		; else A := #02
+3619  32cc4e    ld      (#4ecc),a	; store in wave to play
+361c  32dc4e    ld      (#4edc),a	; store in wave to play
+
+; this is used to generate the animations with the animation programs stored in the tables
+361f  21f081    ld      hl,#81f0	; load HL with start of table data
+3622  0600      ld      b,#00		; B:=#00
+3624  09        add     hl,bc		; add BC to HL to offset the start of the data
+3625  11024f    ld      de,#4f02	; load Destination with #4F02
+3628  010c00    ld      bc,#000c	; load byte counter with #0C
+362b  edb0      ldir  			; copy data from table into memory
+362d  3e01      ld      a,#01		; A := #01
+362f  32004f    ld      (#4f00),a	; set intermission indicator
+3632  32a44d    ld      (#4da4),a	; set # of ghost killed but no collision for yet to 1
+3635  211f4f    ld      hl,#4f1f	; load HL with stack pointer (?)
+3638  3e00      ld      a,#00		; A := #00
+363a  32a54d    ld      (#4da5),a	; set pacman dead animation state to not dead
+363d  0614      ld      b,#14		; B := #14
+363f  cf        rst     #8		; 
+3640  c9        ret 			; return    
+
+3641  78        ld      a,b
+3642  fe06      cp      #06
+3644  2004      jr      nz,#364a        ; (4)
+3646  21c64d    ld      hl,#4dc6
+3649  c9        ret     
+
+364a  21fe4c    ld      hl,#4cfe
+364d  c9        ret     
+
+        ; select song
+	; arrive here from #2D62
+
+364E: 05	dec	b		; B = current bit of song being played (from loop in #2d50)
+					; adapt B to the current level to find out the song number
+364F: C5	push	bc		; save BC	
+3650: 78	ld	a,b		; load A with B
+3651: FE 01	cp	#01		; == #01 ?
+3653: 28 04	jr	z,#3659		; yes, skip next 2 steps
+3655: 06 00	ld	b,#00		; else B := #00
+3657: 18 11	jr	#366A		; jump ahead
+
+3659: 3A 13 4E	ld	a,(#4E13)	; load A with current game level
+365C: 06 01	ld	b,#01		; B := #01 (song #1 for 1st intermission)
+365E: FE 01	cp	#01		; game level == #01 (level 2) ?
+3660: 28 08	jr	z,#366A		; yes, jump ahead
+3662: 06 02	ld	b,#02		; B := #02 (song #2 for 2nd intermission)
+3664: FE 04	cp	#04		; game level == #04 (level 5) ?
+3666: 28 02	jr	z,#366A		; yes, jump ahead
+3668: 06 03	ld	b,#03		; else B := #03 (song #3 for 3rd intermission)
+
+366A: DF	rst	#18		; HL = (HL+2B)  [read from table in HL, i.e. SONG_TABLE_x]
+366B: C1	pop	bc		; restore BC
+366C: C3 72 2D	jp	#2D72		; jump back to main program to "process byte" routine
+
+; arrive here from #2060 
+; A is loaded with the color of the tile the ghost is on
+
+366f  cb77      bit     6,a		; test bit 6 of the tile.  is this a slow down zone (tunnel) ?
+3671  ca6620    jp      z,#2066		; no, jump back and set the var to zero
+3674  3e01      ld      a,#01		; yes, A := #01
+3676  02        ld      (bc),a		; store into ghost tunnel slowdown flag
+3677  c9        ret     		; return
+
+
+;------------------------------------------------------------------------------
 ;
 ;; Indirect Lookup table for #2C5E routine  (0x48 entries)
 ;; patched from Pac-Man.  Pac-man items are indented
@@ -8881,6 +9290,52 @@ pms mac
 ;3a3d
 	pms $02ce;'@CRYBABY',$3b,$3b,$3b,$3b,$2f,$87,$2f,$80
 
+;------------------------------------------------------------------------------
+;;
+;; MSPACMAN sound tables
+;;
+;; 2 effects for channel 1
+;3b30
+EFFECT_TABLE_1
+	db $73,$20,$00,$0c,$00,$0a,$1f,$00  ; extra life sound
+;3b38
+	db $72,$20,$fb,$87,$00,$02,$0f,$00	; credit sound
+
+;; 8 effects for channel 2
+;3B40
+EFFECT_TABLE_2
+;3B40
+	db $59,$01,$06,$08,$00,$00,$02,$00 ; end of energizer
+;3B48
+	db $59,$01,$06,$09,$00,$00,$02,$00 ; higher frequency when 155 dots eaten
+;3B50
+    db $59,$02,$06,$0a,$00,$00,$02,$00 ; higher frequency when 179 dots eaten
+;3B58
+    db $59,$03,$06,$0b,$00,$00,$02,$00 ; higher frequency when 12 dots left
+;3B60
+	db $59,$04,$06,$0c,$00,$06,$02,$00 ; reset higher frequency when 12 or less dots left
+;3b68
+	db $24,$00,$06,$08,$02,$00,$0a,$00 ; engergizer eaten
+;3B70
+	db $36,$07,$87,$6f,$00,$00,$04,$00 ; eyes returning sound
+;3B78
+	db $70,$04,$00,$00,$00,$00,$08,$00 ; unused ???
+
+	;; 6 effects for channel 3
+EFFECT_TABLE_3
+;3b80
+	db $1c,$70,$8b,$08,$00,$01,$06,$00 ; dot eating sound 1
+;3B88
+	db $1c,$70,$8b,$08,$00,$01,$06,$00 ; dot eating sound 2
+;3b90
+	db $56,$0c,$ff,$8c,$00,$02,$08,$00 ; fruit eating sound
+;3B98
+	db $56,$00,$02,$0a,$07,$03,$0c,$00 ; blue ghost eaten sound
+;3bA0
+	db $36,$38,$fe,$12,$f8,$04,$0f,$fc ; ghosts bumping during act 1 sound
+;3BA8
+	db $22,$01,$01,$06,$00,$01,$07,$00 ; fruit bouncing sound
+
 
 	;; text strings 2  (copyright, ghost names, intermission)
 
@@ -8992,69 +9447,142 @@ ATTRACT mx %00
 ;3e68  5f 04				; #045F		; A == #00	; display "ms. Pac Man"
 			da setup_attract
 ;3e6a  96 3e				; #3E96		; A == #01 	; draw the midway logo and copyright
+			da draw_copyright
 ;3e6c  8b 3e				; #3E8B		; A == #02	; display "Ms. Pac Man"
+			da disp_mspacman
 ;3e6e  0c 00				; #000C  	; A == #03	; returns immediately
+			da :rts
 ;3e70  bd 3e				; #3EBD		; A == #04	; display "with"
+			da disp_with
 ;3e72  9c 3e				; #3E9C		; A == #05	; display "Blinky"
+			da disp_blinky
 ;3e74  83 34				; #3483		; A == #06	; move blinky across the marquee and up left side
+			da move_blinky_marquee
 ;3e76  a2 3e				; #3EA2		; A == #07	; clear "with" and display "Pinky"
+			da disp_pinky
 ;3e78  88 34				; #3488		; A == #08	; move pinky across the marquee and up left side
+			da move_pinky_marquee
 ;3e7a  ab 3e				; #3EAB		; A == #09	; display "Inky"
+			da disp_inky
 ;3e7c  8d 34				; #348D		; A == #0A	; move Inky across the marquee and up left side
+			da move_inky_marquee
 ;3e7e  b1 3e				; #3EB1		; A == #0B	; display "Sue"
+			da disp_sue
 ;3e80  92 34				; #3492		; A == #0C	; move Sue across the marquee and up left side
+			da move_sue_marque
 ;3e82  c3 3e 				; #3EC3		; A == #0D	; display "Starring"
+			da disp_starring
 ;3e84  b7 3e 				; #3EB7		; A == #0E	; display "MS. Pac-Man"
+			da disp_mspac2
 ;3e86  97 34				; #3497		; A == #0F	; move ms pacman across the marquee
+			da move_mspac_marquee
 ;3e88  c9 3e   				; #3EC9		; A == #10	; start demo mode where ms. pac plays herself
+			da start_mspac_demo
 
+:rts		rts
+
+; arrive here from #3E67 when sub# == 2
+disp_mspacman mx %00
+;3e8b  ef        rst     #28		; insert task to display text "MS Pac Man"
+;3e8c  1c 0c				; 
+			lda #$0C1C
+			jsr rst28
+
+;3e8e  3e60      ld      a,#60		; A := #60
+;3e90  32014f    ld      (#4f01),a	; store into stack ?
+			lda #$60
+			sta |marque_counter
+;3e93  c38e05    jp      #058e		; jumps back, increases sub # and returns
+			jmp ttask2
 
 ;------------------------------------------------------------------------------
-;;
-;; MSPACMAN sound tables
-;;
-;; 2 effects for channel 1
-;3b30
-EFFECT_TABLE_1
-	db $73,$20,$00,$0c,$00,$0a,$1f,$00  ; extra life sound
-;3b38
-	db $72,$20,$fb,$87,$00,$02,$0f,$00	; credit sound
+; draw the midway logo and cprt for the attract screen
+;3e96
+draw_copyright mx %00
+;3e96  cd4296    call    #9642		; draws title screen logo and text
+			jsr draw_logo_text
 
-;; 8 effects for channel 2
-;3B40
-EFFECT_TABLE_2
-;3B40
-	db $59,$01,$06,$08,$00,$00,$02,$00 ; end of energizer
-;3B48
-	db $59,$01,$06,$09,$00,$00,$02,$00 ; higher frequency when 155 dots eaten
-;3B50
-    db $59,$02,$06,$0a,$00,$00,$02,$00 ; higher frequency when 179 dots eaten
-;3B58
-    db $59,$03,$06,$0b,$00,$00,$02,$00 ; higher frequency when 12 dots left
-;3B60
-	db $59,$04,$06,$0c,$00,$06,$02,$00 ; reset higher frequency when 12 or less dots left
-;3b68
-	db $24,$00,$06,$08,$02,$00,$0a,$00 ; engergizer eaten
-;3B70
-	db $36,$07,$87,$6f,$00,$00,$04,$00 ; eyes returning sound
-;3B78
-	db $70,$04,$00,$00,$00,$00,$08,$00 ; unused ???
+;3e99  c38e05    jp      #058e
+			jmp ttask2
 
-	;; 6 effects for channel 3
-EFFECT_TABLE_3
-;3b80
-	db $1c,$70,$8b,$08,$00,$01,$06,$00 ; dot eating sound 1
-;3B88
-	db $1c,$70,$8b,$08,$00,$01,$06,$00 ; dot eating sound 2
-;3b90
-	db $56,$0c,$ff,$8c,$00,$02,$08,$00 ; fruit eating sound
-;3B98
-	db $56,$00,$02,$0a,$07,$03,$0c,$00 ; blue ghost eaten sound
-;3bA0
-	db $36,$38,$fe,$12,$f8,$04,$0f,$fc ; ghosts bumping during act 1 sound
-;3BA8
-	db $22,$01,$01,$06,$00,$01,$07,$00 ; fruit bouncing sound
+;------------------------------------------------------------------------------
+disp_blinky mx %00
+;3e9c  ef        rst     #28		; insert task to display text "Blinky"
+;3e9d  1c 0d				; 
+			lda #$0D1C
+			jsr rst28
+;3e9f  c38e05    jp      #058e
+			jmp ttask2
 
+;------------------------------------------------------------------------------
+disp_pinky mx %00
+;3ea2  ef        rst     #28		; insert task to display text "       " [clears "with"]
+;3ea3  1c 30				; 
+			lda #$301C
+			jsr rst28
+
+;3ea4  ef        rst     #28		; insert task to display text "Pinky"
+;3ea6  1c 0f				; 
+			lda #$0F1C
+			jsr rst28
+;3ea8  c38e05    jp      #058e
+			jmp ttask2
+
+;------------------------------------------------------------------------------
+disp_inky mx %00
+;3eab  ef        rst     #28		; insert task to display text "Inky"
+;3eac  1c 2f				; 
+			lda #$2F1C
+			jsr rst28
+;3eae  c38e05    jp      #058e
+			jmp ttask2
+;------------------------------------------------------------------------------
+disp_sue mx %00
+;3eb1  ef        rst     #28		; insert task to display text "Sue"
+;3eb2  1c 31				; 
+			lda #$311C
+			jsr rst28
+;3eb4  c38e05    jp      #058e
+			jmp ttask2
+
+;------------------------------------------------------------------------------
+disp_mspac2 mx %00
+;3eb7  ef        rst     #28		; insert task to display text "Ms. Pac-Man"
+;3eb8  1c 33				; 
+			lda #$331C
+			jsr rst28
+
+;3eba  c38e05    jp      #058e
+			jmp ttask2
+
+;------------------------------------------------------------------------------
+;3ebd
+disp_with mx %00
+;3ebd  ef        rst     #28		; insert task to display text "with"
+;3ebe  1c 0e				; 
+			lda #$0E1C
+			jsr rst28
+;3ebf  c38e05    jp      #058e
+			jmp ttask2
+
+;------------------------------------------------------------------------------
+disp_starring mx %00
+;3ec3  ef        rst     #28		; insert task to display text "starring"
+;3ec4  1c 10				;
+			lda #$101C
+			jsr rst28
+;3ec6  c38e05    jp      #058e
+			jmp ttask2
+
+;------------------------------------------------------------------------------
+; demo mode when ms pac plays herself in the maze
+;3ec9
+start_mspac_demo mx %00
+;3ec9  af        xor     a		; A := #00
+;3eca  32144e    ld      (#4e14),a	; store into number of lives
+			stz |num_lives
+;3ecd  c37c05    jp      #057c		; jump back
+			jmp start_mspac2_demo
 
 ;------------------------------------------------------------------------------
 ; this sub controls the flashing bulbs around the marquee in the attract screen
@@ -9785,5 +10313,57 @@ bounce_table
 ;------------------------------------------------------------------------------
 
 
+;------------------------------------------------------------------------------
+; draws title screen logo and text (sets as tasks).  called from #95F8
+; this on pac draws the ghost (logo) and CLYDE" text
+;9642
+draw_logo_text mx %00
+;9642  ef        rst     #28		; insert task to draw text "(C) MIDWAY MFG CO"	
+;9643  1c 13				; 
+			lda #$131C
+			jsr rst28
+
+;9645  ef        rst     #28		; insert task to draw text "1980/1981"
+;9646  1c 35				; 
+			lda #$351C
+			jsr rst28
+
+    ; draws vertical strips of the midway logo starting with the rightmost
+;$$JGA TODO
+;9648  21 9A 42	LD	HL,#429A	; load HL with start of screen location
+;964b  3ebf      ld      a,#bf		; A := #BF = 1st code for midway logo graphic
+;964d  a7        and     a		; clear the carry flag
+;964e  111d00    ld      de,#001d	; load DE with offset for each strip
+;9651  010004    ld      bc,#0400	; load BC with offset for color grid
+
+;9654  77        ld      (hl),a		; draw first element
+;9655  09        add     hl,bc		; add color offset
+;9656  3601      ld      (hl),#01	; color first element
+;9658  ed42      sbc     hl,bc		; remove color offset
+;965a  23        inc     hl		; next location
+;965b  d604      sub     #04		; next element
+;965d  77        ld      (hl),a		; draw 2nd element
+;965e  09        add     hl,bc		; add color offset
+;965f  3601      ld      (hl),#01	; color 2nd element
+;9661  ed42      sbc     hl,bc		; remove color offset
+;9663  23        inc     hl		; next location
+;9664  d604      sub     #04		; next element
+;9666  77        ld      (hl),a		; draw 3rd element
+;9667  09        add     hl,bc		; add color offset		
+;9668  3601      ld      (hl),#01	; color 3rd element
+;966a  ed42      sbc     hl,bc		; remove color offset
+;966c  23        inc     hl		; next location
+;966d  d604      sub     #04		; next element
+;966f  77        ld      (hl),a		; draw 4th element
+;9670  09        add     hl,bc		; add color offset
+;9671  3601      ld      (hl),#01	; color 4th element
+;9673  ed42      sbc     hl,bc		; remove color offset
+;9675  19        add     hl,de		; next strip
+;9676  c60b      add     a,#0b		; add offset
+;9678  febb      cp      #bb		; are we done?
+;967a  20d8      jr      nz,#9654        ; No, loop again
+;967c  c9        ret     		; return
+			rts
+;------------------------------------------------------------------------------
 ;------------------------------------------------------------------------------
 
