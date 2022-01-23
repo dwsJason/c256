@@ -9045,20 +9045,26 @@ play_cutscene mx %00
 360c  11 02 00	ld      de,#0002
 360f  18 a3	jr      #35b4           ; (-93)
 
+;------------------------------------------------------------------------------
 ; arrive here at intermissions and attract mode
 ; called from above, with C preloaded with an offset depending on which intermission / attract mode we are in
+;3611
+init_cutsceen mx %00
+;3611  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
+;3614  a7        and     a		; check for zero.  is a game being played?
+			lda |mainroutine1
+;3615  2008      jr      nz,#361f        ; no, skip next 3 steps.  no sounds during attract mode
+			bne :skip_sound
 
-init_cutsceen
-
-3611  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
-3614  a7        and     a		; check for zero.  is a game being played?
-3615  2008      jr      nz,#361f        ; no, skip next 3 steps.  no sounds during attract mode
-
-3617  3e02      ld      a,#02		; else A := #02
-3619  32cc4e    ld      (#4ecc),a	; store in wave to play
-361c  32dc4e    ld      (#4edc),a	; store in wave to play
+;3617  3e02      ld      a,#02		; else A := #02
+			lda #2
+;3619  32cc4e    ld      (#4ecc),a	; store in wave to play
+			sta |CH1_W_NUM
+;361c  32dc4e    ld      (#4edc),a	; store in wave to play
+			sta |CH2_W_NUM
 
 ; this is used to generate the animations with the animation programs stored in the tables
+:skip_sound
 361f  21f081    ld      hl,#81f0	; load HL with start of table data
 3622  0600      ld      b,#00		; B:=#00
 3624  09        add     hl,bc		; add BC to HL to offset the start of the data
