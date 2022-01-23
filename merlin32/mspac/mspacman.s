@@ -8462,15 +8462,25 @@ process_tasks mx %00
 ;	 (no termination - just as many entries as there were characters)
 ; Y as B
 DrawText mx %00
+
+msgNo   = temp0
+pString = temp1
+offset  = temp2
+pVRAM   = temp3
+pCOLOR  = temp4
+
+			sty <msgNo
+
 	; drawText( b )  ; b is index
 ;2c5e  21a536    ld      hl,#36a5	; load HL with the text string lookup table
 ;2c61  df        rst     #18		; (hl+2*b) -> hl
 			tya
+			and #$7F
 			asl
-			and #$FF
 			tax
 			lda |string_table,x
 			tax
+			sta <pString
 
 	; 1. get start offset into vid/color buffer
 	; e = (hl++) ; d = (hl)		; load two bytes in as a pointer
@@ -8478,6 +8488,7 @@ DrawText mx %00
 ;2c62  5e        ld      e,(hl)		; load E with value from table
 ;2c63  23        inc     hl		; next table entry
 ;2c64  56        ld      d,(hl)  	; DE contains start offset
+			lda |0,x
 
 	; 2. use offset for start of color, save to stack
 	; ix = 0x4400 + indexOffset
@@ -8485,14 +8496,28 @@ DrawText mx %00
 ;2c69  dd19      add     ix,de		; add offset to calculate start pos in CRAM
 ;2c6b  dde5      push    ix		; save to stack for use later (#2C93)
 
+			and #$7FFF			; We don't want any RAM mirroring
+			clc
+			adc #palette_ram
+			sta <pCOLOR
+
+
 	; 3. use offset for start of character ram
 	; ix = characterRam + indexOffset
 	; offsetPerCharacter = -1	; de
 	; if (hl) & 0x80 then offsetPerCharacter = -0x20
 ;2c6d  1100fc    ld      de,#fc00	; load DE with offset for VRAM
 ;2c70  dd19      add     ix,de		; add to calculate start position in VRAM
+			adc #$FC00
+			sta <pVRAM
+
 ;2c72  11ffff    ld      de,#ffff	; load DE with offset for top & bottom lines (offset equals negative 1)
+			lda #$FFFF
+			sta <offset
 ;2c75  cb7e      bit     7,(hl)		; test bit 7 of HL.  Is this text for the top + bottom 2 lines ?
+			lda (pString)
+			bit #$8000
+
 
 	; it should be noted that since the high bit on the offset address
 	; is used to denote that the string goes into the top or bottom
@@ -8502,8 +8527,11 @@ DrawText mx %00
 
 	; (this skips the offsetPerCharacter with -20 if necessary)
 ;2c77  2003      jr      nz,#2c7c        ; yes, skip next step
+			bne BlankTextDrawCheck
 ;2c79  11e0ff    ld      de,#ffe0	; no, load DE with offset for normal text (equals negative #20)
 
+			lda #$FFE0
+			sta <offset
 	; 4. determine special entry, go to 2cac for that
 	; hl++
 	; a = stringToDraw * 2
@@ -8513,7 +8541,10 @@ BlankTextDrawCheck
 ;2c7d  78        ld      a,b		; A := B.  B was preloaded with the code # of the text to display
 ;2c7e  010000    ld      bc,#0000	; clear BC
 ;2c81  87        add     a,a		; A : = A * 2.  Is this a special entry ?
+			tya
+			bit #$0080
 ;2c82  3828      jr      c,#2cac         ; special draw for entries 80+
+			bne BlankTextDraw
 
 textRenderLoop0
 	; ch = current character  	; 'a' = (hl)
@@ -8522,77 +8553,136 @@ textRenderLoop0
 	; characterVram += de		; (+= but it really subtracts 1 or 0x20, contents of 'de')
 	; nchars ++  			; 'b'++
 	; goto textRenderLoop0
+			ldy #0
 ;2c84  7e        ld      a,(hl)		; load A with next character
+]loop
+			sep #$20
+			lda |2,x
 ;2c85  fe2f      cp      #2f		; == #2F ? (end of text code)
+			cmp #$2F
 ;2c87  2809      jr      z,#2c92         ; yes, done with VRAM, skip ahead to color
+			beq SingleOrMultiColorCHeck
 
 ;2c89  dd7700    ld      (ix+#00),a	; write character to screen
+			sta (pVRAM)
 ;2c8c  23        inc     hl		; next character
+			inx
 ;2c8d  dd19      add     ix,de		; calculate next VRAM pos
-;2c8f  04        inc     b		; increment counter
-;2c90  18f2      jr      #2c84           ; loop
+			rep #$21
+			lda <pVRAM
+			adc <offset
+			sta <pVRAM
 
-SingleOrMultiColorCHeck
+;2c8f  04        inc     b		; increment counter
+			iny
+;2c90  18f2      jr      #2c84           ; loop
+			bra ]loop
+
+SingleOrMultiColorCHeck mx %10
 	; ix = startColorRamPos
 ;2c92  23        inc     hl		; next table entry
 ;2c93  dde1      pop     ix		; get CRAM start pos
 
+	; pCOLOR = startColorRamPos
+
 	; color = *colorToUse
 	; if (color) is > 80, goto TextSingleColorRender
 ;2c95  7e        ld      a,(hl)		; load A with color
+			lda |3,x
 ;2c96  a7        and     a		; > #80 ?
 ;2c97  faa42c    jp      m,#2ca4		; yes, skip ahead
+			bmi TextSingleColorRender
 
-TextMultiColorRender
+TextMultiColorRender mx %10
 	; color = *colorToUse
 	; colorRam[ix] = color;
 	; colorToUse++
 	; move ix to the next screen position ( -=1 or -=0x20)
 	; b--; if b>0 then goto TextMultiColorRender
 	; return
+]loop
 ;2c9a  7e        ld      a,(hl)		; else load A with color
+			lda |3,x
 ;2c9b  dd7700    ld      (ix+#00),a	; color the screen position Color RAM
+			sta (pCOLOR)
 ;2c9e  23        inc     hl		; next color
+			inx
+			rep #$21
 ;2c9f  dd19      add     ix,de		; calc next CRAM pos
+			lda <pCOLOR
+			adc <offset
+			sta <pCOLOR
+			sep #$20
 ;2ca1  10f7      djnz    #2c9a           ; loop until b==0
+			dey
+			bne ]loop
 ;2ca3  c9        ret     		; return
-
+			rep #$31
+			rts
 
 	;; same as above, but all the same color
-TextSingleColorRender
+TextSingleColorRender mx %10
 	; colorRam[ix] = color
 	; move ix to the next screen position( -=1 or -=0x20)
 	; b--; if b>0 then goto TextSingleColorRender
 	; return
+]loop
 ;2ca4  dd7700    ld      (ix+#00),a	; drop in CRAM
+			sta (pCOLOR)
 ;2ca7  dd19      add     ix,de		; calc next CRAM pos
+			rep #$21
+			lda <pCOLOR
+			adc <offset
+			sta <pCOLOR
 ;2ca9  10f9      djnz    #2ca4           ; loop until b==0
-;2cab  c9        ret     
+			sep #$20
+			dey
+			bne ]loop
+;2cab  c9        ret
+			rep #$31
+			rts	 
 
 	;; message # > 80 se 2nd color code
-BlankTextDraw
+BlankTextDraw mx %00
 	; character = *characterToDraw
 	; if( color = 0x2f ) goto FinishUpBlankTextDraw
 	; characterRam[ix] = 0x40 ("@", which is ' ' in Pac-Man)
 	; characterToDraw++
 	; b++
+			ldy #2
+]loop
 ;2cac  7e        ld      a,(hl)		; read next char
+			sep #$20
+			lda |2,x
 ;2cad  fe2f      cp      #2f		; are we done ?
+		    cmp #$2F
 ;2caf  280a      jr      z,#2cbb         ; yes, done with vram
+			beq FinishUpBlankTextDraw
 
 ;2cb1  dd360040  ld      (ix+#00),#40	; clears the character
+			lda #$40
+			sta (pVRAM)
 ;2cb5  23        inc     hl		; next char
+			inx
+			rep #$21
 ;2cb6  dd19      add     ix,de		; next screen pos
+			lda <pVRAM
+			adc <offset
+			sta <pVRAM
+			sep #$20
 ;2cb8  04        inc     b		; inc char count
+			iny
 ;2cb9  18f1      jr      #2cac           ; loop
+			bra ]loop
 
-FinishUpBlankTextDraw
+FinishUpBlankTextDraw mx %10
 	; while (*hl != 0x2f) hl++
 	; goto SingleOrMultiColorCheck +1
 ;2cbb  23        inc     hl		; next char
 ;2cbc  04        inc     b		; inc char count
 ;2cbd  edb1      cpir    		; loop until [hl] = 2f
 ;2cbf  18d2      jr      #2c93           ; do CRAM
+			bra SingleOrMultiColorCHeck
 
 	;; HACK12 - fixes the C000 top/bottom draw mirror issue
 	; 2c62  c300d0	jp	hack12
