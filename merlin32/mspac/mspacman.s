@@ -9779,6 +9779,786 @@ marque_flash mx %00
 ;3FEF:  D0 42 42 CF 42 D0 42 00 4F C9 00
 		da tile_ram+$2D0
 
+;------------------------------------------------------------------------------
+
+; lookup table.  used in #361F for sprite movement
+; these contain pointers to the step program/codes to be run
+cutscenes_table
+;81f0  51 82	; #8251		; 1st intermission
+;81f2  a3 82	; #82A3
+;81f4  12 83	; #8312
+;81f6  4c 83	; #834C
+;81f8  69 85	; #8569
+;81fa  7c 85	; #857C
+			da act1_part1
+			da act1_part2
+			da act1_part3
+			da act1_part4
+			da act1_part5
+			da act1_part6
+
+;81fc  95 83	; #8395		; 2nd intermission
+;81fe  f0 83	; #83F0
+;8200  2b 85	; #852B
+;8202  4a 85	; #854A
+;8204  69 85	; #8569
+;8206  7c 85	; #857C
+
+			da act2_part1
+			da act2_part2
+			da act2_part3
+			da act2_part4
+			da act2_part5
+			da act2_part6
+
+8208  51 84	; #8451		; 3rd intermission
+820a  6d 84	; #846D
+820c  cf 84	; #84CF
+820e  fd 84 ; #84FD
+8210  89 84	; #8489
+8212  7c 85	; #857C
+
+			da act3_part1
+			da act3_part2
+			da act3_part3
+			da act3_part4
+			da act3_part5
+			da act3_part6
+
+;8214  94 85	; #8594		; attract mode 1st ghost
+;8216  50 82	; #8250
+;8218  50 82	; #8250
+;821a  50 82	; #8250
+;821c  50 82	; #8250
+;821e  50 82	; #8250
+			da attr_ghost1_1
+			da attr_ghost1_2
+			da attr_ghost1_3
+			da attr_ghost1_4
+			da attr_ghost1_5
+			da attr_ghost1_6
+
+;8220  50 82	; #8250		; attract mode 2nd ghost
+;8222  b0 85	; #85B0
+;8224  50 82	; #8250
+;8226  50 82	; #8250
+;8228  50 82	; #8250
+;822a  50 82	; #8250
+			da attr_ghost2_1
+			da attr_ghost2_2
+			da attr_ghost2_3
+			da attr_ghost2_4
+			da attr_ghost2_5
+			da attr_ghost2_6
+
+;822c  50 82	; #8250		; attract mode 3rd ghost
+;822e  50 82	; #8250
+;8230  cc 85	; #85CC
+;8232  50 82	; #8250
+;8234  50 82	; #8250
+;8236  50 82	; #8250
+
+			da attr_ghost3_1
+			da attr_ghost3_2
+			da attr_ghost3_3
+			da attr_ghost3_4
+			da attr_ghost3_5
+			da attr_ghost3_6
+
+;8238  50 82	; #8250		; attract mode 4th ghost
+;823a  50 82	; #8250
+;823c  50 82	; #8250
+;823e  e8 85	; #85E8
+;8240  50 82	; #8250
+;8242  50 82	; #8250
+
+			da attr_ghost4_1
+			da attr_ghost4_2
+			da attr_ghost4_3
+			da attr_ghost4_4
+			da attr_ghost4_5
+			da attr_ghost4_6
+
+;8244  50 82	; #8250		; attract mode ms pac man
+;8246  50 82	; #8250
+;8248  50 82	; #8250
+;824a  50 82	; #8250
+;824c  04 86	; #8604
+;824e  50 82	; #8250
+
+			da attr_mspac_1
+			da attr_mspac_2
+			da attr_mspac_3
+			da attr_mspac_4
+			da attr_mspac_5
+			da attr_mspac_6
+
+;8250  ff       	; no data
+
+
+; commands: (functionality TBD)
+;	cmd	    opc 	bytes	param fcn	opc fcn
+;	LOOP      =  F0	; 	3	?		repeat this N times, perhaps?
+;							A B (color)
+;	SETPOS	  =  F1	; 	2	position?	
+;	SETN  	  =  F2	; 	1	value		store for other ops
+;	SETCHAR   =  F3	; 	2	table ptr	switch to the specified sprite code table?
+;	-         =  F4
+;	PLAYSOUND =  F5	;	1	sound code	play a sound (eg 10=ghost bump)
+;	PAUSE     =  F6	;	-	-		pause for N ticks?
+;	SHOWACT   =  F7	;	
+;	CLEARACT  =  F8	; 	-	-		clear the act # from the screen
+;	END       =  FF
+
+; this appears to work like,  (guesses here)
+;	setchar ADDR	to select the caracter array to work with
+;	setpos X Y	moves the sprite to that location instantly
+;	loop A B C	moves the sprite to a,b, while using color C
+;			for previous SETN units/speed
+;	PAUSE		wait for SETN units/time
+
+LOOP      equ $F0
+SETPOS    equ $F1
+SETN      equ $F2
+SETCHAR   equ $F3
+PLAYSOUND equ $F5
+PAUSE     equ $F6
+SHOWACT   equ $F7
+CLEARACT  equ $F8
+END       equ $FF
+
+	
+
+; data for 1st intermission, part 1
+act1_part1
+;8251:  F1 00 00 		; SETPOS	00 00	
+			db SETPOS,$00,$00
+; set character set 8675 (act sign)
+;8254:  F3 75 86			; SETCHAR	#8675	; ACT sign
+			db SETCHAR
+			dw act_sign1
+;8257:  F2 01 			; SETN		01
+;8259:  F0 00 00 		; LOOP		00 00
+			db SETN,$01,LOOP,$00,$00
+;825D:  F1 BD 52			; SETPOS	BD 52
+			db SETPOS,$BD,$52
+;8260:  F2 28			; SETN		28
+;8262:  F6			; PAUSE
+			db SETN,$28,PAUSE
+;8263:  F2 16			; SETN		16
+;8265:  F0 00 00 16		; LOOP		00 00 16
+			db SETN,$16,LOOP,$00,$16
+	;       ^^ color 16 (white)
+;8269:  F2 16			; SETN		16
+;826B:  F6			; PAUSE
+			db SETN,$16,PAUSE
+;826C:  F1 FF 54			; SETPOS	FF 54
+			db SETPOS,$FF,$54
+
+826F:  F3 14 86			; SETCHAR	#8614	  ; otto
+8272:  F2 7F			; SETN		7F
+8274:  F0 F0 00 09		; LOOP		F0 00 09  ; otto
+	;       ^^ color 9 (yellow otto)
+8278:  F2 7F			; SETN		7F
+827A:  F0 F0 00 09		; LOOP		F0 00 09  ; otto
+827E:  F1 00 7F			; SETPOS	00 7F
+
+8281:  F3 1D 86			; SETCHAR	#861D	  ; otto to center
+8284:  F2 75			; SETN		75
+8286:  F0 10 00 09		; LOOP		10 00 09
+828A:  F2 04			; SETN		04
+828C:  F0 10 F0 09		; LOOP		10 F0 09
+8290:  F3 26 86			; SETCHAR	#8626
+8293:  F2 30			; SETN		30
+8295:  F0 00 F0 09		; LOOP		00 F0 09
+8299:  F3 1D 86			; SETCHAR	#861D
+829C:  F2 10			; SETN		10
+829E:  F0 00 00 09		; LOOP		00 00 09
+82A2:  FF			; END 
+
+; data for 1st intermission, part 2
+
+82A3:  F1 00 00
+82A6:  F3 7F 86			; #867F
+82A9:  F2 01
+82AB:  F0 00 00 16		; ACT sign
+82AF:  F1 AD 52
+82B2:  F2 28
+82B4:  F6
+82B5:  F2 16
+82B7:  F0 00 00 16		; ACT sign
+82BB:  F2 16
+82BD:  F6
+82BE:  F1 FF 54 
+82C1:  F3 5C 86			; #865C
+82C4:  F2 2F
+82C6:  F6
+82C7:  F2 70 
+82C9:  F0 EF 00 05		; cyan ghost
+82CD:  F2 74
+82CF:  F0 EC 00 05 		; cyan ghost
+82D3:  F1 00 7F 
+82D6:  F3 63 86 		; #8663
+82D9:  F2 1C
+82DB:  F6
+82DC:  F2 58
+82DE:  F0 16 00 05
+82E2:  F5 10			; sound for ghost bump
+82E4:  F2 06
+82E6:  F0 F8 F8 05
+82EA:  F2 06
+82EC:  F0 F8 08 05
+82F0:  F2 06
+82F2:  F0 F8 F8 05
+82F6:  F2 06
+82F8:  F0 F8 08 05
+82FC:  F1 00 00
+82FF:  F3 73 86			; #8673
+8302:  F2 01
+8304:  F0 00 00 03
+8308:  F1 7F 3A
+830B:  F2 40
+830D:  F0 00 00 03
+8311:  FF			; end code
+
+; data for 1st intermission, part 3
+
+8312:  F2 5A 
+8314:  F6
+8315:  F1 00 A4
+8318:  F3 41 86			; #8641	 left anna
+831B:  F2 7F 
+831D:  F0 10 00 09 
+8321:  F2 7F
+8323:  F0 10 00 09
+8327:  F1 FF 7F
+832A:  F3 38 86 		; #8638	; right anna
+832D:  F2 76
+832F:  F0 F0 00 09
+8333:  F2 04
+8335:  F0 F0 F0 09
+8339:  F3 4A 86			; #864a ; up anna (?)
+833C:  F2 30
+833E:  F0 00 F0 09
+8342:  F3 38 86			; #8638	; stopped anna
+8345:  F2 10
+8347:  F0 00 00 09
+834B:  FF			; end code
+
+; data for 1st intermission, part 4
+
+834C:  F2 5F
+834E:  F6
+834F:  F1 01 A4
+8352:  F3 63 86			; #8663
+8355:  F2 2F
+8357:  F6
+8358:  F2 70
+835A:  F0 11 00 03
+835E:  F2 74
+8360:  F0 14 00 03
+8364:  F1 FF 7F
+8367:  F3 5C 86			; #865C
+836A:  F2 1C
+836C:  F6
+836D:  F2 58
+836F:  F0 EA 00 03
+8373:  F2 06
+8375:  F0 08 F8 03
+8379:  F2 06 
+837B:  F0 08 08 03
+837F:  F2 06
+8381:  F0 08 F8 03
+8385:  F2 06 
+8387:  F0 08 08 03
+838B:  F3 71 86			; #8671
+838E:  F2 10
+8390:  F0 00 00 16
+8394:  FF			; end code
+
+
+; CODE from CRAZY OTTO actual source: (Rosetta Stone) (tidied up)
+; 2nd intermission data, part 1
+;/*
+;!    BYTE SETPOS,   0FFH,34H
+;!    BYTE SETCHAR
+;!    WORD           RIGHT_OTTO
+;!    BYTE SETN,     7FH,PAUSE
+;!    BYTE SETN,     24H,PAUSE
+;!    BYTE SETN,     68H,LOOP,0D8H,00,09
+;!    BYTE SETN,     7FH,PAUSE
+;!    BYTE SETN,     18H,PAUSE
+;!    BYTE SETPOS,   00H,094H
+;!    BYTE SETCHAR
+;!    WORD           LEFT_ANNA
+;!    BYTE SETN,     68H,LOOP,028H,00,09
+;!    BYTE SETN,     7FH,PAUSE
+;!    BYTE SETPOS,   0FCH,7FH
+;!    BYTE SETCHAR
+;!    WORD           RIGHT_OTTO
+;!    BYTE SETN,     18H,PAUSE
+;!    BYTE SETN,     68H,LOOP,0D8H,0,09
+;!    BYTE SETN,     7FH,PAUSE
+;!    BYTE SETN,     18H,PAUSE
+;!    BYTE SETPOS,   00H,054H
+;!    BYTE SETCHAR
+;!    WORD           LEFT_ANNA
+;!    BYTE SETN,     20H,LOOP,070H,00,09
+;!    BYTE SETPOS,   0FFH,0B4H
+;!    BYTE SETCHAR
+;!    WORD           RIGHT_OTTO
+;!    BYTE SETN,     10H,PAUSE
+;*/
+
+
+; commands: (functionality TBD)
+;	cmd	    opc 	bytes	param fcn	opc fcn
+;	LOOP      =  F0	; 	3	?		repeat this N times, perhaps?
+;	SETPOS	  =  F1	; 	2	position?	TBD
+;	SETN  	  =  F2	; 	1	value		TBD
+;	SETCHAR   =  F3	; 	2	table ptr	switch to the specified sprite code table?
+;	-         =  F4
+;	PLAYSOUND =  F5	;	1	sound code	play a sound (eg 10=ghost bump)
+;	PAUSE     =  F6	;	-	-		pause for N ticks?
+;	SHOWACT   =  F7	;	
+;	CLEARACT  =  F8	; 	-	-		clear the act # from the screen
+;	END       =  FF
+	
+; 2nd intermission data, part 1
+;  NOTE: this is the segment that had the above source code published.
+;	 That was a rosetta stone for figuring out the animation code system
+;	 (work in progress)
+
+	; this is for the pac being chased (red anna)
+8395:  F2 5A			; SETN( 5A )
+8397:  F6			; PAUSE
+8398:  F1 FF 34			; SETPOS, FF, 34
+839B:  F3 14 86			; SETCHAR ( RIGHT_OTTO )  (sprite codes)
+839E:  F2 7F			; SETN( 7f )
+83A0:  F6			; PAUSE
+83A1:  F2 24			; SETN( 24 )
+83A3:  F6			; PAUSE
+83A4:  F2 68			; SETN( 60 )
+83A6:  F0 D8 00 09		; LOOP( d8, 00 09 )
+83AA:  F2 7F			; SETN( 7f )
+83AC:  F6			; PAUSE
+
+83AD:  F2 18			; SETN( 18 )
+83AF:  F6			; PAUSE
+
+83B0:  F1 00 94 		; SETCHAR( LEFT_ANNA )
+83B3:  F3 41 86			; SETN( 
+83B6:  F2 68			; SETN(
+83B8:  F0 28 00 09		; LOOP( 28 00 09 )
+83BC:  F2 7F			; SETN( 7f )
+83BE:  F6			; PAUSE
+
+83BF:  F1 FC 7F			; SETPOS( fc, 7f )
+83C2:  F3 14 86			; SETCHAR( RIGHT_OTTO )
+83C5:  F2 18			; SETN( 18 )
+83C7:  F6			; PAUSE
+83C8:  F2 68			; SETN( 68 )
+83CA:  F0 D8 00 09		; LOOP ( d8, 0, 09 )
+83CE:  F2 7F			; SETN( 7f ) 
+83D0:  F6			; PAUSE
+83D1:  F2 18			; SETN( 18 )
+83D3:  F6			; PAUSE
+83D4:  F1 00 54			; SETPOS( 00 54 ) 
+83D7:  F3 41 86			; SETCHAR( LEFT_ANNA )
+83DA:  F2 20			; SETN( 20 )
+83DC:  F0 70 00 09		; LOOP
+83E0:  F1 FF B4			; SETPOS( ff, 04 )
+
+83E3:  F3 14 86			; SETCHAR( RIGHT_OTTO )
+83E6:  F2 10			; SETN( 10 )
+83E8:  F6			; PAUSE
+83E9:  F2 24			; SETN( 24 )
+	  SPEED?
+83EB:  F0 90 00 09		; LOOP( 90 0 09)
+          XX YY CC
+83EF:  FF			; end code
+
+; data for 2nd intermission, part 2
+
+83F0:  F2 63
+83F2:  F6
+83F3:  F1 FF 34
+83F6:  F3 38 86			; #8638
+83F9:  F2 24
+83FB:  F6
+83FC:  F2 7F
+83FE:  F6
+83FF:  F2 18
+8401:  F6
+8402:  F2 57
+8404:  F0 D0 00 09
+8408:  F2 7F
+840A:  F6
+840B:  F2 28
+840D:  F6
+840E:  F1 00 94
+8411:  F3 1D 86			; #861D 8414:  F2 58
+8416:  F0 30 00 09
+841A:  F2 7F
+841C:  F6
+841D:  F2 24
+841F:  F6
+8420:  F1 FF 7F
+8423:  F3 38 86			; #8638
+8426:  F2 58
+8428:  F0 D0 00 09
+842C:  F2 7F
+842E:  F6
+842F:  F2 20
+8431:  F6
+8432:  F1 00 54
+8435:  F3 1D 86			; #861D
+8438:  F2 20
+843A:  F0 70 00 09
+843E:  F1 FF B4
+8441:  F3 38 86			; #8638
+8444:  F2 10
+8446:  F6
+8447:  F2 24
+8449:  F0 90 00 09
+844D:  F2 7F
+844F:  F6
+8450:  FF 			; end code
+
+; 3rd intermission data part 1
+
+8451:  F2 5A
+8453:  F6
+8454:  F1 00 60
+8457:  F3 8D 86			; #868D front of stork
+845A:  F2 7F
+845C:  F0 0A 00 16
+8460:  F2 7F
+8462:  F0 10 00 16
+8466:  F2 30
+8468:  F0 10 00 16
+846C:  FF			; end code
+
+; 3rd intermission data part 2
+
+846D:  F2 6F
+846F:  F6
+8470:  F1 00 60
+8473:  F3 8F 86			; #868F flap stork
+8476:  F2 6A
+8478:  F0 0A 00 16
+847C:  F2 7F
+847E:  F0 10
+8480:  00 16
+8482:  F2 3A
+8484:  F0 10 00 16
+8488:  FF 			; end code
+
+; 3rd intermission data part 5
+; sack fall, baby appears
+
+8489:  F3 89 86			; #8689 act
+848C:  F2 01
+848E:  F0 00 00 16
+8492:  F1 BD 62
+8495:  F2 5A
+8497:  F6
+8498:  F1 05 60
+
+849B:  F3 98 86			; #8698 sack
+849E:  F2 7F
+84A0:  F0 0A 00 16		; color 16 makes the sack blue
+84A4:  F2 7F
+84A6:  F0 06 0C 16		; this here is the bounce
+84AA:  F2 06
+84AC:  F0 06 F0 16
+84B0:  F2 0C
+84B2:  F0 03 09 16
+84B6:  F2 05
+84B8:  F0 05 F6 16		; final parameter is COLOR
+84BC:  F2 0A
+84BE:  F0 04 03 16
+84C2:  F3 9A 86			; #869A baby
+84C5:  F2 01
+84C7:  F0 00 00 16		; change baby color here
+84CB:  F2 20
+84CD:  F6
+84CE:  FF 			; end code
+
+; 3rd intermission data part 3
+
+84CF:  F1 00 00
+84D2:  F3 75 86			; #8675
+84D5:  F2 01
+84D7:  F0 00 00 16		; ACT 
+84DB:  F1 BD 52
+84DE:  F2 28
+84E0:  F6
+84E1:  F2 16 
+84E3:  F0 00 00 16
+84E7:  F2 16
+84E9:  F6
+84EA:  F1 00 00 
+84ED:  F3 38 86			; #8638
+84F0:  F2 01 
+84F2:  F0 00 00 09		; pac in front, closest to baby
+84F6:  F1 C0 C0
+84F9:  F2 30
+84FB:  F6
+84FC:  FF 			; end code
+
+; 3rd intermission data part 4
+
+84FD:  F1 00 00
+8500:  F3 7F 86			; #867F
+8503:  F2 01
+8505:  F0 00 00 16
+8509:  F1 AD 52
+850C:  F2 28
+850E:  F6
+850F:  F2 16
+8511:  F0 00 00 16
+8515:  F2 16
+8517:  F6
+8518:  F1 00 00
+851B:  F3 14 86			; #8614
+851E:  F2 01
+8520:  F0 00 00 09		; pac behind, (red)
+8524:  F1 D0 C0
+8527:  F2 30
+8529:  F6
+852A:  FF			; end code
+
+; data for 2nd intermission, part 3
+
+852B:  F1 00 00
+852E:  F3 75 86			; #8675
+8531:  F2 01
+8533:  F0 00 00 16
+8537:  F1 BD 52
+853A:  F2 28
+853C:  F6
+853D:  F2 16
+853F:  F0 00 00 16
+8543:  F2 16
+8545:  F6
+8546:  F1 00 00
+8549:  FF			; end code
+
+; data for 2nd intermission, part 4
+
+854A:  F1 00 00
+854D:  F3 7F 86			; #867F
+8550:  F2 01
+8552:  F0 00 00 16
+8556:  F1 AD 52
+8559:  F2 28
+855B:  F6
+855C:  F2 16
+855E:  F0 00 00 16
+8562:  F2 16 
+8564:  F6
+8565:  F1 00 00
+8568:  FF			; end code
+
+; data for 1st, 2nd intermission, part 5
+
+8569:  F3 89 86			; #8689
+856C:  F2 01
+856E:  F0 00 00 16
+8572:  F1 BD 62
+8575:  F2 5A
+8577:  F6
+8578:  F1 00 00
+857B:  FF			; end code
+
+; data for 1st, 2nd, 3rd intermission, part 6
+
+857C:  F3 8B 86			; #868B
+857F:  F2 01
+8581:  F0 00 00 16
+8585:  F1 AD 62
+8588:  F2 39			
+858A:  F6			; pause
+858B:  F7			; display text
+858C:  F2 1E
+858E:  F6
+858F:  F8			; clear act number
+8590:  F1 00 00
+8593:  FF			; end code
+
+; data for attract mode 1st ghost
+
+8594:  F1 00 94
+8597:  F3 63 86			; #8663
+859A:  F2 70
+859C:  F0 10 00 01
+85A0:  F2 50 
+85A2:  F0 10 00 01
+85A6:  F3 6A 86			; #866A
+85A9:  F2 48
+85AB:  F0 00
+85AD:  F0 01
+85AF:  FF			; end code
+
+; data for attract mode 2nd ghost
+
+85B0:  F1 00 94
+85B3:  F3 63 86			; #8663
+85B6:  F2 70 
+85B8:  F0 10 00 03 
+85BC:  F2 50
+85BE:  F0 10 00 03 
+85C2:  F3 6A 86			; #866A
+85C5:  F2 38 
+85C7:  F0 00
+85C9:  F0 03
+85CB:  FF			; end code
+
+; data for attract mode 3rd ghost
+
+85CC:  F1 00 94
+85CF:  F3 63 86			; #8663
+85D2:  F2 70
+85D4:  F0 10 00 05 
+85D8:  F2 50
+85DA:  F0 10 00 05
+85DE:  F3 6A 86			; #866A
+85E1:  F2 28 
+85E3:  F0 00
+85E5:  F0 05
+85E7:  FF 			; end code
+
+; data for attract mode 4th ghost
+
+85E8:  F1 00 94
+85EB:  F3 63 86			; #8663
+85EE:  F2 70
+85F0:  F0 10 00 07
+85F4:  F2 50
+85F6:  F0 10 00 07
+85FA:  F3 6A 86			; #866A
+85FD:  F2 18
+85FF:  F0 00
+8601:  F0 07
+8603:  FF 			; end code
+
+; data for attract mode ms. pac-man
+
+8604:  F1 00 94
+8607:  F3 41 86			; #8641
+860A:  F2 72
+850C:  F0 10 00 09
+8610:  F2 7F F6
+8613:  FF			; end code
+
+; used in act 1
+
+; Pac:
+8614:  1B 1B 19 19 1B 1B 32 32 FF	; msp walking right
+861D:  9B 9B 99 99 9B 9B B2 B2 FF	; msp walking left
+8626:  6E 6E 5A 5A 6E 6E 72 72 FF	; walking up
+
+862F:  EE EE DA DA EE EE F2 F2 FF 	; left pa
+8638:  37 37 2D 2D 37 37 2F 2F FF 	; right pac
+;      r  r  R  R  u  u  rc rc
+
+; used in attract mode to control ms pac moving under marquee
+
+; moving left
+8641:  B7 B7 AD AD B7 B7 AF AF FF	; pac left
+
+864A:  36 36 F1 F1 36 36 F3 F3 FF	; ms pac man moving up at the end
+; moving down?
+8653:  34 34 31 31 34 34 33 33 FF	; sprite codes for ms pac man
+
+; used in act 1
+
+865C:  A4 A4 A4 A5 A5 A5 FF		; ghost with eyes looking right sprite
+
+; used in attract mode to control the ghosts moving under marquee
+
+8663:  24 24 24 25 25 25 FF		; ghost moving across (sprites with eyes looking left)
+866A:  26 26 26 27 27 27 FF		; ghost moving up left side (sprites with eyes looking up)
+
+8671:  1F FF 				; empty sprite
+8673:  1E FF				; sprite code for heart
+
+act_sign1
+;8675:  10 10 10 14 14 14 16 16 16 FF	; sprite codes for ACT sign
+		db $10,$10,$10,$14,$14,$14,$16,$16,$16,$FF
+act_sign2
+;867F:  11 11 11 15 15 15 17 17 17 FF 	; sprite codes for ACT sign
+		db $11,$11,$11,$15,$15,$15,$17,$17,$17,$FF
+
+; used in act 1
+
+8689:  12 FF 				; sprite code for ACT sign
+868B:  13 FF				; sprite code for ACT sign
+
+868D:  30 FF				; stork sprite
+868F:  18 18 18 18 2C 2C 2C 2C FF 	; stork sprites
+8698:  07 FF 				; sack that stork carries sprite
+869A:  0F FF            		; junior pacman sprite
+
+; end data
+
+; resume program
+
+; arrive from #168C when ms pac is facing right
+; MSPAC MOVING EAST
+869c  3a094d    ld      a,(#4d09)	; load A with pacman X position
+869f  e607      and     #07		; mask bits, now between #00 and #07
+86a1  cb3f      srl     a		; shift right, now between #00 and #03
+86a3  2f        cpl     		; invert
+86a4  1e30      ld      e,#30		; E := #30
+86a6  83        add     a,e		; add #30
+86a7  cb47      bit     0,a		; test bit 0.  is it on ?
+86a9  2002      jr      nz,#86ad        ; yes, skip next step
+86ab  3e37      ld      a,#37		; no, A := #37
+86ad  320a4c    ld      (#4c0a),a	; store into mspac sprite number
+86b0  c9        ret			; return
+
+; arrive from #16B1 when ms pac is facing down
+; MSPAC MOVING SOUTH
+86b1  3a084d    ld      a,(#4d08)	; load A with pacman Y position
+86b4  e607      and     #07		; mask bits, now between #00 and #07
+86b6  cb3f      srl     a		; shift right, now between #00 and #03
+86b8  1e30      ld      e,#30		; E := #30
+86ba  83        add     a,e		; add #30
+86bb  cb47      bit     0,a		; test bit 0.  is it on ?
+86bd  2002      jr      nz,#86c1        ; yes, skip next step
+86bf  3e34      ld      a,#34		; no, A := #34
+86c1  320a4c    ld      (#4c0a),a	; store into mspac sprite number
+86c4  c9        ret			; return
+
+; arrive from #16D9 when ms pac is facing left
+; MSPAC MOVING WEST
+86c5  3a094d    ld      a,(#4d09)	; load A with pacman X position
+86c8  e607      and     #07		; mask bits, now between #00 and #07
+86ca  cb3f      srl     a		; shift right, now between #00 and #03
+86cc  1eac      ld      e,#ac		; E := #AC
+86ce  83        add     a,e		; add #AC
+86cf  cb47      bit     0,a		; test bit 0 , is it on ?
+86d1  2002      jr      nz,#86d5        ; yes, skip next step
+86d3  3e35      ld      a,#35		; no, A := #35
+86d5  320a4c    ld      (#4c0a),a	; store into mspac sprite number
+86d8  c9        ret     
+
+; arrive from #16FA when ms pac is facing up
+; MSPAC MOVING NORTH
+86d9  3a084d    ld      a,(#4d08)	; load A with pacman Y position
+86dc  e607      and     #07		; mask bits, now between #00 and #07
+86de  cb3f      srl     a		; shift right, now between #00 and #03
+86e0  2f        cpl     		; invert
+86e1  1ef4      ld      e,#f4		; E := #F4
+86e3  83        add     a,e		; add #F4
+86e4  cb47      bit     0,a		; test bit 0 .  is it on ?
+86e6  2002      jr      nz,#86ea        ; yes, skip next step
+86e8  3e36      ld      a,#36		; no, A := #36
+86ea  320a4c    ld      (#4c0a),a	; store into mspac sprite number
+86ed  c9        ret     
+
 
 ;------------------------------------------------------------------------------
 ; subroutine called from #0909, per intermediate jump at #0EAD
