@@ -9936,7 +9936,7 @@ act1_part1
 ; set character set 8675 (act sign)
 ;8254:  F3 75 86			; SETCHAR	#8675	; ACT sign
 			db SETCHAR
-			dw act_sign1
+			da act_sign1
 ;8257:  F2 01 			; SETN		01
 ;8259:  F0 00 00 		; LOOP		00 00
 			db SETN,$01,LOOP,$00,$00
@@ -9955,102 +9955,203 @@ act1_part1
 ;826C:  F1 FF 54			; SETPOS	FF 54
 			db SETPOS,$FF,$54
 
-826F:  F3 14 86			; SETCHAR	#8614	  ; otto
-8272:  F2 7F			; SETN		7F
-8274:  F0 F0 00 09		; LOOP		F0 00 09  ; otto
+;826F:  F3 14 86			; SETCHAR	#8614	  ; otto
+			db SETCHAR
+			da msp_walk_right 
+;8272:  F2 7F			; SETN		7F
+;8274:  F0 F0 00 09		; LOOP		F0 00 09  ; otto
+			db SETN,$7F,LOOP,$00,$09
 	;       ^^ color 9 (yellow otto)
-8278:  F2 7F			; SETN		7F
-827A:  F0 F0 00 09		; LOOP		F0 00 09  ; otto
-827E:  F1 00 7F			; SETPOS	00 7F
+;8278:  F2 7F			; SETN		7F
+;827A:  F0 F0 00 09		; LOOP		F0 00 09  ; otto
+			db SETN,$7F,LOOP,$00,$09
+;827E:  F1 00 7F			; SETPOS	00 7F
+			db SETPOS,$00,$7F
 
-8281:  F3 1D 86			; SETCHAR	#861D	  ; otto to center
-8284:  F2 75			; SETN		75
-8286:  F0 10 00 09		; LOOP		10 00 09
-828A:  F2 04			; SETN		04
-828C:  F0 10 F0 09		; LOOP		10 F0 09
-8290:  F3 26 86			; SETCHAR	#8626
-8293:  F2 30			; SETN		30
-8295:  F0 00 F0 09		; LOOP		00 F0 09
+;8281:  F3 1D 86			; SETCHAR	#861D	  ; otto to center
+			db SETCHAR
+			da msp_walk_left
+;8284:  F2 75			; SETN		75
+;8286:  F0 10 00 09		; LOOP		10 00 09
+			db SETN,$75,LOOP,$10,$00,$09
+;828A:  F2 04			; SETN		04
+;828C:  F0 10 F0 09		; LOOP		10 F0 09
+			db SETN,$04,LOOP,$10,$F0,$09
+;8290:  F3 26 86			; SETCHAR	#8626
+			db SETCHAR
+			da walk_up
+;8293:  F2 30			; SETN		30
+;8295:  F0 00 F0 09		; LOOP		00 F0 09
+			db SETN,$30,LOOP,$00,$F0,$09
 8299:  F3 1D 86			; SETCHAR	#861D
-829C:  F2 10			; SETN		10
-829E:  F0 00 00 09		; LOOP		00 00 09
-82A2:  FF			; END 
+			db SETCHAR
+			da msp_walk_left
+;829C:  F2 10			; SETN		10
+;829E:  F0 00 00 09		; LOOP		00 00 09
+			db SETN,$10,LOOP,$00,$00,$09
+;82A2:  FF			; END 
+			db END
 
 ; data for 1st intermission, part 2
 
-82A3:  F1 00 00
-82A6:  F3 7F 86			; #867F
-82A9:  F2 01
-82AB:  F0 00 00 16		; ACT sign
-82AF:  F1 AD 52
-82B2:  F2 28
-82B4:  F6
-82B5:  F2 16
-82B7:  F0 00 00 16		; ACT sign
-82BB:  F2 16
-82BD:  F6
-82BE:  F1 FF 54 
-82C1:  F3 5C 86			; #865C
-82C4:  F2 2F
-82C6:  F6
-82C7:  F2 70 
-82C9:  F0 EF 00 05		; cyan ghost
-82CD:  F2 74
-82CF:  F0 EC 00 05 		; cyan ghost
-82D3:  F1 00 7F 
-82D6:  F3 63 86 		; #8663
-82D9:  F2 1C
-82DB:  F6
-82DC:  F2 58
-82DE:  F0 16 00 05
-82E2:  F5 10			; sound for ghost bump
-82E4:  F2 06
-82E6:  F0 F8 F8 05
-82EA:  F2 06
-82EC:  F0 F8 08 05
-82F0:  F2 06
-82F2:  F0 F8 F8 05
-82F6:  F2 06
-82F8:  F0 F8 08 05
-82FC:  F1 00 00
-82FF:  F3 73 86			; #8673
-8302:  F2 01
-8304:  F0 00 00 03
-8308:  F1 7F 3A
-830B:  F2 40
-830D:  F0 00 00 03
-8311:  FF			; end code
+act1_part2
+;82A3:  F1 00 00
+			db SETPOS,$00,$00
+
+;82A6:  F3 7F 86			; #867F
+			db SETCHAR
+			da act_sign2
+;82A9:  F2 01
+;82AB:  F0 00 00 16		; ACT sign
+			db SETN,$01,LOOP,$00,$00,$16
+;82AF:  F1 AD 52
+			db SETPOS,$AD,$52
+;82B2:  F2 28
+;82B4:  F6
+			db SETN,$28,PAUSE
+;82B5:  F2 16
+;82B7:  F0 00 00 16		; ACT sign
+			db SETN,$16,LOOP,$00,$00,$16
+;82BB:  F2 16
+;82BD:  F6
+			db SETN,$16,PAUSE
+;82BE:  F1 FF 54 
+			db SETPOS,$FF,$54
+;82C1:  F3 5C 86			; #865C
+			db SETCHAR
+			da geyes_right
+
+;82C4:  F2 2F
+;82C6:  F6
+			db SETN,$2F,PAUSE
+
+;82C7:  F2 70 
+;82C9:  F0 EF 00 05		; cyan ghost
+			db SETN,$70,LOOP,$EF,$00,$05
+
+;82CD:  F2 74
+;82CF:  F0 EC 00 05 		; cyan ghost
+			db SETN,$74,LOOP,$EC,$00,$05
+
+;82D3:  F1 00 7F 
+			db SETPOS,$00,$7F
+
+;82D6:  F3 63 86 		; #8663
+			db SETCHAR
+			da geyes_left
+
+;82D9:  F2 1C
+;82DB:  F6
+			db SETN,$1C,PAUSE
+
+;82DC:  F2 58
+;82DE:  F0 16 00 05
+			db SETN,$58,LOOP,$16,$00,$05
+
+;82E2:  F5 10			; sound for ghost bump
+			db PLAYSOUND,$10
+
+;82E4:  F2 06
+;82E6:  F0 F8 F8 05
+			db SETN,$06,LOOP,$F8,$F8,$05
+
+;82EA:  F2 06
+;82EC:  F0 F8 08 05
+			db SETN,$06,LOOP,$F8,$08,$05
+
+;82F0:  F2 06
+;82F2:  F0 F8 F8 05
+			db SETN,$06,LOOP,$F8,$F8,$05
+
+;82F6:  F2 06
+;82F8:  F0 F8 08 05
+			db SETN,$06,LOOP,$F8,$08,$05
+
+;82FC:  F1 00 00
+			db SETPOS,$00,$00
+
+;82FF:  F3 73 86			; #8673
+			db SETCHAR
+			da heart
+
+;8302:  F2 01
+;8304:  F0 00 00 03
+			da SETN,$01,LOOP,$00,$00,$03
+
+;8308:  F1 7F 3A
+			db SETPOS,$7F,$3A
+
+;830B:  F2 40
+;830D:  F0 00 00 03
+			db SETN,$40,LOOP,$00,$00,$03
+
+;8311:  FF			; end code
+			db END
 
 ; data for 1st intermission, part 3
+act1_part3
+;8312:  F2 5A 
+;8314:  F6
+			db SETN,$5A,PAUSE
 
-8312:  F2 5A 
-8314:  F6
-8315:  F1 00 A4
-8318:  F3 41 86			; #8641	 left anna
-831B:  F2 7F 
-831D:  F0 10 00 09 
-8321:  F2 7F
-8323:  F0 10 00 09
-8327:  F1 FF 7F
-832A:  F3 38 86 		; #8638	; right anna
-832D:  F2 76
-832F:  F0 F0 00 09
-8333:  F2 04
-8335:  F0 F0 F0 09
-8339:  F3 4A 86			; #864a ; up anna (?)
-833C:  F2 30
-833E:  F0 00 F0 09
-8342:  F3 38 86			; #8638	; stopped anna
-8345:  F2 10
-8347:  F0 00 00 09
-834B:  FF			; end code
+;8315:  F1 00 A4
+			db SETPOS,$00,$A4
+
+;8318:  F3 41 86			; #8641	 left anna
+			db SETCHAR
+			da left_anna
+
+;831B:  F2 7F 
+;831D:  F0 10 00 09 
+			db SETN,$7F,LOOP,$10,$00,$09
+
+;8321:  F2 7F
+;8323:  F0 10 00 09
+			db SETN,$7F,LOOP,$10,$00,$09
+
+;8327:  F1 FF 7F
+			db SETPOS,$FF,$7F
+
+;832A:  F3 38 86 		; #8638	; right anna
+			db SETCHAR
+			da right_anna
+
+;832D:  F2 76
+;832F:  F0 F0 00 09
+			db SETN,$76,LOOP,$F0,$00,$09
+
+;8333:  F2 04
+;8335:  F0 F0 F0 09
+			db SETN,$04,LOOP,$F0,$F0,$09
+
+;8339:  F3 4A 86			; #864a ; up anna (?)
+			db SETCHAR
+			da up_anna
+
+;833C:  F2 30
+;833E:  F0 00 F0 09
+			db SETN,$30,LOOP,$00,$F0,$09
+
+;8342:  F3 38 86			; #8638	; stopped anna
+			db SETCHAR
+			da right_anna
+
+;8345:  F2 10
+;8347:  F0 00 00 09
+			db SETN,$10,LOOP,$00,$00,$09
+
+;834B:  FF			; end code
+			db END
 
 ; data for 1st intermission, part 4
-
+act1_part4
 834C:  F2 5F
 834E:  F6
 834F:  F1 01 A4
-8352:  F3 63 86			; #8663
+;8352:  F3 63 86			; #8663
+			db SETCHAR
+			da geyes_left
+
 8355:  F2 2F
 8357:  F6
 8358:  F2 70
@@ -10058,7 +10159,10 @@ act1_part1
 835E:  F2 74
 8360:  F0 14 00 03
 8364:  F1 FF 7F
-8367:  F3 5C 86			; #865C
+;8367:  F3 5C 86			; #865C
+			db SETCHAR
+			da geyes_right
+
 836A:  F2 1C
 836C:  F6
 836D:  F2 58
@@ -10183,7 +10287,10 @@ act1_part1
 83F0:  F2 63
 83F2:  F6
 83F3:  F1 FF 34
-83F6:  F3 38 86			; #8638
+;83F6:  F3 38 86			; #8638
+			db SETCHAR
+			da right_anna
+
 83F9:  F2 24
 83FB:  F6
 83FC:  F2 7F
@@ -10204,7 +10311,10 @@ act1_part1
 841D:  F2 24
 841F:  F6
 8420:  F1 FF 7F
-8423:  F3 38 86			; #8638
+;8423:  F3 38 86			; #8638
+			db SETCHAR
+			da right_anna
+
 8426:  F2 58
 8428:  F0 D0 00 09
 842C:  F2 7F
@@ -10216,7 +10326,10 @@ act1_part1
 8438:  F2 20
 843A:  F0 70 00 09
 843E:  F1 FF B4
-8441:  F3 38 86			; #8638
+;8441:  F3 38 86			; #8638
+			db SETCHAR
+			da right_anna
+
 8444:  F2 10
 8446:  F6
 8447:  F2 24
@@ -10299,7 +10412,10 @@ act1_part1
 84E7:  F2 16
 84E9:  F6
 84EA:  F1 00 00 
-84ED:  F3 38 86			; #8638
+;84ED:  F3 38 86			; #8638
+			db SETCHAR
+			da right_anna
+
 84F0:  F2 01 
 84F2:  F0 00 00 09		; pac in front, closest to baby
 84F6:  F1 C0 C0
@@ -10310,7 +10426,10 @@ act1_part1
 ; 3rd intermission data part 4
 
 84FD:  F1 00 00
-8500:  F3 7F 86			; #867F
+;8500:  F3 7F 86			; #867F
+			db SETCHAR
+			da act_sign2
+
 8503:  F2 01
 8505:  F0 00 00 16
 8509:  F1 AD 52
@@ -10348,7 +10467,10 @@ act1_part1
 ; data for 2nd intermission, part 4
 
 854A:  F1 00 00
-854D:  F3 7F 86			; #867F
+;854D:  F3 7F 86			; #867F
+			db SETCHAR
+			da act_sign2
+
 8550:  F2 01
 8552:  F0 00 00 16
 8556:  F1 AD 52
@@ -10390,7 +10512,10 @@ act1_part1
 ; data for attract mode 1st ghost
 
 8594:  F1 00 94
-8597:  F3 63 86			; #8663
+;8597:  F3 63 86			; #8663
+			db SETCHAR
+			da geyes_left
+
 859A:  F2 70
 859C:  F0 10 00 01
 85A0:  F2 50 
@@ -10404,7 +10529,10 @@ act1_part1
 ; data for attract mode 2nd ghost
 
 85B0:  F1 00 94
-85B3:  F3 63 86			; #8663
+;85B3:  F3 63 86			; #8663
+			db SETCHAR
+			da geyes_left
+
 85B6:  F2 70 
 85B8:  F0 10 00 03 
 85BC:  F2 50
@@ -10418,7 +10546,10 @@ act1_part1
 ; data for attract mode 3rd ghost
 
 85CC:  F1 00 94
-85CF:  F3 63 86			; #8663
+;85CF:  F3 63 86			; #8663
+			db SETCHAR
+			da geyes_left
+
 85D2:  F2 70
 85D4:  F0 10 00 05 
 85D8:  F2 50
@@ -10432,7 +10563,10 @@ act1_part1
 ; data for attract mode 4th ghost
 
 85E8:  F1 00 94
-85EB:  F3 63 86			; #8663
+;85EB:  F3 63 86			; #8663
+			db SETCHAR
+			da geyes_left
+
 85EE:  F2 70
 85F0:  F0 10 00 07
 85F4:  F2 50
@@ -10455,34 +10589,56 @@ act1_part1
 ; used in act 1
 
 ; Pac:
-8614:  1B 1B 19 19 1B 1B 32 32 FF	; msp walking right
-861D:  9B 9B 99 99 9B 9B B2 B2 FF	; msp walking left
-8626:  6E 6E 5A 5A 6E 6E 72 72 FF	; walking up
+;8614
+msp_walk_right
+		db $1B,$1B,$19,$19,$1B,$1B,$32,$32,$FF	; msp walking right
+;861D
+msp_walk_left
+		db $9B,$9B,$99,$99,$9B,$9B,$B2,$B2,$FF	; msp walking left
+;8626
+walk_up
+		db $6E,$6E,$5A,$5A,$6E,$6E,$72,$72,$FF	; walking up
 
 862F:  EE EE DA DA EE EE F2 F2 FF 	; left pa
-8638:  37 37 2D 2D 37 37 2F 2F FF 	; right pac
+
+;8638
 ;      r  r  R  R  u  u  rc rc
+right_anna
+		db $37,$37,$2D,$2D,$37,$37,$2F,$2F,$FF  ; right pac 
 
 ; used in attract mode to control ms pac moving under marquee
 
 ; moving left
-8641:  B7 B7 AD AD B7 B7 AF AF FF	; pac left
+;8641
+left_anna
+		db $B7,$B7,$AD,$AD,$B7,$B7,$AF,$AF,$FF  ; pac left
 
-864A:  36 36 F1 F1 36 36 F3 F3 FF	; ms pac man moving up at the end
+;864A
+up_anna
+		db $36,$36,$F1,$F1,$36,$36,$F3,$F3,$FF ; ms pac man moving up at the end 
+
 ; moving down?
 8653:  34 34 31 31 34 34 33 33 FF	; sprite codes for ms pac man
 
 ; used in act 1
-
-865C:  A4 A4 A4 A5 A5 A5 FF		; ghost with eyes looking right sprite
+;865c
+geyes_right db $A4,$A4,$A4,$A5,$A5,$A5,$FF  ; ghost with eyes looking right sprite 
 
 ; used in attract mode to control the ghosts moving under marquee
 
-8663:  24 24 24 25 25 25 FF		; ghost moving across (sprites with eyes looking left)
-866A:  26 26 26 27 27 27 FF		; ghost moving up left side (sprites with eyes looking up)
+;8663
+geyes_left
+			db $24,$24,$24,$25,$25,$25,$FF	; ghost moving across (sprites with eyes looking left)
 
-8671:  1F FF 				; empty sprite
-8673:  1E FF				; sprite code for heart
+;866A
+geyes_up
+			db $26,$26,$26,$27,$27,$27,$FF	; ghost moving up left side (sprites with eyes looking up)
+
+;8671
+empty 		db $1F,$FF 				; empty sprite
+
+;8673
+heart		db $1E,$FF		; sprite code for heart
 
 act_sign1
 ;8675:  10 10 10 14 14 14 16 16 16 FF	; sprite codes for ACT sign
