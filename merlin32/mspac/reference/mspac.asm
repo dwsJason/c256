@@ -10452,6 +10452,8 @@ init_cutscene
 363f  cf        rst     #8		; 
 3640  c9        ret 			; return    
 
+check_intermission_count
+
 3641  78        ld      a,b
 3642  fe06      cp      #06
 3644  2004      jr      nz,#364a        ; (4)

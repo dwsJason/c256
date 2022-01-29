@@ -112,6 +112,11 @@ irq_tasks ds 48
 ;		tasks are decoded at routine starting at #238D
 foreground_tasks ds 64
 
+;4cfe
+intermission1 dw 0 ; unknown intermission variable
+
+
+
 ;
 ; Game variables
 ; ** note - need to be sorted
@@ -468,8 +473,12 @@ ghost_orientation_counter dw 0
 counter8 dw 0
 ;	4dc5-4dc6 counter started after pacman killed
 pacman_dead_counter dw 0
+;4dc6
+intermission2 dw 0
 
 ; 	4dc7	counter for current orientation we're trying
+current_orientation_counter dw 0
+
 ;	4dc8	counter used to change ghost colors under big pill effects
 big_pill_timer dw 0
 ;	4dc9-4dca pointer to pick a random value from the ROM (routine 2a23)
@@ -708,6 +717,11 @@ CH3_W_NUM       ds 16
 is_intermission dw 0
 ;	4F01-4FBF	Stack
 marque_counter dw 0
+
+cutscene_parts ds 12   ; offsets to the 6 parts of a cutscene
+
+cutscene_vars ds 20    ; other curscene variables
+
 ;Stack ds $C0
 
 ;	4FC0-4FEF	Unused

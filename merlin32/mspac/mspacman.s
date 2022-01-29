@@ -272,6 +272,25 @@ start   ent             ; make sure start is visible outside the file
 rst0 mx %00
 		sei					; Disable Interrupts
 		jmp	startuptest
+;memset Address X, with A, for length Y
+;0008
+rst8 mx %00
+		cpy #3
+		sta |0,x
+		bcs :mvn
+		rts			; so short, the initial store clears it
+:mvn
+		dey
+		dey
+		dey
+		tya
+		txy
+		iny
+		iny
+		mvn ^rst8,^rst8
+
+		rts
+
 ;------------------------------------------------------------------------------
 ;;$$TODO, port the rst28 - Add task, with argument
 ;0028
@@ -8724,6 +8743,7 @@ FinishUpBlankTextDraw mx %10
 ;3483
 move_blinky_marquee mx %00
 ;3483  0e24      ld      c,#24		; load C with offset for moving Blinky
+			ldy #$24
 ;3485  c39c34    jp      #349c		; begin moving Blinky across marquee and up left side
 			bra play_cutscene
 
@@ -8732,6 +8752,7 @@ move_blinky_marquee mx %00
 ;3488
 move_pinky_marquee mx %00
 ;3488  0e30      ld      c,#30		; load C with offset for moving Pinky
+			ldy #$30
 ;348a  c39c34    jp      #349c		; begin moving Pinky across marquee and up left side
 			bra play_cutscene
 
@@ -8740,6 +8761,7 @@ move_pinky_marquee mx %00
 ;348d
 move_inky_marquee mx %00
 ;348d  0e3c      ld      c,#3c		; load C with offset for moving Inky
+			ldy #$3C
 ;348f  c39c34    jp      #349c		; begin moving Inky across marquee and up left side
 			bra play_cutscene
 
@@ -8748,6 +8770,7 @@ move_inky_marquee mx %00
 ;3492
 move_sue_marquee mx %00
 ;3492  0e48      ld      c,#48		; load C with offset for moving Sue
+			ldy #$48
 ;3494  c39c34    jp      #349c		; begin moving Sue across marquee and up left side
 			bra play_cutscene
 
@@ -8756,13 +8779,18 @@ move_sue_marquee mx %00
 ;3497
 move_mspac_marquee mx %00
 ;3497  0e54      ld      c,#54		; load C with offset for moving MS pac man
+			ldy #$54
 ;3499  c39c34    jp      #349c		; begin moving ms pac man across marquee
 			;bra play_cutscene  ; drops through
 
 ;------------------------------------------------------------------------------
 ; main routine to handle intermissions and attract mode ANIMATIONS
+; Passing Y as the offset, instead of C
 ;349c
 play_cutscene mx %00
+
+cutscene_loop_counter = temp0
+
 ;349c  3a004f    ld      a,(#4f00)	; load A with intermission indicator
 			lda |is_intermission
 ;349f  a7        and     a		; is the intermission running ?
@@ -8774,11 +8802,31 @@ play_cutscene mx %00
 :continue
 
 ;34a3  0606      ld      b,#06		; B := #06
+			; usually used as a counter
+			lda #6
+			sta <cutscene_loop_counter
+
+; 4f02-03 ppart 1
+; 4f04-05 ppart 2
+; 4f06-07 ppart 3
+; 4f08-09 ppart 4
+; 4f0A-0B ppart 5
+; 4f0C-0D ppart 6
+
 ;34a5  dd210c4f  ld      ix,#4f0c	; load IX with stack.  This holds the list of addresses for the data
+			ldy #cutscene_parts+10  ; offset to pointer to part 6
+;			lda #0					; clear B for 8-bit m
 
 ; get the next ANIMATION code.. (codes return to here when done)
+anim_code_loop
+;			sep #$20
 ;34a9  dd6e00    ld      l,(ix+#00)
 ;34ac  dd6601    ld      h,(ix+#01)	; load HL with stack data.  this is an address for data
+			ldx |0,y
+
+; this should be a jump table, am I right?
+; especailly since we don't have a conditional branch on the 65816
+
 ;34af  7e        ld      a,(hl)		; load data
 ;34b0  fef0      cp      #f0		; == #F0 ?
 ;34b2  cade34    jp      z,#34de		; handle code #F0 - LOOP
@@ -8801,11 +8849,46 @@ play_cutscene mx %00
 
 ;34dd  76        halt			; wait for interrupt
 
+			lda |0,x
+			and #$F0
+			cmp #$F0
+			bne :invalid_opcode
+			asl
+			phx
+			tax
+			pla
+			jmp (:dispatch,x)
+
+:dispatch
+			da op_LOOP		;34de $F0 - LOOP
+			da op_SETPOS	;356b $F1 - SETPOS
+			da op_SETN		;3597 $F2 - SETN
+			da op_SETCHAR   ;3577 $F3 - SETCHAR
+			da :invalid_opcode  ; $F4
+			da op_PLAYSOUND ;3607 $F5 - PLAYSOUND
+			da op_PAUSE     ;35a4 $F6 - PAUSE
+			da op_SHOWACT   ;35f3 $F7 - SHOWACT
+			da op_CLEARACT  ;35fd $F8 - CLEARACT
+			da :invalid_opcode ; $F9
+			da :invalid_opcode ; $FA
+			da :invalid_opcode ; $FB
+			da :invalid_opcode ; $FC
+			da :invalid_opcode ; $FD
+			da :invalid_opcode ; $FE
+			da op_END		;35cb $FF - END
+
+:invalid_opcode mx %00
+			wai	; simulate halt $$JGA TODO, figure out how halt works, vs wai
+				; falling through here seems bad, so we may need to jmp
+				; to some vector after this wai
+
 ; for value == #F0 - LOOP
-    
+op_LOOP mx %00    
+			tax
 ;34de  e5        push    hl
 ;34df  3e01      ld      a,#01
-;34e1  d7        rst     #10
+;34e1  d7        rst     #10   ; ptr to byte
+			lda |1,x
 ;34e2  4f        ld      c,a
 ;34e3  212e4f    ld      hl,#4f2e
 ;34e6  df        rst     #18
@@ -8814,7 +8897,9 @@ play_cutscene mx %00
 ;34e9  cd5635    call    #3556
 ;34ec  12        ld      (de),a
 ;34ed  cd4136    call    #3641
-;34f0  df        rst     #18
+			jsr check_intermission_count
+
+;34f0  df        rst     #18   ; ptr to word
 ;34f1  7c        ld      a,h
 ;34f2  81        add     a,c
 ;34f3  12        ld      (de),a
@@ -8908,19 +8993,27 @@ play_cutscene mx %00
 ;356a  c9        ret     
 
 ; for value == #F1 - SETPOS
-
+op_SETPOS mx %00
 ;356b  eb        ex      de,hl
+			tax
 ;356c  cd4136    call    #3641		; load HL with either #4CFE or #4Dc6
+			jsr check_intermission_count
 ;356f  eb        ex      de,hl
 ;3570  d5        push    de
+			pha
+
 ;3571  23        inc     hl
 ;3572  56        ld      d,(hl)
 ;3573  23        inc     hl
 ;3574  5e        ld      e,(hl)
+			lda |1,x
+			inx
+			inx
 ;3575  1813      jr      #358a           ; (19)
+			bra next_op
 
 ; for value == #F3 - SETCHAR
-
+op_SETCHAR mx %00
 ;3577  eb        ex      de,hl		; save HL into DE
 ;3578  210f4f    ld      hl,#4f0f	; HL := #4F0F (stack)
 ;357b  78        ld      a,b		; A := B
@@ -8934,8 +9027,9 @@ play_cutscene mx %00
 ;3586  23        inc     hl
 ;3587  56        ld      d,(hl)		; DE how has the address word after the code #F3
 ;3588  1800      jr      #358a		; does nothing (?) -- jumps to next instruction
+;			bra next_op
 
-	; It's my gyess that the jr at 3588 and the lack of code #F4 
+	; It's my guess that the jr at 3588 and the lack of code #F4 
 	; are related.  In fitting with the style of the other F-commands,
 	; they all end with a jr to 0x358a, including this one. 
 	; I think that in the source code, they removed whatever #F4 
@@ -8943,6 +9037,7 @@ play_cutscene mx %00
 	; a jr to the next instruction.  -scott
 
 ; cleanup for return from #F0, #F1, #F3
+next_op
 ;358a  e1        pop     hl		; restore DE saved earlier into HL
 ;358b  d5        push    de		; save the address
 ;358c  df        rst     #18		; load HL with the data in (HL + 2*B)
@@ -8953,9 +9048,10 @@ play_cutscene mx %00
 ;3591  73        ld      (hl),e
 ;3592  110300    ld      de,#0003	; 3 bytes used from the code program
 ;3595  181d      jr      #35b4           ; (29)
+			bra next2_op
 
 ; for value = #F2 - SETN
-
+op_SETN mx %00
 ;3597  23        inc     hl
 ;3598  4e        ld      c,(hl)
 ;3599  21174f    ld      hl,#4f17
@@ -8964,9 +9060,10 @@ play_cutscene mx %00
 ;359e  71        ld      (hl),c
 ;359f  110200    ld      de,#0002	; 
 ;35a2  1810      jr      #35b4           ; (16)
+			bra next2_op
 
 ; for value == #F6 - PAUSE
-
+op_PAUSE mx %00
 ;35a4  21174f    ld      hl,#4f17
 ;35a7  78        ld      a,b
 ;35a8  d7        rst     #10
@@ -8977,9 +9074,10 @@ play_cutscene mx %00
 ;35ae  2004      jr      nz,#35b4        ; (4)
 ;35b0  1e01      ld      e,#01		; 1 byte used from the code program
 ;35b2  1800      jr      #35b4           ; (0)
+			bra next2_op
 
 ; finish up for the above
-
+next2_op
 ;35b4  dd6e00    ld      l,(ix+#00)
 ;35b7  dd6601    ld      h,(ix+#01)	; load HL with next value
 ;35ba  19        add     hl,de		; add offset
@@ -8993,7 +9091,7 @@ play_cutscene mx %00
 ;35c8  c3a934    jp      #34a9
 
 ; for value == #FF (end code)
-
+op_END mx %00
 ;35cb  211f4f    ld      hl,#4f1f
 ;35ce  78        ld      a,b
 ;35cf  d7        rst     #10
@@ -9022,7 +9120,7 @@ play_cutscene mx %00
 ;35f0  c38e05    jp      #058e		; jump back to program
 
 ; for value == #F7 - SHOWACT ?
-
+op_SHOWACT mx %00
 ;35f3  78        ld      a,b
 ;35f4  ef        rst     #28		; insert task to display text "        "
 ;35f5  1c 30
@@ -9031,14 +9129,14 @@ play_cutscene mx %00
 ;35fb  18b7      jr      #35b4           ; (-73)
 
 ; for value == #F8 - CLEARACT
-
+op_CLEARACT mx %00
 ;35fd  3e40      ld      a,#40
 ;35ff  32ac42    ld      (#42ac),a	; blank out the character where the 'ACT' # was displayed
 ;3602  110100    ld      de,#0001
 ;3605  18ad      jr      #35b4           ; (-83)
 
 ; for value == #F5 - PLAYSOUND
-
+op_PLAYSOUND mx %00
 ;3607  23        inc     hl
 ;3608  7e        ld      a,(hl)
 ;3609  32 BC 4E  ld   	(#4EBC),a	; set sound channel #3.  used when ghosts bump during 1st intermission
@@ -9048,6 +9146,7 @@ play_cutscene mx %00
 ;------------------------------------------------------------------------------
 ; arrive here at intermissions and attract mode
 ; called from above, with C preloaded with an offset depending on which intermission / attract mode we are in
+; ja - Y is used instead of C
 ;3611
 init_cutscene mx %00
 ;3611  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
@@ -9071,24 +9170,55 @@ init_cutscene mx %00
 ;3625  11024f    ld      de,#4f02	; load Destination with #4F02
 ;3628  010c00    ld      bc,#000c	; load byte counter with #0C
 ;362b  edb0      ldir  			; copy data from table into memory
+			; copy 6 pointers to 4f02
+
+			clc
+			tya
+			adc #cutscenes_table
+			tax 					; Source
+			ldy #cutscene_parts		; Dest
+			lda #11					; length
+			mvn ^cutscenes_table,^cutscene_parts
+
 ;362d  3e01      ld      a,#01		; A := #01
 ;362f  32004f    ld      (#4f00),a	; set intermission indicator
+			lda #1
+			sta |is_intermission
 ;3632  32a44d    ld      (#4da4),a	; set # of ghost killed but no collision for yet to 1
+			sta |num_ghosts_killed
+
 ;3635  211f4f    ld      hl,#4f1f	; load HL with stack pointer (?)
 ;3638  3e00      ld      a,#00		; A := #00
 ;363a  32a54d    ld      (#4da5),a	; set pacman dead animation state to not dead
+			stz |pacman_dead_state
+
 ;363d  0614      ld      b,#14		; B := #14
-;363f  cf        rst     #8		; 
+			ldx #cutscene_vars
+			ldy #$14
+			lda #0
+
+;363f  cf        rst     #8		;
+			jsr rst8 			; memset
 ;3640  c9        ret 			; return    
+			rts
+
+check_intermission_count mx %00
 
 ;3641  78        ld      a,b
+			lda <cutscene_loop_counter
 ;3642  fe06      cp      #06
+			cmp #6
 ;3644  2004      jr      nz,#364a        ; (4)
+			bne :not6
 ;3646  21c64d    ld      hl,#4dc6
-;3649  c9        ret     
-
+			lda #intermission2
+;3649  c9        ret 
+			rts
+:not6
 ;364a  21fe4c    ld      hl,#4cfe
-;364d  c9        ret     
+			lda #intermission1
+;364d  c9        ret
+			rts
 
         ; select song
 	; arrive here from #2D62
@@ -9949,7 +10079,7 @@ act1_part1
 			db SETN,$28,PAUSE
 ;8263:  F2 16			; SETN		16
 ;8265:  F0 00 00 16		; LOOP		00 00 16
-			db SETN,$16,LOOP,$00,$16
+			db SETN,$16,LOOP,$00,$00,$16
 	;       ^^ color 16 (white)
 ;8269:  F2 16			; SETN		16
 ;826B:  F6			; PAUSE
