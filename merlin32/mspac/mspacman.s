@@ -1409,12 +1409,12 @@ HEXDEC
 	SEP #9    		; set BCD, and Set c=1, SED + SEC
 	TDC    			; load A with Zero
 	ROL HEXIN
-LOOP
+]LOOP
 	STA DECWORK
 	ADC DECWORK
 	ROL DECOUT
 	ASL HEXIN
-	BNE LOOP
+	BNE ]LOOP
 	CLD
 	RTS
 
@@ -8738,7 +8738,7 @@ move_pinky_marquee mx %00
 ;------------------------------------------------------------------------------
 ; arrive here from #3E67 after Inky has been introduced
 ;348d
-move_pinky_marquee mx %00
+move_inky_marquee mx %00
 ;348d  0e3c      ld      c,#3c		; load C with offset for moving Inky
 ;348f  c39c34    jp      #349c		; begin moving Inky across marquee and up left side
 			bra play_cutscene
@@ -8773,167 +8773,167 @@ play_cutscene mx %00
 
 :continue
 
-34a3  0606      ld      b,#06		; B := #06
-34a5  dd210c4f  ld      ix,#4f0c	; load IX with stack.  This holds the list of addresses for the data
+;34a3  0606      ld      b,#06		; B := #06
+;34a5  dd210c4f  ld      ix,#4f0c	; load IX with stack.  This holds the list of addresses for the data
 
 ; get the next ANIMATION code.. (codes return to here when done)
-34a9  dd6e00    ld      l,(ix+#00)
-34ac  dd6601    ld      h,(ix+#01)	; load HL with stack data.  this is an address for data
-34af  7e        ld      a,(hl)		; load data
-34b0  fef0      cp      #f0		; == #F0 ?
-34b2  cade34    jp      z,#34de		; handle code #F0 - LOOP
-34b5  fef1      cp      #f1
-34b7  ca6b35    jp      z,#356b		; handle code #F1 - SETPOS
-34ba  fef2      cp      #f2
-34bc  ca9735    jp      z,#3597		; handle code #F2 - SETN
-34bf  fef3      cp      #f3
-34c1  ca7735    jp      z,#3577		; handle code #F3 - SETCHAR
-34c4  fef5      cp      #f5
-34c6  ca0736    jp      z,#3607		; handle code #F5 - PLAYSOUND
-34c9  fef6      cp      #f6
-34cb  caa435    jp      z,#35a4		; handle code #F6 - PAUSE
-34ce  fef7      cp      #f7
-34d0  caf335    jp      z,#35f3		; handle code #F7 - SHOWACT ?
-34d3  fef8      cp      #f8
-34d5  cafd35    jp      z,#35fd		; handle code #F8 - CLEARACT ?
-34d8  feff      cp      #ff
-34da  cacb35    jp      z,#35cb		; handle code #FF - END
+;34a9  dd6e00    ld      l,(ix+#00)
+;34ac  dd6601    ld      h,(ix+#01)	; load HL with stack data.  this is an address for data
+;34af  7e        ld      a,(hl)		; load data
+;34b0  fef0      cp      #f0		; == #F0 ?
+;34b2  cade34    jp      z,#34de		; handle code #F0 - LOOP
+;34b5  fef1      cp      #f1
+;34b7  ca6b35    jp      z,#356b		; handle code #F1 - SETPOS
+;34ba  fef2      cp      #f2
+;34bc  ca9735    jp      z,#3597		; handle code #F2 - SETN
+;34bf  fef3      cp      #f3
+;34c1  ca7735    jp      z,#3577		; handle code #F3 - SETCHAR
+;34c4  fef5      cp      #f5
+;34c6  ca0736    jp      z,#3607		; handle code #F5 - PLAYSOUND
+;34c9  fef6      cp      #f6
+;34cb  caa435    jp      z,#35a4		; handle code #F6 - PAUSE
+;34ce  fef7      cp      #f7
+;34d0  caf335    jp      z,#35f3		; handle code #F7 - SHOWACT ?
+;34d3  fef8      cp      #f8
+;34d5  cafd35    jp      z,#35fd		; handle code #F8 - CLEARACT ?
+;34d8  feff      cp      #ff
+;34da  cacb35    jp      z,#35cb		; handle code #FF - END
 
-34dd  76        halt			; wait for interrupt
+;34dd  76        halt			; wait for interrupt
 
 ; for value == #F0 - LOOP
     
-34de  e5        push    hl
-34df  3e01      ld      a,#01
-34e1  d7        rst     #10
-34e2  4f        ld      c,a
-34e3  212e4f    ld      hl,#4f2e
-34e6  df        rst     #18
-34e7  79        ld      a,c
-34e8  84        add     a,h
-34e9  cd5635    call    #3556
-34ec  12        ld      (de),a
-34ed  cd4136    call    #3641
-34f0  df        rst     #18
-34f1  7c        ld      a,h
-34f2  81        add     a,c
-34f3  12        ld      (de),a
-34f4  e1        pop     hl
-34f5  e5        push    hl
-34f6  3e02      ld      a,#02
-34f8  d7        rst     #10
-34f9  4f        ld      c,a
-34fa  212e4f    ld      hl,#4f2e
-34fd  df        rst     #18
-34fe  79        ld      a,c
-34ff  85        add     a,l
-3500  cd5635    call    #3556
-3503  1b        dec     de
-3504  12        ld      (de),a
-3505  cd4136    call    #3641
-3508  df        rst     #18
-3509  7d        ld      a,l
-350a  81        add     a,c
-350b  1b        dec     de
-350c  12        ld      (de),a
-350d  210f4f    ld      hl,#4f0f
-3510  78        ld      a,b
-3511  d7        rst     #10
-3512  e5        push    hl
-3513  3c        inc     a
-3514  4f        ld      c,a
+;34de  e5        push    hl
+;34df  3e01      ld      a,#01
+;34e1  d7        rst     #10
+;34e2  4f        ld      c,a
+;34e3  212e4f    ld      hl,#4f2e
+;34e6  df        rst     #18
+;34e7  79        ld      a,c
+;34e8  84        add     a,h
+;34e9  cd5635    call    #3556
+;34ec  12        ld      (de),a
+;34ed  cd4136    call    #3641
+;34f0  df        rst     #18
+;34f1  7c        ld      a,h
+;34f2  81        add     a,c
+;34f3  12        ld      (de),a
+;34f4  e1        pop     hl
+;34f5  e5        push    hl
+;34f6  3e02      ld      a,#02
+;34f8  d7        rst     #10
+;34f9  4f        ld      c,a
+;34fa  212e4f    ld      hl,#4f2e
+;34fd  df        rst     #18
+;34fe  79        ld      a,c
+;34ff  85        add     a,l
+;3500  cd5635    call    #3556
+;3503  1b        dec     de
+;3504  12        ld      (de),a
+;3505  cd4136    call    #3641
+;3508  df        rst     #18
+;3509  7d        ld      a,l
+;350a  81        add     a,c
+;350b  1b        dec     de
+;350c  12        ld      (de),a
+;350d  210f4f    ld      hl,#4f0f
+;3510  78        ld      a,b
+;3511  d7        rst     #10
+;3512  e5        push    hl
+;3513  3c        inc     a
+;3514  4f        ld      c,a
 
-3515  213e4f    ld      hl,#4f3e
-3518  df        rst     #18		; load HL with address (EG 8663)
-3519  79        ld      a,c		; Copy C to A
-351a  cb2f      sra     a		; Shift right (div by 2)
-351c  d7        rst     #10		; dereference sprite number for intro.  loads A with value in HL+A
-351d  feff      cp      #ff		; are we done ?
-351f  c22635    jp      nz,#3526	; no, skip ahead
+;3515  213e4f    ld      hl,#4f3e
+;3518  df        rst     #18		; load HL with address (EG 8663)
+;3519  79        ld      a,c		; Copy C to A
+;351a  cb2f      sra     a		; Shift right (div by 2)
+;351c  d7        rst     #10		; dereference sprite number for intro.  loads A with value in HL+A
+;351d  feff      cp      #ff		; are we done ?
+;351f  c22635    jp      nz,#3526	; no, skip ahead
 
-3522  0e00      ld      c,#00		; else reset counter
-3524  18ef      jr      #3515           ; loop again
+;3522  0e00      ld      c,#00		; else reset counter
+;3524  18ef      jr      #3515           ; loop again
 
-3526  e1        pop     hl
-3527  71        ld      (hl),c
-3528  5f        ld      e,a
-3529  e1        pop     hl
-352a  3e03      ld      a,#03
-352c  d7        rst     #10
-352d  57        ld      d,a
-352e  d5        push    de
-352f  214e4f    ld      hl,#4f4e
-3532  df        rst     #18
-3533  e1        pop     hl
-3534  eb        ex      de,hl
-3535  72        ld      (hl),d
-3536  2b        dec     hl
-3537  3a094e    ld      a,(#4e09)
-353a  4f        ld      c,a
-353b  3a724e    ld      a,(#4e72)
-353e  a1        and     c
-353f  2804      jr      z,#3545         ; (4)
+;3526  e1        pop     hl
+;3527  71        ld      (hl),c
+;3528  5f        ld      e,a
+;3529  e1        pop     hl
+;352a  3e03      ld      a,#03
+;352c  d7        rst     #10
+;352d  57        ld      d,a
+;352e  d5        push    de
+;352f  214e4f    ld      hl,#4f4e
+;3532  df        rst     #18
+;3533  e1        pop     hl
+;3534  eb        ex      de,hl
+;3535  72        ld      (hl),d
+;3536  2b        dec     hl
+;3537  3a094e    ld      a,(#4e09)
+;353a  4f        ld      c,a
+;353b  3a724e    ld      a,(#4e72)
+;353e  a1        and     c
+;353f  2804      jr      z,#3545         ; (4)
 
-3541  3ec0      ld      a,#c0
-3543  ab        xor     e
-3544  5f        ld      e,a
+;3541  3ec0      ld      a,#c0
+;3543  ab        xor     e
+;3544  5f        ld      e,a
 
-3545  73        ld      (hl),e
-3546  21174f    ld      hl,#4f17
-3549  78        ld      a,b
-354a  d7        rst     #10
-354b  3d        dec     a
-354c  77        ld      (hl),a
-354d  110000    ld      de,#0000
-3550  2062      jr      nz,#35b4        ; (98)
+;3545  73        ld      (hl),e
+;3546  21174f    ld      hl,#4f17
+;3549  78        ld      a,b
+;354a  d7        rst     #10
+;354b  3d        dec     a
+;354c  77        ld      (hl),a
+;354d  110000    ld      de,#0000
+;3550  2062      jr      nz,#35b4        ; (98)
 
-3552  1e04      ld      e,#04
-3554  185e      jr      #35b4           ; (94)
+;3552  1e04      ld      e,#04
+;3554  185e      jr      #35b4           ; (94)
 
-3556  4f        ld      c,a
-3557  cb29      sra     c
-3559  cb29      sra     c
-355b  cb29      sra     c
-355d  cb29      sra     c
-355f  a7        and     a
-3560  f26835    jp      p,#3568
+;3556  4f        ld      c,a
+;3557  cb29      sra     c
+;3559  cb29      sra     c
+;355b  cb29      sra     c
+;355d  cb29      sra     c
+;355f  a7        and     a
+;3560  f26835    jp      p,#3568
 
 ; arrive here when ghost is moving up the left side of the marquee
 
-3563  f6f0      or      #f0
-3565  0c        inc     c
-3566  1802      jr      #356a           ; (2)
+;3563  f6f0      or      #f0
+;3565  0c        inc     c
+;3566  1802      jr      #356a           ; (2)
 
-3568  e60f      and     #0f
-356a  c9        ret     
+;3568  e60f      and     #0f
+;356a  c9        ret     
 
 ; for value == #F1 - SETPOS
 
-356b  eb        ex      de,hl
-356c  cd4136    call    #3641		; load HL with either #4CFE or #4Dc6
-356f  eb        ex      de,hl
-3570  d5        push    de
-3571  23        inc     hl
-3572  56        ld      d,(hl)
-3573  23        inc     hl
-3574  5e        ld      e,(hl)
-3575  1813      jr      #358a           ; (19)
+;356b  eb        ex      de,hl
+;356c  cd4136    call    #3641		; load HL with either #4CFE or #4Dc6
+;356f  eb        ex      de,hl
+;3570  d5        push    de
+;3571  23        inc     hl
+;3572  56        ld      d,(hl)
+;3573  23        inc     hl
+;3574  5e        ld      e,(hl)
+;3575  1813      jr      #358a           ; (19)
 
 ; for value == #F3 - SETCHAR
 
-3577  eb        ex      de,hl		; save HL into DE
-3578  210f4f    ld      hl,#4f0f	; HL := #4F0F (stack)
-357b  78        ld      a,b		; A := B
-357c  d7        rst     #10		; load A with the data in HL+A
-357d  3600      ld      (hl),#00	; clear this location
-357f  eb        ex      de,hl		; restore HL from DE
-3580  113e4f    ld      de,#4f3e	; DE := #4F3E (stack)
-3583  d5        push    de		; save DE
-3584  23        inc     hl		; next location
-3585  5e        ld      e,(hl)
-3586  23        inc     hl
-3587  56        ld      d,(hl)		; DE how has the address word after the code #F3
-3588  1800      jr      #358a		; does nothing (?) -- jumps to next instruction
+;3577  eb        ex      de,hl		; save HL into DE
+;3578  210f4f    ld      hl,#4f0f	; HL := #4F0F (stack)
+;357b  78        ld      a,b		; A := B
+;357c  d7        rst     #10		; load A with the data in HL+A
+;357d  3600      ld      (hl),#00	; clear this location
+;357f  eb        ex      de,hl		; restore HL from DE
+;3580  113e4f    ld      de,#4f3e	; DE := #4F3E (stack)
+;3583  d5        push    de		; save DE
+;3584  23        inc     hl		; next location
+;3585  5e        ld      e,(hl)
+;3586  23        inc     hl
+;3587  56        ld      d,(hl)		; DE how has the address word after the code #F3
+;3588  1800      jr      #358a		; does nothing (?) -- jumps to next instruction
 
 	; It's my gyess that the jr at 3588 and the lack of code #F4 
 	; are related.  In fitting with the style of the other F-commands,
@@ -8943,113 +8943,113 @@ play_cutscene mx %00
 	; a jr to the next instruction.  -scott
 
 ; cleanup for return from #F0, #F1, #F3
-358a  e1        pop     hl		; restore DE saved earlier into HL
-358b  d5        push    de		; save the address
-358c  df        rst     #18		; load HL with the data in (HL + 2*B)
-358d  eb        ex      de,hl		; DE <-> HL
-358e  d1        pop     de		; restore the address
-358f  72        ld      (hl),d
-3590  2b        dec     hl
-3591  73        ld      (hl),e
-3592  110300    ld      de,#0003	; 3 bytes used from the code program
-3595  181d      jr      #35b4           ; (29)
+;358a  e1        pop     hl		; restore DE saved earlier into HL
+;358b  d5        push    de		; save the address
+;358c  df        rst     #18		; load HL with the data in (HL + 2*B)
+;358d  eb        ex      de,hl		; DE <-> HL
+;358e  d1        pop     de		; restore the address
+;358f  72        ld      (hl),d
+;3590  2b        dec     hl
+;3591  73        ld      (hl),e
+;3592  110300    ld      de,#0003	; 3 bytes used from the code program
+;3595  181d      jr      #35b4           ; (29)
 
 ; for value = #F2 - SETN
 
-3597  23        inc     hl
-3598  4e        ld      c,(hl)
-3599  21174f    ld      hl,#4f17
-359c  78        ld      a,b
-359d  d7        rst     #10
-359e  71        ld      (hl),c
-359f  110200    ld      de,#0002	; 
-35a2  1810      jr      #35b4           ; (16)
+;3597  23        inc     hl
+;3598  4e        ld      c,(hl)
+;3599  21174f    ld      hl,#4f17
+;359c  78        ld      a,b
+;359d  d7        rst     #10
+;359e  71        ld      (hl),c
+;359f  110200    ld      de,#0002	; 
+;35a2  1810      jr      #35b4           ; (16)
 
 ; for value == #F6 - PAUSE
 
-35a4  21174f    ld      hl,#4f17
-35a7  78        ld      a,b
-35a8  d7        rst     #10
+;35a4  21174f    ld      hl,#4f17
+;35a7  78        ld      a,b
+;35a8  d7        rst     #10
 
-35a9  3d        dec     a
-35aa  77        ld      (hl),a
-35ab  110000    ld      de,#0000
-35ae  2004      jr      nz,#35b4        ; (4)
-35b0  1e01      ld      e,#01		; 1 byte used from the code program
-35b2  1800      jr      #35b4           ; (0)
+;35a9  3d        dec     a
+;35aa  77        ld      (hl),a
+;35ab  110000    ld      de,#0000
+;35ae  2004      jr      nz,#35b4        ; (4)
+;35b0  1e01      ld      e,#01		; 1 byte used from the code program
+;35b2  1800      jr      #35b4           ; (0)
 
 ; finish up for the above
 
-35b4  dd6e00    ld      l,(ix+#00)
-35b7  dd6601    ld      h,(ix+#01)	; load HL with next value
-35ba  19        add     hl,de		; add offset
-35bb  dd7500    ld      (ix+#00),l
-35be  dd7401    ld      (ix+#01),h
-35c1  dd2b      dec     ix
-35c3  dd2b      dec     ix
-35c5  1001      djnz    #35c8           ; (1)
-35c7  c9        ret     
+;35b4  dd6e00    ld      l,(ix+#00)
+;35b7  dd6601    ld      h,(ix+#01)	; load HL with next value
+;35ba  19        add     hl,de		; add offset
+;35bb  dd7500    ld      (ix+#00),l
+;35be  dd7401    ld      (ix+#01),h
+;35c1  dd2b      dec     ix
+;35c3  dd2b      dec     ix
+;35c5  1001      djnz    #35c8           ; (1)
+;35c7  c9        ret     
 
-35c8  c3a934    jp      #34a9
+;35c8  c3a934    jp      #34a9
 
 ; for value == #FF (end code)
 
-35cb  211f4f    ld      hl,#4f1f
-35ce  78        ld      a,b
-35cf  d7        rst     #10
-35d0  3601      ld      (hl),#01
-35d2  21204f    ld      hl,#4f20
-35d5  7e        ld      a,(hl)
-35d6  23        inc     hl
-35d7  a6        and     (hl)
-35d8  23        inc     hl
-35d9  a6        and     (hl)
-35da  23        inc     hl
-35db  a6        and     (hl)
-35dc  23        inc     hl
-35dd  a6        and     (hl)
-35de  23        inc     hl
-35df  a6        and     (hl)
-35e0  110000    ld      de,#0000
-35e3  28cf      jr      z,#35b4         ; (-49)
+;35cb  211f4f    ld      hl,#4f1f
+;35ce  78        ld      a,b
+;35cf  d7        rst     #10
+;35d0  3601      ld      (hl),#01
+;35d2  21204f    ld      hl,#4f20
+;35d5  7e        ld      a,(hl)
+;35d6  23        inc     hl
+;35d7  a6        and     (hl)
+;35d8  23        inc     hl
+;35d9  a6        and     (hl)
+;35da  23        inc     hl
+;35db  a6        and     (hl)
+;35dc  23        inc     hl
+;35dd  a6        and     (hl)
+;35de  23        inc     hl
+;35df  a6        and     (hl)
+;35e0  110000    ld      de,#0000
+;35e3  28cf      jr      z,#35b4         ; (-49)
 
-35e5  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
-35e8  a7        and     a		; == #00 ?
-35e9  ca9521    jp      z,#2195		; yes, jump back to program
+;35e5  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
+;35e8  a7        and     a		; == #00 ?
+;35e9  ca9521    jp      z,#2195		; yes, jump back to program
 
-35ec  af        xor     a		; else A := #00
-35ed  32004f    ld      (#4f00),a	; clear the intermission indicator
-35f0  c38e05    jp      #058e		; jump back to program
+;35ec  af        xor     a		; else A := #00
+;35ed  32004f    ld      (#4f00),a	; clear the intermission indicator
+;35f0  c38e05    jp      #058e		; jump back to program
 
 ; for value == #F7 - SHOWACT ?
 
-35f3  78        ld      a,b
-35f4  ef        rst     #28		; insert task to display text "        "
-35f5  1c 30
-35f6  47        ld      b,a
-35f8  110100    ld      de,#0001
-35fb  18b7      jr      #35b4           ; (-73)
+;35f3  78        ld      a,b
+;35f4  ef        rst     #28		; insert task to display text "        "
+;35f5  1c 30
+;35f6  47        ld      b,a
+;35f8  110100    ld      de,#0001
+;35fb  18b7      jr      #35b4           ; (-73)
 
 ; for value == #F8 - CLEARACT
 
-35fd  3e40      ld      a,#40
-35ff  32ac42    ld      (#42ac),a	; blank out the character where the 'ACT' # was displayed
-3602  110100    ld      de,#0001
-3605  18ad      jr      #35b4           ; (-83)
+;35fd  3e40      ld      a,#40
+;35ff  32ac42    ld      (#42ac),a	; blank out the character where the 'ACT' # was displayed
+;3602  110100    ld      de,#0001
+;3605  18ad      jr      #35b4           ; (-83)
 
 ; for value == #F5 - PLAYSOUND
 
-3607  23        inc     hl
-3608  7e        ld      a,(hl)
-3609  32 BC 4E  ld   	(#4EBC),a	; set sound channel #3.  used when ghosts bump during 1st intermission
-360c  11 02 00	ld      de,#0002
-360f  18 a3	jr      #35b4           ; (-93)
+;3607  23        inc     hl
+;3608  7e        ld      a,(hl)
+;3609  32 BC 4E  ld   	(#4EBC),a	; set sound channel #3.  used when ghosts bump during 1st intermission
+;360c  11 02 00	ld      de,#0002
+;360f  18 a3	jr      #35b4           ; (-93)
 
 ;------------------------------------------------------------------------------
 ; arrive here at intermissions and attract mode
 ; called from above, with C preloaded with an offset depending on which intermission / attract mode we are in
 ;3611
-init_cutsceen mx %00
+init_cutscene mx %00
 ;3611  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
 ;3614  a7        and     a		; check for zero.  is a game being played?
 			lda |mainroutine1
@@ -9065,64 +9065,64 @@ init_cutsceen mx %00
 
 ; this is used to generate the animations with the animation programs stored in the tables
 :skip_sound
-361f  21f081    ld      hl,#81f0	; load HL with start of table data
-3622  0600      ld      b,#00		; B:=#00
-3624  09        add     hl,bc		; add BC to HL to offset the start of the data
-3625  11024f    ld      de,#4f02	; load Destination with #4F02
-3628  010c00    ld      bc,#000c	; load byte counter with #0C
-362b  edb0      ldir  			; copy data from table into memory
-362d  3e01      ld      a,#01		; A := #01
-362f  32004f    ld      (#4f00),a	; set intermission indicator
-3632  32a44d    ld      (#4da4),a	; set # of ghost killed but no collision for yet to 1
-3635  211f4f    ld      hl,#4f1f	; load HL with stack pointer (?)
-3638  3e00      ld      a,#00		; A := #00
-363a  32a54d    ld      (#4da5),a	; set pacman dead animation state to not dead
-363d  0614      ld      b,#14		; B := #14
-363f  cf        rst     #8		; 
-3640  c9        ret 			; return    
+;361f  21f081    ld      hl,#81f0	; load HL with start of table data
+;3622  0600      ld      b,#00		; B:=#00
+;3624  09        add     hl,bc		; add BC to HL to offset the start of the data
+;3625  11024f    ld      de,#4f02	; load Destination with #4F02
+;3628  010c00    ld      bc,#000c	; load byte counter with #0C
+;362b  edb0      ldir  			; copy data from table into memory
+;362d  3e01      ld      a,#01		; A := #01
+;362f  32004f    ld      (#4f00),a	; set intermission indicator
+;3632  32a44d    ld      (#4da4),a	; set # of ghost killed but no collision for yet to 1
+;3635  211f4f    ld      hl,#4f1f	; load HL with stack pointer (?)
+;3638  3e00      ld      a,#00		; A := #00
+;363a  32a54d    ld      (#4da5),a	; set pacman dead animation state to not dead
+;363d  0614      ld      b,#14		; B := #14
+;363f  cf        rst     #8		; 
+;3640  c9        ret 			; return    
 
-3641  78        ld      a,b
-3642  fe06      cp      #06
-3644  2004      jr      nz,#364a        ; (4)
-3646  21c64d    ld      hl,#4dc6
-3649  c9        ret     
+;3641  78        ld      a,b
+;3642  fe06      cp      #06
+;3644  2004      jr      nz,#364a        ; (4)
+;3646  21c64d    ld      hl,#4dc6
+;3649  c9        ret     
 
-364a  21fe4c    ld      hl,#4cfe
-364d  c9        ret     
+;364a  21fe4c    ld      hl,#4cfe
+;364d  c9        ret     
 
         ; select song
 	; arrive here from #2D62
 
-364E: 05	dec	b		; B = current bit of song being played (from loop in #2d50)
+;364E: 05	dec	b		; B = current bit of song being played (from loop in #2d50)
 					; adapt B to the current level to find out the song number
-364F: C5	push	bc		; save BC	
-3650: 78	ld	a,b		; load A with B
-3651: FE 01	cp	#01		; == #01 ?
-3653: 28 04	jr	z,#3659		; yes, skip next 2 steps
-3655: 06 00	ld	b,#00		; else B := #00
-3657: 18 11	jr	#366A		; jump ahead
+;364F: C5	push	bc		; save BC	
+;3650: 78	ld	a,b		; load A with B
+;3651: FE 01	cp	#01		; == #01 ?
+;3653: 28 04	jr	z,#3659		; yes, skip next 2 steps
+;3655: 06 00	ld	b,#00		; else B := #00
+;3657: 18 11	jr	#366A		; jump ahead
+;
+;3659: 3A 13 4E	ld	a,(#4E13)	; load A with current game level
+;365C: 06 01	ld	b,#01		; B := #01 (song #1 for 1st intermission)
+;365E: FE 01	cp	#01		; game level == #01 (level 2) ?
+;3660: 28 08	jr	z,#366A		; yes, jump ahead
+;3662: 06 02	ld	b,#02		; B := #02 (song #2 for 2nd intermission)
+;3664: FE 04	cp	#04		; game level == #04 (level 5) ?
+;3666: 28 02	jr	z,#366A		; yes, jump ahead
+;3668: 06 03	ld	b,#03		; else B := #03 (song #3 for 3rd intermission)
 
-3659: 3A 13 4E	ld	a,(#4E13)	; load A with current game level
-365C: 06 01	ld	b,#01		; B := #01 (song #1 for 1st intermission)
-365E: FE 01	cp	#01		; game level == #01 (level 2) ?
-3660: 28 08	jr	z,#366A		; yes, jump ahead
-3662: 06 02	ld	b,#02		; B := #02 (song #2 for 2nd intermission)
-3664: FE 04	cp	#04		; game level == #04 (level 5) ?
-3666: 28 02	jr	z,#366A		; yes, jump ahead
-3668: 06 03	ld	b,#03		; else B := #03 (song #3 for 3rd intermission)
-
-366A: DF	rst	#18		; HL = (HL+2B)  [read from table in HL, i.e. SONG_TABLE_x]
-366B: C1	pop	bc		; restore BC
-366C: C3 72 2D	jp	#2D72		; jump back to main program to "process byte" routine
+;366A: DF	rst	#18		; HL = (HL+2B)  [read from table in HL, i.e. SONG_TABLE_x]
+;366B: C1	pop	bc		; restore BC
+;366C: C3 72 2D	jp	#2D72		; jump back to main program to "process byte" routine
 
 ; arrive here from #2060 
 ; A is loaded with the color of the tile the ghost is on
 
-366f  cb77      bit     6,a		; test bit 6 of the tile.  is this a slow down zone (tunnel) ?
-3671  ca6620    jp      z,#2066		; no, jump back and set the var to zero
-3674  3e01      ld      a,#01		; yes, A := #01
-3676  02        ld      (bc),a		; store into ghost tunnel slowdown flag
-3677  c9        ret     		; return
+;366f  cb77      bit     6,a		; test bit 6 of the tile.  is this a slow down zone (tunnel) ?
+;3671  ca6620    jp      z,#2066		; no, jump back and set the var to zero
+;3674  3e01      ld      a,#01		; yes, A := #01
+;3676  02        ld      (bc),a		; store into ghost tunnel slowdown flag
+;3677  c9        ret     		; return
 
 
 ;------------------------------------------------------------------------------
@@ -9475,7 +9475,7 @@ ATTRACT mx %00
 ;3e7e  b1 3e				; #3EB1		; A == #0B	; display "Sue"
 			da disp_sue
 ;3e80  92 34				; #3492		; A == #0C	; move Sue across the marquee and up left side
-			da move_sue_marque
+			da move_sue_marquee
 ;3e82  c3 3e 				; #3EC3		; A == #0D	; display "Starring"
 			da disp_starring
 ;3e84  b7 3e 				; #3EB7		; A == #0E	; display "MS. Pac-Man"
@@ -9811,12 +9811,12 @@ cutscenes_table
 			da act2_part5
 			da act2_part6
 
-8208  51 84	; #8451		; 3rd intermission
-820a  6d 84	; #846D
-820c  cf 84	; #84CF
-820e  fd 84 ; #84FD
-8210  89 84	; #8489
-8212  7c 85	; #857C
+;8208  51 84	; #8451		; 3rd intermission
+;820a  6d 84	; #846D
+;820c  cf 84	; #84CF
+;820e  fd 84 ; #84FD
+;8210  89 84	; #8489
+;8212  7c 85	; #857C
 
 			da act3_part1
 			da act3_part2
@@ -9832,11 +9832,11 @@ cutscenes_table
 ;821c  50 82	; #8250
 ;821e  50 82	; #8250
 			da attr_ghost1_1
-			da attr_ghost1_2
-			da attr_ghost1_3
-			da attr_ghost1_4
-			da attr_ghost1_5
-			da attr_ghost1_6
+			da nodata
+			da nodata
+			da nodata
+			da nodata
+			da nodata
 
 ;8220  50 82	; #8250		; attract mode 2nd ghost
 ;8222  b0 85	; #85B0
@@ -9844,12 +9844,12 @@ cutscenes_table
 ;8226  50 82	; #8250
 ;8228  50 82	; #8250
 ;822a  50 82	; #8250
-			da attr_ghost2_1
+			da nodata
 			da attr_ghost2_2
-			da attr_ghost2_3
-			da attr_ghost2_4
-			da attr_ghost2_5
-			da attr_ghost2_6
+			da nodata
+			da nodata
+			da nodata
+			da nodata
 
 ;822c  50 82	; #8250		; attract mode 3rd ghost
 ;822e  50 82	; #8250
@@ -9858,12 +9858,12 @@ cutscenes_table
 ;8234  50 82	; #8250
 ;8236  50 82	; #8250
 
-			da attr_ghost3_1
-			da attr_ghost3_2
+			da nodata
+			da nodata
 			da attr_ghost3_3
-			da attr_ghost3_4
-			da attr_ghost3_5
-			da attr_ghost3_6
+			da nodata
+			da nodata
+			da nodata
 
 ;8238  50 82	; #8250		; attract mode 4th ghost
 ;823a  50 82	; #8250
@@ -9872,12 +9872,12 @@ cutscenes_table
 ;8240  50 82	; #8250
 ;8242  50 82	; #8250
 
-			da attr_ghost4_1
-			da attr_ghost4_2
-			da attr_ghost4_3
+			da nodata
+			da nodata
+			da nodata
 			da attr_ghost4_4
-			da attr_ghost4_5
-			da attr_ghost4_6
+			da nodata
+			da nodata
 
 ;8244  50 82	; #8250		; attract mode ms pac man
 ;8246  50 82	; #8250
@@ -9886,14 +9886,16 @@ cutscenes_table
 ;824c  04 86	; #8604
 ;824e  50 82	; #8250
 
-			da attr_mspac_1
-			da attr_mspac_2
-			da attr_mspac_3
-			da attr_mspac_4
+			da nodata
+			da nodata
+			da nodata
+			da nodata
 			da attr_mspac_5
-			da attr_mspac_6
+			da nodata
 
+nodata
 ;8250  ff       	; no data
+			db END
 
 
 ; commands: (functionality TBD)
@@ -9983,7 +9985,7 @@ act1_part1
 ;8293:  F2 30			; SETN		30
 ;8295:  F0 00 F0 09		; LOOP		00 F0 09
 			db SETN,$30,LOOP,$00,$F0,$09
-8299:  F3 1D 86			; SETCHAR	#861D
+;8299:  F3 1D 86			; SETCHAR	#861D
 			db SETCHAR
 			da msp_walk_left
 ;829C:  F2 10			; SETN		10
@@ -10145,40 +10147,70 @@ act1_part3
 
 ; data for 1st intermission, part 4
 act1_part4
-834C:  F2 5F
-834E:  F6
-834F:  F1 01 A4
+;834C:  F2 5F
+;834E:  F6
+			db SETN,$5F,PAUSE
+
+;834F:  F1 01 A4
+			db SETPOS,$01,$A4
+
 ;8352:  F3 63 86			; #8663
 			db SETCHAR
 			da geyes_left
 
-8355:  F2 2F
-8357:  F6
-8358:  F2 70
-835A:  F0 11 00 03
-835E:  F2 74
-8360:  F0 14 00 03
-8364:  F1 FF 7F
+;8355:  F2 2F
+;8357:  F6
+			db SETN,$2F,PAUSE
+
+;8358:  F2 70
+;835A:  F0 11 00 03
+			db SETN,$70,LOOP,$11,$00,$03
+
+;835E:  F2 74
+;8360:  F0 14 00 03
+			db SETN,$74,LOOP,$14,$00,$03
+
+;8364:  F1 FF 7F
+			db SETPOS,$FF,$7F
+
 ;8367:  F3 5C 86			; #865C
 			db SETCHAR
 			da geyes_right
 
-836A:  F2 1C
-836C:  F6
-836D:  F2 58
-836F:  F0 EA 00 03
-8373:  F2 06
-8375:  F0 08 F8 03
-8379:  F2 06 
-837B:  F0 08 08 03
-837F:  F2 06
-8381:  F0 08 F8 03
-8385:  F2 06 
-8387:  F0 08 08 03
-838B:  F3 71 86			; #8671
-838E:  F2 10
-8390:  F0 00 00 16
-8394:  FF			; end code
+;836A:  F2 1C
+;836C:  F6
+			db SETN,$1C,PAUSE
+
+;836D:  F2 58
+;836F:  F0 EA 00 03
+			db SETN,$58,LOOP,$EA,$00,$03
+
+;8373:  F2 06
+;8375:  F0 08 F8 03
+			db SETN,$06,LOOP,$08,$F8,$03
+
+;8379:  F2 06 
+;837B:  F0 08 08 03
+			db SETN,$06,LOOP,$08,$08,$03
+
+;837F:  F2 06
+;8381:  F0 08 F8 03
+			db SETN,$06,LOOP,$08,$F8,$03
+
+;8385:  F2 06 
+;8387:  F0 08 08 03
+			db SETN,$06,LOOP,$08,$08,$03
+
+;838B:  F3 71 86			; #8671
+			db SETCHAR
+			da empty
+
+;838E:  F2 10
+;8390:  F0 00 00 16
+			db SETN,$10,LOOP,$00,$00,$16
+
+;8394:  FF			; end code
+			db END
 
 
 ; CODE from CRAZY OTTO actual source: (Rosetta Stone) (tidied up)
@@ -10234,357 +10266,712 @@ act1_part4
 ;	 (work in progress)
 
 	; this is for the pac being chased (red anna)
-8395:  F2 5A			; SETN( 5A )
-8397:  F6			; PAUSE
-8398:  F1 FF 34			; SETPOS, FF, 34
-839B:  F3 14 86			; SETCHAR ( RIGHT_OTTO )  (sprite codes)
-839E:  F2 7F			; SETN( 7f )
-83A0:  F6			; PAUSE
-83A1:  F2 24			; SETN( 24 )
-83A3:  F6			; PAUSE
-83A4:  F2 68			; SETN( 60 )
-83A6:  F0 D8 00 09		; LOOP( d8, 00 09 )
-83AA:  F2 7F			; SETN( 7f )
-83AC:  F6			; PAUSE
+act2_part1
+;8395:  F2 5A			; SETN( 5A )
+;8397:  F6			; PAUSE
+			db SETN,$5A,PAUSE
+;8398:  F1 FF 34			; SETPOS, FF, 34
+			db SETPOS,$FF,$34
+;839B:  F3 14 86			; SETCHAR ( RIGHT_OTTO )  (sprite codes)
+			db SETCHAR
+			da msp_walk_right
 
-83AD:  F2 18			; SETN( 18 )
-83AF:  F6			; PAUSE
+;839E:  F2 7F			; SETN( 7f )
+;83A0:  F6			; PAUSE
+			db SETN,$7F,PAUSE
 
-83B0:  F1 00 94 		; SETCHAR( LEFT_ANNA )
-83B3:  F3 41 86			; SETN( 
-83B6:  F2 68			; SETN(
-83B8:  F0 28 00 09		; LOOP( 28 00 09 )
-83BC:  F2 7F			; SETN( 7f )
-83BE:  F6			; PAUSE
+;83A1:  F2 24			; SETN( 24 )
+;83A3:  F6			; PAUSE
+			db SETN,$24,PAUSE
 
-83BF:  F1 FC 7F			; SETPOS( fc, 7f )
-83C2:  F3 14 86			; SETCHAR( RIGHT_OTTO )
-83C5:  F2 18			; SETN( 18 )
-83C7:  F6			; PAUSE
-83C8:  F2 68			; SETN( 68 )
-83CA:  F0 D8 00 09		; LOOP ( d8, 0, 09 )
-83CE:  F2 7F			; SETN( 7f ) 
-83D0:  F6			; PAUSE
-83D1:  F2 18			; SETN( 18 )
-83D3:  F6			; PAUSE
-83D4:  F1 00 54			; SETPOS( 00 54 ) 
-83D7:  F3 41 86			; SETCHAR( LEFT_ANNA )
-83DA:  F2 20			; SETN( 20 )
-83DC:  F0 70 00 09		; LOOP
-83E0:  F1 FF B4			; SETPOS( ff, 04 )
+;83A4:  F2 68			; SETN( 60 )
+;83A6:  F0 D8 00 09		; LOOP( d8, 00 09 )
+			db SETN,$60,LOOP,$D8,$00,$09
 
-83E3:  F3 14 86			; SETCHAR( RIGHT_OTTO )
-83E6:  F2 10			; SETN( 10 )
-83E8:  F6			; PAUSE
-83E9:  F2 24			; SETN( 24 )
-	  SPEED?
-83EB:  F0 90 00 09		; LOOP( 90 0 09)
-          XX YY CC
-83EF:  FF			; end code
+;83AA:  F2 7F			; SETN( 7f )
+;83AC:  F6			; PAUSE
+			db SETN,$7F,PAUSE
+
+;83AD:  F2 18			; SETN( 18 )
+;83AF:  F6			; PAUSE
+			db SETN,$18,PAUSE
+
+;83B0:  F1 00 94 		; SETCHAR( LEFT_ANNA )
+			db SETPOS,$00,$94
+
+;83B3:  F3 41 86			; SETN( 
+			db SETN,$41,$86
+
+;83B6:  F2 68			; SETN(
+;83B8:  F0 28 00 09		; LOOP( 28 00 09 )
+			db SETN,$68,LOOP,$28,$00,$09
+
+;83BC:  F2 7F			; SETN( 7f )
+;83BE:  F6			; PAUSE
+			db SETN,$7F,PAUSE
+
+;83BF:  F1 FC 7F			; SETPOS( fc, 7f )
+			db SETPOS,$FC,$7F
+
+;83C2:  F3 14 86			; SETCHAR( RIGHT_OTTO )
+			db SETCHAR
+			da msp_walk_right
+
+;83C5:  F2 18			; SETN( 18 )
+;83C7:  F6			; PAUSE
+			db SETN,$18,PAUSE
+
+;83C8:  F2 68			; SETN( 68 )
+;83CA:  F0 D8 00 09		; LOOP ( d8, 0, 09 )
+			db SETN,$68,LOOP,$D8,$00,$09
+
+;83CE:  F2 7F			; SETN( 7f ) 
+;83D0:  F6			; PAUSE
+			db SETN,$7F,PAUSE
+
+;83D1:  F2 18			; SETN( 18 )
+;83D3:  F6			; PAUSE
+			db SETN,$18,PAUSE
+
+;83D4:  F1 00 54			; SETPOS( 00 54 ) 
+			db SETPOS,$00,$54
+
+;83D7:  F3 41 86			; SETCHAR( LEFT_ANNA )
+			db SETCHAR
+			da left_anna
+
+;83DA:  F2 20			; SETN( 20 )
+;83DC:  F0 70 00 09		; LOOP
+			db SETN,$20,LOOP,$70,$00,$09
+
+;83E0:  F1 FF B4			; SETPOS( ff, 04 )
+			db SETPOS,$FF,$04
+
+;83E3:  F3 14 86			; SETCHAR( RIGHT_OTTO )
+			db SETCHAR
+			da msp_walk_right
+
+;83E6:  F2 10			; SETN( 10 )
+;83E8:  F6			; PAUSE
+			db SETN,$10,PAUSE
+
+;83E9:  F2 24			; SETN( 24 )
+;	  SPEED?
+;83EB:  F0 90 00 09		; LOOP( 90 0 09)
+;          XX YY CC
+			db SETN,$24,LOOP,$90,$00,$09
+;83EF:  FF			; end code
+			db END
+
 
 ; data for 2nd intermission, part 2
 
-83F0:  F2 63
-83F2:  F6
-83F3:  F1 FF 34
+act2_part2
+;83F0:  F2 63
+;83F2:  F6
+			db SETN,$63,PAUSE
+
+;83F3:  F1 FF 34
+			db SETPOS,$FF,$34
+
 ;83F6:  F3 38 86			; #8638
 			db SETCHAR
 			da right_anna
 
-83F9:  F2 24
-83FB:  F6
-83FC:  F2 7F
-83FE:  F6
-83FF:  F2 18
-8401:  F6
-8402:  F2 57
-8404:  F0 D0 00 09
-8408:  F2 7F
-840A:  F6
-840B:  F2 28
-840D:  F6
-840E:  F1 00 94
-8411:  F3 1D 86			; #861D 8414:  F2 58
-8416:  F0 30 00 09
-841A:  F2 7F
-841C:  F6
-841D:  F2 24
-841F:  F6
-8420:  F1 FF 7F
+;83F9:  F2 24
+;83FB:  F6
+			db SETN,$24,PAUSE
+
+;83FC:  F2 7F
+;83FE:  F6
+			db SETN,$7F,PAUSE
+
+;83FF:  F2 18
+;8401:  F6
+			db SETN,$18,PAUSE
+
+;8402:  F2 57
+;8404:  F0 D0 00 09
+			db SETN,$57,LOOP,$D0,$00,$09
+
+;8408:  F2 7F
+;840A:  F6
+			db SETN,$7F,PAUSE
+
+;840B:  F2 28
+;840D:  F6
+			db SETN,$28,PAUSE
+
+;840E:  F1 00 94
+			db SETPOS,$00,$94
+
+;8411:  F3 1D 86			; #861D 8414:  F2 58
+			db SETCHAR
+			da msp_walk_left
+
+;8416:  F0 30 00 09
+			db LOOP,$30,$00,$09
+
+;841A:  F2 7F
+;841C:  F6
+			db SETN,$7F,PAUSE
+
+;841D:  F2 24
+;841F:  F6
+			db SETN,$24,PAUSE
+
+;8420:  F1 FF 7F
+			db SETPOS,$FF,$7F
+
 ;8423:  F3 38 86			; #8638
 			db SETCHAR
 			da right_anna
 
-8426:  F2 58
-8428:  F0 D0 00 09
-842C:  F2 7F
-842E:  F6
-842F:  F2 20
-8431:  F6
-8432:  F1 00 54
-8435:  F3 1D 86			; #861D
-8438:  F2 20
-843A:  F0 70 00 09
-843E:  F1 FF B4
+;8426:  F2 58
+;8428:  F0 D0 00 09
+			db SETN,$58,LOOP,$D0,$00,$09
+
+;842C:  F2 7F
+;842E:  F6
+			db SETN,$7F,PAUSE
+
+;842F:  F2 20
+;8431:  F6
+			db SETN,$20,PAUSE
+
+;8432:  F1 00 54
+			db SETPOS,$00,$54
+
+;8435:  F3 1D 86			; #861D
+			db SETCHAR
+			da msp_walk_left
+
+;8438:  F2 20
+;843A:  F0 70 00 09
+			db SETN,$20,LOOP,$70,$00,$09
+
+;843E:  F1 FF B4
+		    db SETPOS,$FF,$B4
+
 ;8441:  F3 38 86			; #8638
 			db SETCHAR
 			da right_anna
 
-8444:  F2 10
-8446:  F6
-8447:  F2 24
-8449:  F0 90 00 09
-844D:  F2 7F
-844F:  F6
-8450:  FF 			; end code
+;8444:  F2 10
+;8446:  F6
+			db SETN,$10,PAUSE
+
+;8447:  F2 24
+;8449:  F0 90 00 09
+			db SETN,$24,LOOP,$90,$00,$09
+
+;844D:  F2 7F
+;844F:  F6
+			db SETN,$7F,PAUSE
+
+;8450:  FF 			; end code
+			db END
+
 
 ; 3rd intermission data part 1
+act3_part1
 
-8451:  F2 5A
-8453:  F6
-8454:  F1 00 60
-8457:  F3 8D 86			; #868D front of stork
-845A:  F2 7F
-845C:  F0 0A 00 16
-8460:  F2 7F
-8462:  F0 10 00 16
-8466:  F2 30
-8468:  F0 10 00 16
-846C:  FF			; end code
+;8451:  F2 5A
+;8453:  F6
+			db SETN,$5A,PAUSE
+
+;8454:  F1 00 60
+			db SETPOS,$00,$60
+
+;8457:  F3 8D 86			; #868D front of stork
+			db SETCHAR
+			da stork_front
+;845A:  F2 7F
+;845C:  F0 0A 00 16
+			db SETN,$7F,LOOP,$0A,$00,$16
+
+;8460:  F2 7F
+;8462:  F0 10 00 16
+			db SETN,$7f,LOOP,$10,$00,$16
+
+;8466:  F2 30
+;8468:  F0 10 00 16
+			db SETN,$30,LOOP,$10,$00,$16
+;846C:  FF			; end code
+			db END
 
 ; 3rd intermission data part 2
+act3_part2
 
-846D:  F2 6F
-846F:  F6
-8470:  F1 00 60
-8473:  F3 8F 86			; #868F flap stork
-8476:  F2 6A
-8478:  F0 0A 00 16
-847C:  F2 7F
-847E:  F0 10
-8480:  00 16
-8482:  F2 3A
-8484:  F0 10 00 16
-8488:  FF 			; end code
+;846D:  F2 6F
+;846F:  F6
+			db SETN,$6f,PAUSE
+
+;8470:  F1 00 60
+			db SETPOS,$00,$60
+
+;8473:  F3 8F 86			; #868F flap stork
+			db SETCHAR
+			da flap_stork
+
+;8476:  F2 6A
+;8478:  F0 0A 00 16
+			db SETN,$6A,LOOP,$0A,$00,$16
+
+;847C:  F2 7F
+;847E:  F0 10
+;8480:  00 16
+			db SETN,$7F,LOOP,$10,$00,$16
+
+;8482:  F2 3A
+;8484:  F0 10 00 16
+			db SETN,$3A,LOOP,$10,$00,$16
+
+;8488:  FF 			; end code
+			db END
+
 
 ; 3rd intermission data part 5
 ; sack fall, baby appears
 
-8489:  F3 89 86			; #8689 act
-848C:  F2 01
-848E:  F0 00 00 16
-8492:  F1 BD 62
-8495:  F2 5A
-8497:  F6
-8498:  F1 05 60
+act3_part5
 
-849B:  F3 98 86			; #8698 sack
-849E:  F2 7F
-84A0:  F0 0A 00 16		; color 16 makes the sack blue
-84A4:  F2 7F
-84A6:  F0 06 0C 16		; this here is the bounce
-84AA:  F2 06
-84AC:  F0 06 F0 16
-84B0:  F2 0C
-84B2:  F0 03 09 16
-84B6:  F2 05
-84B8:  F0 05 F6 16		; final parameter is COLOR
-84BC:  F2 0A
-84BE:  F0 04 03 16
-84C2:  F3 9A 86			; #869A baby
-84C5:  F2 01
-84C7:  F0 00 00 16		; change baby color here
-84CB:  F2 20
-84CD:  F6
-84CE:  FF 			; end code
+;8489:  F3 89 86			; #8689 act
+		db SETCHAR
+		da act_sign3
+
+;848C:  F2 01
+;848E:  F0 00 00 16
+		db SETN,$01,LOOP,$00,$00,$16
+
+;8492:  F1 BD 62
+		db SETPOS,$BD,$62
+
+;8495:  F2 5A
+;8497:  F6
+		db SETN,$5A,PAUSE
+
+;8498:  F1 05 60
+		db SETPOS,$05,$60
+
+;849B:  F3 98 86			; #8698 sack
+		db SETCHAR
+		da stork_sack
+
+;849E:  F2 7F
+;84A0:  F0 0A 00 16		; color 16 makes the sack blue
+
+		db SETN,$7F,LOOP,$0A,$00,$16
+
+;84A4:  F2 7F
+;84A6:  F0 06 0C 16		; this here is the bounce
+		db SETN,$7F,LOOP,$06,$0C,$16
+
+;84AA:  F2 06
+;84AC:  F0 06 F0 16
+		db SETN,$06,LOOP,$06,$F0,$16
+
+;84B0:  F2 0C
+;84B2:  F0 03 09 16
+		db SETN,$0C,LOOP,$03,$09,$16
+
+;84B6:  F2 05
+;84B8:  F0 05 F6 16		; final parameter is COLOR
+		db SETN,$05,LOOP,$05,$F6,$16
+
+;84BC:  F2 0A
+;84BE:  F0 04 03 16
+		db SETN,$0A,LOOP,$04,$03,$16
+
+;84C2:  F3 9A 86			; #869A baby
+		db SETCHAR
+		da pacjr
+
+;84C5:  F2 01
+;84C7:  F0 00 00 16		; change baby color here
+		db SETN,$01,LOOP,$00,$00,$16
+
+;84CB:  F2 20
+;84CD:  F6
+		db SETN,$20,PAUSE
+
+;84CE:  FF 			; end code
+		db END
+
 
 ; 3rd intermission data part 3
+act3_part3
 
-84CF:  F1 00 00
-84D2:  F3 75 86			; #8675
-84D5:  F2 01
-84D7:  F0 00 00 16		; ACT 
-84DB:  F1 BD 52
-84DE:  F2 28
-84E0:  F6
-84E1:  F2 16 
-84E3:  F0 00 00 16
-84E7:  F2 16
-84E9:  F6
-84EA:  F1 00 00 
+;84CF:  F1 00 00
+		db SETPOS,$00,$00
+
+;84D2:  F3 75 86			; #8675
+		db SETCHAR
+		da act_sign1
+
+;84D5:  F2 01
+;84D7:  F0 00 00 16		; ACT 
+		db SETN,$01
+		db LOOP,$00,$00,$16
+
+;84DB:  F1 BD 52
+		db SETPOS,$BD,$52
+
+;84DE:  F2 28
+;84E0:  F6
+		db SETN,$28,PAUSE
+
+;84E1:  F2 16 
+;84E3:  F0 00 00 16
+		db SETN,$16,LOOP,$00,$00,$16
+
+;84E7:  F2 16
+;84E9:  F6
+		db SETN,$16,PAUSE
+
+;84EA:  F1 00 00 
+		db SETPOS,$00,$00
+
 ;84ED:  F3 38 86			; #8638
-			db SETCHAR
-			da right_anna
+		db SETCHAR
+		da right_anna
 
-84F0:  F2 01 
-84F2:  F0 00 00 09		; pac in front, closest to baby
-84F6:  F1 C0 C0
-84F9:  F2 30
-84FB:  F6
-84FC:  FF 			; end code
+;84F0:  F2 01 
+;84F2:  F0 00 00 09		; pac in front, closest to baby
+		db SETN,$01,LOOP,$00,$00,$09
+
+;84F6:  F1 C0 C0
+		db SETPOS,$C0,$C0
+
+;84F9:  F2 30
+;84FB:  F6
+		db SETN,$30,PAUSE
+
+;84FC:  FF 			; end code
+		db END
+
 
 ; 3rd intermission data part 4
+act3_part4
+;84FD:  F1 00 00
+			db SETPOS,0,0
 
-84FD:  F1 00 00
 ;8500:  F3 7F 86			; #867F
 			db SETCHAR
 			da act_sign2
 
-8503:  F2 01
-8505:  F0 00 00 16
-8509:  F1 AD 52
-850C:  F2 28
-850E:  F6
-850F:  F2 16
-8511:  F0 00 00 16
-8515:  F2 16
-8517:  F6
-8518:  F1 00 00
-851B:  F3 14 86			; #8614
-851E:  F2 01
-8520:  F0 00 00 09		; pac behind, (red)
-8524:  F1 D0 C0
-8527:  F2 30
-8529:  F6
-852A:  FF			; end code
+;8503:  F2 01
+;8505:  F0 00 00 16
+			db SETN,$01,LOOP,$00,$00,$16
+
+;8509:  F1 AD 52
+			db SETPOS,$AD,$52
+
+;850C:  F2 28
+;850E:  F6
+			db SETN,$28,PAUSE
+
+;850F:  F2 16
+;8511:  F0 00 00 16
+			db SETN,$16,LOOP,$00,$00,$16
+
+;8515:  F2 16
+;8517:  F6
+			db SETN,$16,PAUSE
+
+;8518:  F1 00 00
+			db SETPOS,$00,$00
+
+;851B:  F3 14 86			; #8614
+			db SETCHAR
+			da msp_walk_right
+
+;851E:  F2 01
+;8520:  F0 00 00 09		; pac behind, (red)
+			db SETN,$01,LOOP,$00,$00,$09
+
+;8524:  F1 D0 C0
+			db SETPOS,$D0,$C0
+
+;8527:  F2 30
+;8529:  F6
+			db SETN,$30,PAUSE
+
+;852A:  FF			; end code
+			db END
 
 ; data for 2nd intermission, part 3
+act2_part3
 
-852B:  F1 00 00
-852E:  F3 75 86			; #8675
-8531:  F2 01
-8533:  F0 00 00 16
-8537:  F1 BD 52
-853A:  F2 28
-853C:  F6
-853D:  F2 16
-853F:  F0 00 00 16
-8543:  F2 16
-8545:  F6
-8546:  F1 00 00
-8549:  FF			; end code
+;852B:  F1 00 00
+			db SETPOS,$00,$00
+
+;852E:  F3 75 86			; #8675
+			db SETCHAR
+			da act_sign1
+
+;8531:  F2 01
+;8533:  F0 00 00 16
+			db SETN,$01,LOOP,$00,$00,$16
+
+;8537:  F1 BD 52
+			db SETPOS,$BD,$52
+
+;853A:  F2 28
+;853C:  F6
+			db SETN,$28,PAUSE
+
+;853D:  F2 16
+;853F:  F0 00 00 16
+			db SETN,$16,LOOP,$00,$00,$16
+
+;8543:  F2 16
+;8545:  F6
+			db SETN,$16,PAUSE
+
+;8546:  F1 00 00
+			db SETPOS,0,0
+
+;8549:  FF			; end code
+			db END
+
 
 ; data for 2nd intermission, part 4
-
-854A:  F1 00 00
+act2_part4
+;854A:  F1 00 00
+			db SETPOS,0,0
 ;854D:  F3 7F 86			; #867F
 			db SETCHAR
 			da act_sign2
 
-8550:  F2 01
-8552:  F0 00 00 16
-8556:  F1 AD 52
-8559:  F2 28
-855B:  F6
-855C:  F2 16
-855E:  F0 00 00 16
-8562:  F2 16 
-8564:  F6
-8565:  F1 00 00
-8568:  FF			; end code
+;8550:  F2 01
+;8552:  F0 00 00 16
+			db SETN,$01,LOOP,$00,$00,$16
+
+;8556:  F1 AD 52
+			db SETPOS,$AD,$52
+
+;8559:  F2 28
+;855B:  F6
+			db SETN,$28,PAUSE
+
+;855C:  F2 16
+;855E:  F0 00 00 16
+			db SETN,$16,LOOP,$00,$00,$16
+
+;8562:  F2 16 
+;8564:  F6
+			db SETN,$16,PAUSE
+
+;8565:  F1 00 00
+			db SETPOS,0,0
+
+;8568:  FF			; end code
+			db END
+
 
 ; data for 1st, 2nd intermission, part 5
+act1_part5
+act2_part5
+;8569:  F3 89 86			; #8689
+			db SETCHAR
+			da act_sign3
 
-8569:  F3 89 86			; #8689
-856C:  F2 01
-856E:  F0 00 00 16
-8572:  F1 BD 62
-8575:  F2 5A
-8577:  F6
-8578:  F1 00 00
-857B:  FF			; end code
+;856C:  F2 01
+;856E:  F0 00 00 16
+			db SETN,$01,LOOP,$00,$00,$16
+
+;8572:  F1 BD 62
+			db SETPOS,$BD,$62
+
+;8575:  F2 5A
+;8577:  F6
+			db SETN,$5A,PAUSE
+
+;8578:  F1 00 00
+			db SETPOS,0,0
+
+;857B:  FF			; end code
+			db END
+
 
 ; data for 1st, 2nd, 3rd intermission, part 6
+act1_part6
+act2_part6
+act3_part6
 
-857C:  F3 8B 86			; #868B
-857F:  F2 01
-8581:  F0 00 00 16
-8585:  F1 AD 62
-8588:  F2 39			
-858A:  F6			; pause
-858B:  F7			; display text
-858C:  F2 1E
-858E:  F6
-858F:  F8			; clear act number
-8590:  F1 00 00
-8593:  FF			; end code
+;857C:  F3 8B 86			; #868B
+			db SETCHAR
+			da act_sign4
+
+;857F:  F2 01
+;8581:  F0 00 00 16
+			db SETN,$01,LOOP,$00,$00,$16
+
+;8585:  F1 AD 62
+			db SETPOS,$AD,$62
+
+;8588:  F2 39			
+;858A:  F6			; pause
+			db SETN,$39,PAUSE
+
+;858B:  F7			; display text
+			db SHOWACT
+
+;858C:  F2 1E
+;858E:  F6
+			db SETN,$1E,PAUSE
+
+;858F:  F8			; clear act number
+			db CLEARACT
+
+;8590:  F1 00 00
+			db SETPOS,0,0
+
+;8593:  FF			; end code
+			db END
 
 ; data for attract mode 1st ghost
 
-8594:  F1 00 94
+attr_ghost1_1
+
+;8594:  F1 00 94
+			db SETPOS,$00,$94
+
 ;8597:  F3 63 86			; #8663
 			db SETCHAR
 			da geyes_left
 
-859A:  F2 70
-859C:  F0 10 00 01
-85A0:  F2 50 
-85A2:  F0 10 00 01
-85A6:  F3 6A 86			; #866A
-85A9:  F2 48
-85AB:  F0 00
-85AD:  F0 01
-85AF:  FF			; end code
+;859A:  F2 70
+;859C:  F0 10 00 01
+			db SETN,$70,LOOP,$10,$00,$01
+
+;85A0:  F2 50 
+;85A2:  F0 10 00 01
+			db SETN,$50,LOOP,$10,$00,$01
+
+;85A6:  F3 6A 86			; #866A
+			db SETCHAR
+			da geyes_up
+
+;85A9:  F2 48
+;85AB:  F0 00
+;85AD:  F0 01
+			db SETN,$48,LOOP,$00,$F0,$01
+
+;85AF:  FF			; end code
+			db END
+
 
 ; data for attract mode 2nd ghost
 
-85B0:  F1 00 94
+attr_ghost2_2
+;85B0:  F1 00 94
+			db SETPOS,$00,$94
+
 ;85B3:  F3 63 86			; #8663
 			db SETCHAR
 			da geyes_left
 
-85B6:  F2 70 
-85B8:  F0 10 00 03 
-85BC:  F2 50
-85BE:  F0 10 00 03 
-85C2:  F3 6A 86			; #866A
-85C5:  F2 38 
-85C7:  F0 00
-85C9:  F0 03
-85CB:  FF			; end code
+;85B6:  F2 70 
+;85B8:  F0 10 00 03 
+			db SETN,$70,LOOP,$10,$00,$03
+
+;85BC:  F2 50
+;85BE:  F0 10 00 03 
+			db SETN,$50,LOOP,$10,$00,$03
+
+;85C2:  F3 6A 86			; #866A
+			db SETCHAR
+			da geyes_up
+
+;85C5:  F2 38 
+;85C7:  F0 00
+;85C9:  F0 03
+			db SETN,$38,LOOP,$00,$F0,$03
+
+;85CB:  FF			; end code
+			db END
+
 
 ; data for attract mode 3rd ghost
+attr_ghost3_3
+;85CC:  F1 00 94
+			db SETPOS,$00,$94
 
-85CC:  F1 00 94
 ;85CF:  F3 63 86			; #8663
 			db SETCHAR
 			da geyes_left
 
-85D2:  F2 70
-85D4:  F0 10 00 05 
-85D8:  F2 50
-85DA:  F0 10 00 05
-85DE:  F3 6A 86			; #866A
-85E1:  F2 28 
-85E3:  F0 00
-85E5:  F0 05
-85E7:  FF 			; end code
+;85D2:  F2 70
+;85D4:  F0 10 00 05 
+			db SETN,$70,LOOP,$10,$00,$05
+
+;85D8:  F2 50
+;85DA:  F0 10 00 05
+			db SETN,$50,LOOP,$10,$00,$05
+
+;85DE:  F3 6A 86			; #866A
+			db SETCHAR
+			da geyes_up
+
+;85E1:  F2 28 
+;85E3:  F0 00
+;85E5:  F0 05
+			db SETN,$28,LOOP,$00,$F0,$05
+
+;85E7:  FF 			; end code
+			db END
+
 
 ; data for attract mode 4th ghost
-
-85E8:  F1 00 94
+attr_ghost4_4
+;85E8:  F1 00 94
+			db SETPOS,$00,$94
 ;85EB:  F3 63 86			; #8663
 			db SETCHAR
 			da geyes_left
 
-85EE:  F2 70
-85F0:  F0 10 00 07
-85F4:  F2 50
-85F6:  F0 10 00 07
-85FA:  F3 6A 86			; #866A
-85FD:  F2 18
-85FF:  F0 00
-8601:  F0 07
-8603:  FF 			; end code
+;85EE:  F2 70
+;85F0:  F0 10 00 07
+			db SETN,$70,LOOP,$10,$00,$07
+
+;85F4:  F2 50
+;85F6:  F0 10 00 07
+			db SETN,$50,LOOP,$10,$00,$07
+
+;85FA:  F3 6A 86			; #866A
+			db SETCHAR
+			da geyes_up
+
+;85FD:  F2 18
+;85FF:  F0 00
+;8601:  F0 07
+			db SETN,$18,LOOP,$00,$F0,$07
+
+;8603:  FF 			; end code
+			db END
 
 ; data for attract mode ms. pac-man
 
-8604:  F1 00 94
-8607:  F3 41 86			; #8641
-860A:  F2 72
-850C:  F0 10 00 09
-8610:  F2 7F F6
-8613:  FF			; end code
+attr_mspac_5
+
+;8604:  F1 00 94
+			db SETPOS,$00,$94
+
+;8607:  F3 41 86			; #8641
+			db SETCHAR
+			da left_anna
+
+;860A:  F2 72
+;850C:  F0 10 00 09
+			db SETN,$72,LOOP,$10,$00,$09
+
+;8610:  F2 7F F6
+			db SETN,$7F,PAUSE
+
+;8613:  FF			; end code
+			db END
 
 ; used in act 1
 
@@ -10599,7 +10986,9 @@ msp_walk_left
 walk_up
 		db $6E,$6E,$5A,$5A,$6E,$6E,$72,$72,$FF	; walking up
 
-862F:  EE EE DA DA EE EE F2 F2 FF 	; left pa
+;862F
+pa_left
+		db $EE,$EE,$DA,$DA,$EE,$EE,$F2,$F2,$FF	; left pa
 
 ;8638
 ;      r  r  R  R  u  u  rc rc
@@ -10618,7 +11007,9 @@ up_anna
 		db $36,$36,$F1,$F1,$36,$36,$F3,$F3,$FF ; ms pac man moving up at the end 
 
 ; moving down?
-8653:  34 34 31 31 34 34 33 33 FF	; sprite codes for ms pac man
+;8653
+down_anna
+		db $34,$34,$31,$31,$34,$34,$33,$33,$FF	;sprite codes for ms pac man
 
 ; used in act 1
 ;865c
@@ -10649,13 +11040,21 @@ act_sign2
 
 ; used in act 1
 
-8689:  12 FF 				; sprite code for ACT sign
-868B:  13 FF				; sprite code for ACT sign
+;8689
+act_sign3 db $12,$FF 				; sprite code for ACT sign
+;868B
+act_sign4 db $13,$FF				; sprite code for ACT sign
 
-868D:  30 FF				; stork sprite
-868F:  18 18 18 18 2C 2C 2C 2C FF 	; stork sprites
-8698:  07 FF 				; sack that stork carries sprite
-869A:  0F FF            		; junior pacman sprite
+;868D
+stork_front	db $30,$FF				; stork sprite
+
+;868F
+flap_stork
+			db $18,$18,$18,$18,$2C,$2C,$2C,$2C,$FF	; stork sprites
+;8698
+stork_sack	db $07,$FF 				; sack that stork carries sprite
+;869A
+pacjr 		db $0F,$FF         		; junior pacman sprite
 
 ; end data
 
@@ -10663,58 +11062,61 @@ act_sign2
 
 ; arrive from #168C when ms pac is facing right
 ; MSPAC MOVING EAST
-869c  3a094d    ld      a,(#4d09)	; load A with pacman X position
-869f  e607      and     #07		; mask bits, now between #00 and #07
-86a1  cb3f      srl     a		; shift right, now between #00 and #03
-86a3  2f        cpl     		; invert
-86a4  1e30      ld      e,#30		; E := #30
-86a6  83        add     a,e		; add #30
-86a7  cb47      bit     0,a		; test bit 0.  is it on ?
-86a9  2002      jr      nz,#86ad        ; yes, skip next step
-86ab  3e37      ld      a,#37		; no, A := #37
-86ad  320a4c    ld      (#4c0a),a	; store into mspac sprite number
-86b0  c9        ret			; return
+;869c  3a094d    ld      a,(#4d09)	; load A with pacman X position
+;869f  e607      and     #07		; mask bits, now between #00 and #07
+;86a1  cb3f      srl     a		; shift right, now between #00 and #03
+;86a3  2f        cpl     		; invert
+;86a4  1e30      ld      e,#30		; E := #30
+;86a6  83        add     a,e		; add #30
+;86a7  cb47      bit     0,a		; test bit 0.  is it on ?
+;86a9  2002      jr      nz,#86ad        ; yes, skip next step
+;86ab  3e37      ld      a,#37		; no, A := #37
+;86ad  320a4c    ld      (#4c0a),a	; store into mspac sprite number
+;86b0  c9        ret			; return
+			rts
 
 ; arrive from #16B1 when ms pac is facing down
 ; MSPAC MOVING SOUTH
-86b1  3a084d    ld      a,(#4d08)	; load A with pacman Y position
-86b4  e607      and     #07		; mask bits, now between #00 and #07
-86b6  cb3f      srl     a		; shift right, now between #00 and #03
-86b8  1e30      ld      e,#30		; E := #30
-86ba  83        add     a,e		; add #30
-86bb  cb47      bit     0,a		; test bit 0.  is it on ?
-86bd  2002      jr      nz,#86c1        ; yes, skip next step
-86bf  3e34      ld      a,#34		; no, A := #34
-86c1  320a4c    ld      (#4c0a),a	; store into mspac sprite number
-86c4  c9        ret			; return
+;86b1  3a084d    ld      a,(#4d08)	; load A with pacman Y position
+;86b4  e607      and     #07		; mask bits, now between #00 and #07
+;86b6  cb3f      srl     a		; shift right, now between #00 and #03
+;86b8  1e30      ld      e,#30		; E := #30
+;86ba  83        add     a,e		; add #30
+;86bb  cb47      bit     0,a		; test bit 0.  is it on ?
+;86bd  2002      jr      nz,#86c1        ; yes, skip next step
+;86bf  3e34      ld      a,#34		; no, A := #34
+;86c1  320a4c    ld      (#4c0a),a	; store into mspac sprite number
+;86c4  c9        ret			; return
+			rts
 
 ; arrive from #16D9 when ms pac is facing left
 ; MSPAC MOVING WEST
-86c5  3a094d    ld      a,(#4d09)	; load A with pacman X position
-86c8  e607      and     #07		; mask bits, now between #00 and #07
-86ca  cb3f      srl     a		; shift right, now between #00 and #03
-86cc  1eac      ld      e,#ac		; E := #AC
-86ce  83        add     a,e		; add #AC
-86cf  cb47      bit     0,a		; test bit 0 , is it on ?
-86d1  2002      jr      nz,#86d5        ; yes, skip next step
-86d3  3e35      ld      a,#35		; no, A := #35
-86d5  320a4c    ld      (#4c0a),a	; store into mspac sprite number
-86d8  c9        ret     
+;86c5  3a094d    ld      a,(#4d09)	; load A with pacman X position
+;86c8  e607      and     #07		; mask bits, now between #00 and #07
+;86ca  cb3f      srl     a		; shift right, now between #00 and #03
+;86cc  1eac      ld      e,#ac		; E := #AC
+;86ce  83        add     a,e		; add #AC
+;86cf  cb47      bit     0,a		; test bit 0 , is it on ?
+;86d1  2002      jr      nz,#86d5        ; yes, skip next step
+;86d3  3e35      ld      a,#35		; no, A := #35
+;86d5  320a4c    ld      (#4c0a),a	; store into mspac sprite number
+;86d8  c9        ret     
+			rts
 
 ; arrive from #16FA when ms pac is facing up
 ; MSPAC MOVING NORTH
-86d9  3a084d    ld      a,(#4d08)	; load A with pacman Y position
-86dc  e607      and     #07		; mask bits, now between #00 and #07
-86de  cb3f      srl     a		; shift right, now between #00 and #03
-86e0  2f        cpl     		; invert
-86e1  1ef4      ld      e,#f4		; E := #F4
-86e3  83        add     a,e		; add #F4
-86e4  cb47      bit     0,a		; test bit 0 .  is it on ?
-86e6  2002      jr      nz,#86ea        ; yes, skip next step
-86e8  3e36      ld      a,#36		; no, A := #36
-86ea  320a4c    ld      (#4c0a),a	; store into mspac sprite number
-86ed  c9        ret     
-
+;86d9  3a084d    ld      a,(#4d08)	; load A with pacman Y position
+;86dc  e607      and     #07		; mask bits, now between #00 and #07
+;86de  cb3f      srl     a		; shift right, now between #00 and #03
+;86e0  2f        cpl     		; invert
+;86e1  1ef4      ld      e,#f4		; E := #F4
+;86e3  83        add     a,e		; add #F4
+;86e4  cb47      bit     0,a		; test bit 0 .  is it on ?
+;86e6  2002      jr      nz,#86ea        ; yes, skip next step
+;86e8  3e36      ld      a,#36		; no, A := #36
+;86ea  320a4c    ld      (#4c0a),a	; store into mspac sprite number
+;86ed  c9        ret     
+			rts
 
 ;------------------------------------------------------------------------------
 ; subroutine called from #0909, per intermediate jump at #0EAD
