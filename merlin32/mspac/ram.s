@@ -718,9 +718,17 @@ is_intermission dw 0
 ;	4F01-4FBF	Stack
 marque_counter dw 0
 
+;4F02
 cutscene_parts ds 12   ; offsets to the 6 parts of a cutscene
-
+;4F0E
 cutscene_vars ds 20    ; other curscene variables
+
+;4F18
+cutscene_nvalues ds 6  ; Where the SETN stores stuff during cutscene
+;4F22
+; ??? 
+;4F2E
+cutscene_others ds 12+2
 
 ;Stack ds $C0
 

@@ -8790,6 +8790,8 @@ move_mspac_marquee mx %00
 play_cutscene mx %00
 
 cutscene_loop_counter = temp0
+hl = temp1
+bc = temp2
 
 ;349c  3a004f    ld      a,(#4f00)	; load A with intermission indicator
 			lda |is_intermission
@@ -8850,9 +8852,10 @@ anim_code_loop
 ;34dd  76        halt			; wait for interrupt
 
 			lda |0,x
-			and #$F0
+			and #$FF
 			cmp #$F0
-			bne :invalid_opcode
+			bcc :invalid_opcode
+			and #$0F
 			asl
 			phx
 			tax
@@ -8878,20 +8881,33 @@ anim_code_loop
 			da op_END		;35cb $FF - END
 
 :invalid_opcode mx %00
-			wai	; simulate halt $$JGA TODO, figure out how halt works, vs wai
-				; falling through here seems bad, so we may need to jmp
-				; to some vector after this wai
+			wai	; simulate halt
+				; falling through here seems bad - but this is the way
 
 ; for value == #F0 - LOOP
+			; Y =  offset to the cutscene_parts list
+			; A =  index to the current opcode
 op_LOOP mx %00    
 			tax
 ;34de  e5        push    hl
+			phy
 ;34df  3e01      ld      a,#01
 ;34e1  d7        rst     #10   ; ptr to byte
 			lda |1,x
+			and #$FF
+			pha
 ;34e2  4f        ld      c,a
+			; c = first byte argument
+
 ;34e3  212e4f    ld      hl,#4f2e
-;34e6  df        rst     #18
+;34e6  df        rst     #18      ; hl = hl + 2*b,  (hl) -> e, (++hl) -> d, de -> hl 
+			clc
+			lda <cutscene_loop_counter
+			asl
+			adc #cutscene_others
+			tay
+			lda |0,y
+
 ;34e7  79        ld      a,c
 ;34e8  84        add     a,h
 ;34e9  cd5635    call    #3556
@@ -9014,6 +9030,7 @@ op_SETPOS mx %00
 
 ; for value == #F3 - SETCHAR
 op_SETCHAR mx %00
+			tax
 ;3577  eb        ex      de,hl		; save HL into DE
 ;3578  210f4f    ld      hl,#4f0f	; HL := #4F0F (stack)
 ;357b  78        ld      a,b		; A := B
@@ -9052,46 +9069,80 @@ next_op
 
 ; for value = #F2 - SETN
 op_SETN mx %00
+			tax
 ;3597  23        inc     hl
-;3598  4e        ld      c,(hl)
+;3598  4e        ld      c,(hl)    ; argument value
+			lda <cutscene_loop_counter
 ;3599  21174f    ld      hl,#4f17
 ;359c  78        ld      a,b
-;359d  d7        rst     #10
-;359e  71        ld      (hl),c
-;359f  110200    ld      de,#0002	; 
+;359d  d7        rst     #10	   ; hl with address (4f18->4f1E)
+			adc #cutscene_nvalues-1
+			sta <temp1
+			sep #$20
+			lda |1,x   ; inc hl, ld c,(hl)
+;359e  71        ld      (hl),c    ; save the value, for whatever wants it
+			sta (<temp1)
+			rep #$20
+;359f  110200    ld      de,#0002  ; 
+			lda #$0002			   ; opcode + arg, 2 bytes in size
 ;35a2  1810      jr      #35b4           ; (16)
 			bra next2_op
 
 ; for value == #F6 - PAUSE
 op_PAUSE mx %00
-;35a4  21174f    ld      hl,#4f17
+;35a4  21174f    ld      hl,#4f17   ; calculate pause timer address
 ;35a7  78        ld      a,b
-;35a8  d7        rst     #10
+;35a8  d7        rst     #10	    ; pause timer addr in hl
+			lda <cutscene_loop_counter
+			; c=0, because jmp table dispatch uses asl
+			adc #cutscene_nvalues-1
+			tax
+;35a9  3d        dec     a  		; countdown value
+;35aa  77        ld      (hl),a 	; save
+			sep #$20
+			dec |0,x
+			rep #$20
+			beq :done
 
-;35a9  3d        dec     a
-;35aa  77        ld      (hl),a
-;35ab  110000    ld      de,#0000
-;35ae  2004      jr      nz,#35b4        ; (4)
-;35b0  1e01      ld      e,#01		; 1 byte used from the code program
-;35b2  1800      jr      #35b4           ; (0)
+;35ab  110000    ld      de,#0000    ; this would leave the PC at PAUSE
+;35ae  2004      jr      nz,#35b4    ; if the branch is taken
+			lda #0
 			bra next2_op
 
+:done
+;35b0  1e01      ld      e,#01		; 1 byte used from the code program
+			lda #$0001
+;35b2  1800      jr      #35b4           ; (0)
+;			bra next2_op  -- falls through
+
 ; finish up for the above
+
+			; Enter with A containing the number of bytes to move
+			; forward in the cutscene data
 next2_op
 ;35b4  dd6e00    ld      l,(ix+#00)
 ;35b7  dd6601    ld      h,(ix+#01)	; load HL with next value
 ;35ba  19        add     hl,de		; add offset
 ;35bb  dd7500    ld      (ix+#00),l
 ;35be  dd7401    ld      (ix+#01),h
+			clc
+			adc |0,y
+			sta |0,y
+			 
 ;35c1  dd2b      dec     ix
+			dey
 ;35c3  dd2b      dec     ix
+			dey
 ;35c5  1001      djnz    #35c8           ; (1)
+			dec <cutscene_loop_counter
+			bnel anim_code_loop
 ;35c7  c9        ret     
-
+			rts
 ;35c8  c3a934    jp      #34a9
 
 ; for value == #FF (end code)
 op_END mx %00
+			tax
 ;35cb  211f4f    ld      hl,#4f1f
 ;35ce  78        ld      a,b
 ;35cf  d7        rst     #10
@@ -9121,6 +9172,7 @@ op_END mx %00
 
 ; for value == #F7 - SHOWACT ?
 op_SHOWACT mx %00
+			tax
 ;35f3  78        ld      a,b
 ;35f4  ef        rst     #28		; insert task to display text "        "
 ;35f5  1c 30
@@ -9130,6 +9182,7 @@ op_SHOWACT mx %00
 
 ; for value == #F8 - CLEARACT
 op_CLEARACT mx %00
+			tax
 ;35fd  3e40      ld      a,#40
 ;35ff  32ac42    ld      (#42ac),a	; blank out the character where the 'ACT' # was displayed
 ;3602  110100    ld      de,#0001
@@ -9137,11 +9190,17 @@ op_CLEARACT mx %00
 
 ; for value == #F5 - PLAYSOUND
 op_PLAYSOUND mx %00
+			tax
 ;3607  23        inc     hl
 ;3608  7e        ld      a,(hl)
+			lda |1,x				; first argument
 ;3609  32 BC 4E  ld   	(#4EBC),a	; set sound channel #3.  used when ghosts bump during 1st intermission
-;360c  11 02 00	ld      de,#0002
+			and #$FF
+			sta |bnoise
+;360c  11 02 00	ld      de,#0002    ; ?? opcode + args, size?
+			lda #$0002
 ;360f  18 a3	jr      #35b4           ; (-93)
+			bra next2_op
 
 ;------------------------------------------------------------------------------
 ; arrive here at intermissions and attract mode
