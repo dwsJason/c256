@@ -9210,21 +9210,29 @@ op_END mx %00
 
 ; for value == #F7 - SHOWACT ?
 op_SHOWACT mx %00
-			tax
 ;35f3  78        ld      a,b
 ;35f4  ef        rst     #28		; insert task to display text "        "
 ;35f5  1c 30
+			lda #$301C
+			jsr rst28
 ;35f6  47        ld      b,a
 ;35f8  110100    ld      de,#0001
+			lda #1
 ;35fb  18b7      jr      #35b4           ; (-73)
+			bra next2_op
 
 ; for value == #F8 - CLEARACT
 op_CLEARACT mx %00
-			tax
+			sep #$20
 ;35fd  3e40      ld      a,#40
 ;35ff  32ac42    ld      (#42ac),a	; blank out the character where the 'ACT' # was displayed
+			lda #$40
+			sta |tile_ram+$2AC
+			rep #$30
 ;3602  110100    ld      de,#0001
+			lda #1
 ;3605  18ad      jr      #35b4           ; (-83)
+			bra next2_op
 
 ; for value == #F5 - PLAYSOUND
 op_PLAYSOUND mx %00
