@@ -725,6 +725,9 @@ cutscene_vars ds 20    ; other curscene variables
 
 ;4F18
 cutscene_nvalues ds 6  ; Where the SETN stores stuff during cutscene
+
+;4F20
+cutscene_act_end ds 6  ; act has ended flag, for each act
 ;4F22
 ; ??? 
 ;4F2E

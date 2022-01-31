@@ -8211,6 +8211,24 @@ ttask7 mx %00
 			rts
 
 ;------------------------------------------------------------------------------
+;2192
+cutscene_end mx %00
+;2192  32064e    ld      (#4e06),a
+			sta |cs_state0
+
+;2195  f7        rst     #30		; set timed task to increase main subroutine number (#4E04)
+;2196  45 00 00				; task timer = #45, task = 0, parameter = 0     
+			lda #$0045
+			ldy #0
+			jsr rst30
+
+;2199  21044e    ld      hl,#4e04
+;219c  34        inc     (hl)		; increase main subroutine number
+			inc |levelstate
+;219d  c9        ret     		; return
+			rts
+
+;------------------------------------------------------------------------------
 ;21f0
 ttask8 mx %00
 ;21f0  21074e    ld      hl,#4e07	; load HL with state in second cutscene
@@ -9142,33 +9160,53 @@ next2_op
 
 ; for value == #FF (end code)
 op_END mx %00
-			tax
 ;35cb  211f4f    ld      hl,#4f1f
+			lda |cutscene_act_end-1   ; Set to 1 when END has been encountered
 ;35ce  78        ld      a,b
 ;35cf  d7        rst     #10
+			adc <cutscene_loop_counter
+			tax
+			sep #$20
 ;35d0  3601      ld      (hl),#01
+			lda #1
+			sta |0,x
+
 ;35d2  21204f    ld      hl,#4f20
 ;35d5  7e        ld      a,(hl)
+			lda |cutscene_act_end
 ;35d6  23        inc     hl
 ;35d7  a6        and     (hl)
+			and |cutscene_act_end+1
 ;35d8  23        inc     hl
 ;35d9  a6        and     (hl)
+			and |cutscene_act_end+2
 ;35da  23        inc     hl
 ;35db  a6        and     (hl)
+			and |cutscene_act_end+3
 ;35dc  23        inc     hl
 ;35dd  a6        and     (hl)
+			and |cutscene_act_end+4
 ;35de  23        inc     hl
 ;35df  a6        and     (hl)
+			and |cutscene_act_end+5
+			rep #$20
+			bne :all_end
 ;35e0  110000    ld      de,#0000
 ;35e3  28cf      jr      z,#35b4         ; (-49)
-
+			lda #0
+			bra next2_op
+:all_end
 ;35e5  3a024e    ld      a,(#4e02)	; load A with main routine 1, subroutine #
 ;35e8  a7        and     a		; == #00 ?
+			lda |mainroutine1
 ;35e9  ca9521    jp      z,#2195		; yes, jump back to program
+			beql cutscene_end
 
 ;35ec  af        xor     a		; else A := #00
 ;35ed  32004f    ld      (#4f00),a	; clear the intermission indicator
+			stz |is_intermission
 ;35f0  c38e05    jp      #058e		; jump back to program
+			jmp ttask2
 
 ; for value == #F7 - SHOWACT ?
 op_SHOWACT mx %00

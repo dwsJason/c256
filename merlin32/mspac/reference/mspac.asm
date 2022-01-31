@@ -6640,6 +6640,7 @@ ttask7
 218f  d63d      sub     #3d
 2191  c0        ret     nz
 
+cutscene_end
 2192  32064e    ld      (#4e06),a
 2195  f7        rst     #30		; set timed task to increase main subroutine number (#4E04)
 2196  45 00 00				; task timer = #45, task = 0, parameter = 0     
