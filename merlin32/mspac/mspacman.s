@@ -8922,7 +8922,7 @@ op_LOOP mx %00
 			clc
 			lda <cutscene_loop_counter
 			asl
-			adc #cutscene_others
+			adc #cutscene_char-2
 			tay
 			lda |0,y
 

@@ -731,7 +731,6 @@ cutscene_act_end ds 6  ; act has ended flag, for each act
 ;4F22
 ; ??? 
 ;4F2E
-cutscene_others ds 12+2
 ;4F30
 cutscene_char ds 12 ; anim address for the act
 
