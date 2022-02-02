@@ -113,9 +113,8 @@ irq_tasks ds 48
 foreground_tasks ds 64
 
 ;4cfe
-intermission1 dw 0 ; unknown intermission variable
-
-
+;4D00
+cutscene_positions ds 12
 
 ;
 ; Game variables
@@ -721,8 +720,9 @@ marque_counter dw 0
 ;4F02
 cutscene_parts ds 12   ; offsets to the 6 parts of a cutscene
 ;4F0E
-cutscene_vars ds 20    ; other curscene variables
-
+cutscene_vars ds 0    ; other curscene variables
+;4F10 
+cs_sprite_index ds 6  ; index into the sprite character animation list
 ;4F18
 cutscene_nvalues ds 6  ; Where the SETN stores stuff during cutscene
 
@@ -732,6 +732,8 @@ cutscene_act_end ds 6  ; act has ended flag, for each act
 ; ??? 
 ;4F2E
 cutscene_others ds 12+2
+;4F30
+cutscene_char ds 12 ; anim address for the act
 
 ;Stack ds $C0
 

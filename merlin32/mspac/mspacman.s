@@ -9030,46 +9030,51 @@ op_LOOP mx %00
 op_SETPOS mx %00
 ;356b  eb        ex      de,hl
 			tax
+;3571  23        inc     hl
+;3572  56        ld      d,(hl)
+;3573  23        inc     hl
+;3574  5e        ld      e,(hl)
+			lda |1,x
+			pha
+
 ;356c  cd4136    call    #3641		; load HL with either #4CFE or #4Dc6
 			jsr check_intermission_count
 ;356f  eb        ex      de,hl
 ;3570  d5        push    de
 			pha
 
-;3571  23        inc     hl
-;3572  56        ld      d,(hl)
-;3573  23        inc     hl
-;3574  5e        ld      e,(hl)
-			lda |1,x
-			inx
-			inx
 ;3575  1813      jr      #358a           ; (19)
 			bra next_op
 
 ; for value == #F3 - SETCHAR
 op_SETCHAR mx %00
 			tax
+			lda |1,x
+			pha 	 	; Address word for the character
+
 ;3577  eb        ex      de,hl		; save HL into DE
 ;3578  210f4f    ld      hl,#4f0f	; HL := #4F0F (stack)
 ;357b  78        ld      a,b		; A := B
 ;357c  d7        rst     #10		; load A with the data in HL+A
+			lda <cutscene_loop_counter
+			adc #cs_sprite_index-1
+			tax
 ;357d  3600      ld      (hl),#00	; clear this location
+			sep #$20
+			stz |0,x
+			rep #$20
 ;357f  eb        ex      de,hl		; restore HL from DE
+
 ;3580  113e4f    ld      de,#4f3e	; DE := #4F3E (stack)
+			pea cutscene_char-2
 ;3583  d5        push    de		; save DE
 ;3584  23        inc     hl		; next location
 ;3585  5e        ld      e,(hl)
 ;3586  23        inc     hl
 ;3587  56        ld      d,(hl)		; DE how has the address word after the code #F3
+
 ;3588  1800      jr      #358a		; does nothing (?) -- jumps to next instruction
 ;			bra next_op
-
-	; It's my guess that the jr at 3588 and the lack of code #F4 
-	; are related.  In fitting with the style of the other F-commands,
-	; they all end with a jr to 0x358a, including this one. 
-	; I think that in the source code, they removed whatever #F4 
-	; was, but forgot to erase the jr just before it, so you end up with
-	; a jr to the next instruction.  -scott
 
 ; cleanup for return from #F0, #F1, #F3
 next_op
@@ -9081,7 +9086,16 @@ next_op
 ;358f  72        ld      (hl),d
 ;3590  2b        dec     hl
 ;3591  73        ld      (hl),e
+			lda <cutscene_loop_counter
+			asl
+			adc 1,s
+			sta 1,s
+			plx
+			pla
+			sta |0,x
+
 ;3592  110300    ld      de,#0003	; 3 bytes used from the code program
+			lda #3
 ;3595  181d      jr      #35b4           ; (29)
 			bra next2_op
 
@@ -9298,7 +9312,7 @@ init_cutscene mx %00
 			stz |pacman_dead_state
 
 ;363d  0614      ld      b,#14		; B := #14
-			ldx #cutscene_vars
+			ldx #cutscene_vars  	; nvalues, and act_end flags to 0
 			ldy #$14
 			lda #0
 
@@ -9316,12 +9330,12 @@ check_intermission_count mx %00
 ;3644  2004      jr      nz,#364a        ; (4)
 			bne :not6
 ;3646  21c64d    ld      hl,#4dc6
-			lda #intermission2
+			lda #fruit_y-12    ; 4DC6+$C = 4DD2
 ;3649  c9        ret 
 			rts
 :not6
 ;364a  21fe4c    ld      hl,#4cfe
-			lda #intermission1
+			lda #cutscene_positions-2
 ;364d  c9        ret
 			rts
 
