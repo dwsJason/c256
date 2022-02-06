@@ -613,6 +613,7 @@ no_players dw 0
 ;		0x20 = 20000	0xff = none
 bonus_life dw 0
 ;	4e72	cocktail mode (0=no, 1=yes)
+cocktail_mode dw 0
 ;	4e73-4e74 pointer to difficulty settings
 ;		4e73: 68=normal 7d=hard checked at start of game
 ;	4e75	ghost names mode (0 or 1)
@@ -733,6 +734,10 @@ cutscene_act_end ds 6  ; act has ended flag, for each act
 ;4F2E
 ;4F30
 cutscene_char ds 12 ; anim address for the act
+;4F40
+cutscene_misc ds 12 ; unsure what this is
+;4F50
+cutscene_misc2 ds 12 ;
 
 ;Stack ds $C0
 

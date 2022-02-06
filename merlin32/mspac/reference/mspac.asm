@@ -10453,15 +10453,18 @@ init_cutscene
 363f  cf        rst     #8		; 
 3640  c9        ret 			; return    
 
-check_intermission_count
+;
+; Returns a pointer to the XY position, used in cutscenes
+;
+get_intermission_xy
 
 3641  78        ld      a,b
 3642  fe06      cp      #06
 3644  2004      jr      nz,#364a        ; (4)
-3646  21c64d    ld      hl,#4dc6
+3646  21c64d    ld      hl,#4dc6		; fruit_y-12
 3649  c9        ret     
 
-364a  21fe4c    ld      hl,#4cfe
+364a  21fe4c    ld      hl,#4cfe		; cutscene_positions-2
 364d  c9        ret     
 
         ; select song

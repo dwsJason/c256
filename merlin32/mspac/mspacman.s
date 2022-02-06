@@ -8903,17 +8903,26 @@ anim_code_loop
 				; falling through here seems bad - but this is the way
 
 ; for value == #F0 - LOOP
-			; Y =  offset to the cutscene_parts list
-			; A =  index to the current opcode
+;
+; Based on what the other opcodes do, this opcode must actually
+; make things happen, it'll be exciting to understand what the args mean
+;
+; Y =  offset to the cutscene_parts list
+; A =  index to the current opcode
+;34de
 op_LOOP mx %00    
-			tax
+			tax					; index to current opcode data
 ;34de  e5        push    hl
-			phy
+;			phy					; need to preserve, act offset
 ;34df  3e01      ld      a,#01
 ;34e1  d7        rst     #10   ; ptr to byte
-			lda |1,x
-			and #$FF
-			pha
+			lda |0,x
+			pha				    ; first opcode + arg0
+			lda |2,x
+			pha					; arg1 and arg2
+
+			; now I don't have to worry about X, it's free to use
+
 ;34e2  4f        ld      c,a
 			; c = first byte argument
 
@@ -8923,39 +8932,80 @@ op_LOOP mx %00
 			lda <cutscene_loop_counter
 			asl
 			adc #cutscene_char-2
-			tay
-			lda |0,y
+			tax
+			lda |0,x			  ; pointer to the character sequence data
 
 ;34e7  79        ld      a,c
 ;34e8  84        add     a,h
+			sep #$20
+			clc
+			xba
+			adc 2,s
+			xba
+			rep #$30
+
 ;34e9  cd5635    call    #3556
+			jsr :shift_thing
+
 ;34ec  12        ld      (de),a
 ;34ed  cd4136    call    #3641
-			jsr check_intermission_count
+			jsr get_intermission_xy  ; returns pointer to XY data in A
+			pha
 
+; rst 18 (for dereferencing pointers to words)
+;'  ; hl = hl + 2*b,  (hl) -> e, (++hl) -> d, de -> hl
+;   ; HL = base address of table
+;	; B  = index
+;	; after the call, HL gets the data in HL+(2*B).  DE becomes HL+2B
+;	; modified: DE, A
 ;34f0  df        rst     #18   ; ptr to word
-;34f1  7c        ld      a,h
-;34f2  81        add     a,c
-;34f3  12        ld      (de),a
+			lda <cutscene_loop_counter
+			asl
+			adc 1,s
+			sta 1,s
+			plx
+			lda |0,x
+
+;34f1  7c        ld      a,h	; X position
+;34f2  81        add     a,c    ; Add to C, which might be arg0
+;34f3  12        ld      (de),a ; store back in X position
+
 ;34f4  e1        pop     hl
 ;34f5  e5        push    hl
 ;34f6  3e02      ld      a,#02
-;34f8  d7        rst     #10
+;34f8  d7        rst     #10	; returns arg1 on the opcode
 ;34f9  4f        ld      c,a
 ;34fa  212e4f    ld      hl,#4f2e
 ;34fd  df        rst     #18
+			lda <cutscene_loop_counter
+			asl
+			adc #cutscene_char-2
+			; A has pointer to character anim data
+
 ;34fe  79        ld      a,c
 ;34ff  85        add     a,l
 ;3500  cd5635    call    #3556
+			jsr :shift_thing
+
 ;3503  1b        dec     de
 ;3504  12        ld      (de),a
 ;3505  cd4136    call    #3641
+			jsr get_intermission_xy  ; returns pointer to XY data in A
+			pha
 ;3508  df        rst     #18
+			lda <cutscene_loop_counter
+			asl
+			adc 1,s
+			sta 1,s
+			tax
+			lda |0,x 	; xy
+
 ;3509  7d        ld      a,l
 ;350a  81        add     a,c
 ;350b  1b        dec     de
 ;350c  12        ld      (de),a
-;350d  210f4f    ld      hl,#4f0f
+
+;350d  210f4f    ld      hl,#4f0f  ; cs_sprite_index-1
 ;3510  78        ld      a,b
 ;3511  d7        rst     #10
 ;3512  e5        push    hl
@@ -8966,6 +9016,9 @@ op_LOOP mx %00
 ;3518  df        rst     #18		; load HL with address (EG 8663)
 ;3519  79        ld      a,c		; Copy C to A
 ;351a  cb2f      sra     a		; Shift right (div by 2)
+;			cmp #$80   ; signed shift right
+;			ror
+
 ;351c  d7        rst     #10		; dereference sprite number for intro.  loads A with value in HL+A
 ;351d  feff      cp      #ff		; are we done ?
 ;351f  c22635    jp      nz,#3526	; no, skip ahead
@@ -8978,53 +9031,98 @@ op_LOOP mx %00
 ;3528  5f        ld      e,a
 ;3529  e1        pop     hl
 ;352a  3e03      ld      a,#03
-;352c  d7        rst     #10
+;352c  d7        rst     #10	; returns arg2 for the opcode
 ;352d  57        ld      d,a
 ;352e  d5        push    de
-;352f  214e4f    ld      hl,#4f4e
+;352f  214e4f    ld      hl,#4f4e ; custscene_misc2-2
 ;3532  df        rst     #18
 ;3533  e1        pop     hl
 ;3534  eb        ex      de,hl
 ;3535  72        ld      (hl),d
 ;3536  2b        dec     hl
+
 ;3537  3a094e    ld      a,(#4e09)
+			lda |player_no
+
 ;353a  4f        ld      c,a
 ;353b  3a724e    ld      a,(#4e72)
+			lda |cocktail_mode
 ;353e  a1        and     c
 ;353f  2804      jr      z,#3545         ; (4)
 
+				; Alter Y position, when player 2, and cocktail
 ;3541  3ec0      ld      a,#c0
 ;3543  ab        xor     e
 ;3544  5f        ld      e,a
 
 ;3545  73        ld      (hl),e
-;3546  21174f    ld      hl,#4f17
+				; Store out the Y Position of the Sprite
+
+;3546  21174f    ld      hl,#4f17 ; cutscene_nvalues-1
 ;3549  78        ld      a,b
 ;354a  d7        rst     #10
+			lda <cutscene_loop_counter
+			clc
+			adc #cutscene_nvalues-1
+			tax
 ;354b  3d        dec     a
+			sep #$20
+			dec |0,x
+			rep #$20
+			beq :advance_opcode
+
 ;354c  77        ld      (hl),a
 ;354d  110000    ld      de,#0000
 ;3550  2062      jr      nz,#35b4        ; (98)
+			lda #0     				; run the LOOP opcode again next frame
+			jmp next2_op
 
-;3552  1e04      ld      e,#04
+:advance_opcode
+; when N Value is zero, we are done with the opcode
+;3552  1e04      ld      e,#04		     ; 4 bytes used from the sequence
+			lda #$0004
 ;3554  185e      jr      #35b4           ; (94)
+			jmp next2_op
 
+:shift_thing
+			rep #$20
+			xba
+			pha
 ;3556  4f        ld      c,a
 ;3557  cb29      sra     c
+			cmp #$80
+			ror
 ;3559  cb29      sra     c
+			cmp #$80
+			ror
 ;355b  cb29      sra     c
+			cmp #$80
+			ror
 ;355d  cb29      sra     c
-;355f  a7        and     a
-;3560  f26835    jp      p,#3568
+			cmp #$80
+			ror
+			tax
+;355f  a7        and     a 	      ; effected by a
+			pla
+			jsr getparity8
+
+;3560  f26835    jp      p,#3568  ; if even # of bits set, this is true?
+			bcc :parity_true
+
 
 ; arrive here when ghost is moving up the left side of the marquee
 
 ;3563  f6f0      or      #f0
+			ora #$F0
 ;3565  0c        inc     c
+			inx
 ;3566  1802      jr      #356a           ; (2)
-
+			rts
+:parity_true
 ;3568  e60f      and     #0f
-;356a  c9        ret     
+			and #$0F
+;356a  c9        ret
+			rts	 
 
 ; for value == #F1 - SETPOS
 op_SETPOS mx %00
@@ -9038,7 +9136,7 @@ op_SETPOS mx %00
 			pha
 
 ;356c  cd4136    call    #3641		; load HL with either #4CFE or #4Dc6
-			jsr check_intermission_count
+			jsr get_intermission_xy  ; returns pointer to XY data in A
 ;356f  eb        ex      de,hl
 ;3570  d5        push    de
 			pha
@@ -9320,8 +9418,10 @@ init_cutscene mx %00
 			jsr rst8 			; memset
 ;3640  c9        ret 			; return    
 			rts
-
-check_intermission_count mx %00
+;
+; Get a pointer to the XY position
+;
+get_intermission_xy mx %00
 
 ;3641  78        ld      a,b
 			lda <cutscene_loop_counter
@@ -10190,7 +10290,7 @@ act1_part1
 			da act_sign1
 ;8257:  F2 01 			; SETN		01
 ;8259:  F0 00 00 		; LOOP		00 00
-			db SETN,$01,LOOP,$00,$00
+			db SETN,$01,LOOP,$00,$00,$16  ;!! 825C is missing from the dump!!
 ;825D:  F1 BD 52			; SETPOS	BD 52
 			db SETPOS,$BD,$52
 ;8260:  F2 28			; SETN		28
@@ -10211,11 +10311,11 @@ act1_part1
 			da msp_walk_right 
 ;8272:  F2 7F			; SETN		7F
 ;8274:  F0 F0 00 09		; LOOP		F0 00 09  ; otto
-			db SETN,$7F,LOOP,$00,$09
+			db SETN,$7F,LOOP,$F0,$00,$09
 	;       ^^ color 9 (yellow otto)
 ;8278:  F2 7F			; SETN		7F
 ;827A:  F0 F0 00 09		; LOOP		F0 00 09  ; otto
-			db SETN,$7F,LOOP,$00,$09
+			db SETN,$7F,LOOP,$F0,$00,$09
 ;827E:  F1 00 7F			; SETPOS	00 7F
 			db SETPOS,$00,$7F
 
@@ -11958,5 +12058,30 @@ draw_logo_text mx %00
 ;967c  c9        ret     		; return
 			rts
 ;------------------------------------------------------------------------------
+;------------------------------------------------------------------------------
+; Return parity of the 8 bit accumulator
+getparity8 mx %10
+			pha
+			phx
+			phy
+			sep #$30
+			tax
+			lda |:parity,x
+			lsr    			; return result in C
+			rep #$10
+			ply
+			plx
+			pla
+			rts
+:parity
+]var = 0
+			lup 256
+
+			db {]var&1}!{{]var/2}&1}!{{]var/4}&1}!{{]var/8}&1}!{{]var/16}&1}!{{]var/32}&1}!{{]var/64}&1}!{{]var/128}&1}
+
+]var = ]var+1
+			--^
+
+
 ;------------------------------------------------------------------------------
 
