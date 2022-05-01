@@ -74,15 +74,15 @@ VICKY_BITMAP0 = $000000
 ]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_TileMap_En
 ]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_Sprite_En
 ]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_GAMMA_En
-]VIDEO_MODE = ]VIDEO_MODE+$100                                       ; +800x600
-;]VIDEO_MODE = ]VIDEO_MODE+$200                                       ; pixel double/ half resolution
+]VIDEO_MODE = ]VIDEO_MODE+$100                  ; +800x600
+;]VIDEO_MODE = ]VIDEO_MODE+$200                 ; pixel double/ half resolution
 
 VICKY_MAP_TILES    = $000000
 VICKY_SPRITE_TILES = $010000
 VICKY_MAP0         = $020000   			      ; MAP Data for tile map 0
-VICKY_MAP1         = VICKY_MAP0+{64*64*2}	      ; MAP Data for tile map 1
-VICKY_MAP2         = VICKY_MAP1+{64*64*2}	      ; MAP Data for tile map 2
-VICKY_MAP3         = VICKY_MAP2+{64*64*2}	      ; MAP Data for tile map 3
+VICKY_MAP1         = VICKY_MAP0+{64*64*2}	  ; MAP Data for tile map 1
+VICKY_MAP2         = VICKY_MAP1+{64*64*2}	  ; MAP Data for tile map 2
+VICKY_MAP3         = VICKY_MAP2+{64*64*2}	  ; MAP Data for tile map 3
 
 TILE_CLEAR_SIZE = $010000
 MAP_CLEAR_SIZE = 64*64*2
@@ -392,7 +392,24 @@ rst38 mx %00
 ;; continuation of RST 38 partially...  (vblank)
 ;; (gets called from the #1f9b patch, from #0038)
 ;008d
-VBL_Handler
+VBL_Handler mx %00
+;
+; I think first thing in VBlank Should be code to refresh the sprites
+; convert from MsPac HW to C256
+;
+
+;
+; Then code to refresh the character map
+; convert from MsPac HW to C256
+;
+
+;
+; Then code to mix C256 Audio
+;
+
+;
+; Then translated code
+;
 
 ;008d  f5        push    af		; save AF [restored at #01DA]
 ;008e  32c050    ld      (#50c0),a	; kick the dog
