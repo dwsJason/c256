@@ -397,7 +397,155 @@ VBL_Handler mx %00
 ; I think first thing in VBlank Should be code to refresh the sprites
 ; convert from MsPac HW to C256
 ;
+SP_SIZE equ 8
+		pea >SP00_CONTROL_REG
+		plb
+		plb
+		phd
+		lda #allsprite
+		tcd
 
+		; since this controls color as well, needs tweaked
+		lda #SPRITE_Enable
+		sta |SP00_CONTROL_REG+{SP_SIZE*0}
+		sta |SP00_CONTROL_REG+{SP_SIZE*1}
+		sta |SP00_CONTROL_REG+{SP_SIZE*2}
+		sta |SP00_CONTROL_REG+{SP_SIZE*3}
+		sta |SP00_CONTROL_REG+{SP_SIZE*4}
+		sta |SP00_CONTROL_REG+{SP_SIZE*5}
+
+		; Update the Sprite Frames
+		lda <{redghostsprite-allsprite}
+		asl
+		asl
+		adc #>VICKY_SPRITE_TILES
+		sta |SP00_ADDY_PTR_L+1+{SP_SIZE*0}
+
+		lda <{pinkghostsprite-allsprite}
+		asl
+		asl
+		adc #>VICKY_SPRITE_TILES
+		sta |SP00_ADDY_PTR_L+1+{SP_SIZE*1}
+
+		lda <{blueghostsprite-allsprite}
+		asl
+		asl
+		adc #>VICKY_SPRITE_TILES
+		sta |SP00_ADDY_PTR_L+1+{SP_SIZE*2}
+
+		lda <{orangeghostsprite-allsprite}
+		asl
+		asl
+		adc #>VICKY_SPRITE_TILES
+		sta |SP00_ADDY_PTR_L+1+{SP_SIZE*3}
+
+		lda <{pacmansprite-allsprite}
+		asl
+		asl
+		adc #>VICKY_SPRITE_TILES
+		sta |SP00_ADDY_PTR_L+1+{SP_SIZE*4}
+
+		lda <{fruitsprite-allsprite}
+		asl
+		asl
+		adc #>VICKY_SPRITE_TILES
+		sta |SP00_ADDY_PTR_L+1+{SP_SIZE*5}
+
+		lda #red_ghost_y
+		tcd
+
+SCR_OFFSET_X equ {{800-{224*2}}/2}
+SCR_OFFSET_Y equ {{600-{256*2}}/2}
+
+		; Do Red Ghost X
+		lda <{red_ghost_x-red_ghost_y}
+		and #$FF
+		asl		; x2
+		adc #SCR_OFFSET_X
+		sta |SP00_X_POS_L+{SP_SIZE*0}
+
+		; Do Red Ghost Y
+		lda <{red_ghost_y-red_ghost_y}
+		and #$FF
+		asl
+		adc #SCR_OFFSET_Y
+		sta |SP00_Y_POS_L+{SP_SIZE*0}
+
+		; Do Pink Ghost X
+		lda <{pink_ghost_x-red_ghost_y}
+		and #$FF
+		asl		; x2
+		adc #SCR_OFFSET_X
+		sta |SP00_X_POS_L+{SP_SIZE*1}
+
+		; Do Pink Ghost Y
+		lda <{pink_ghost_y-red_ghost_y}
+		and #$FF
+		asl
+		adc #SCR_OFFSET_Y
+		sta |SP00_Y_POS_L+{SP_SIZE*1}
+
+		; Do Blue Ghost X
+		lda <{blue_ghost_x-red_ghost_y}
+		and #$FF
+		asl		; x2
+		adc #SCR_OFFSET_X
+		sta |SP00_X_POS_L+{SP_SIZE*2}
+
+		; Do Blue Ghost Y
+		lda <{blue_ghost_y-red_ghost_y}
+		and #$FF
+		asl
+		adc #SCR_OFFSET_Y
+		sta |SP00_Y_POS_L+{SP_SIZE*2}
+
+		; Do Orange Ghost X
+		lda <{orange_ghost_x-red_ghost_y}
+		and #$FF
+		asl		; x2
+		adc #SCR_OFFSET_X
+		sta |SP00_X_POS_L+{SP_SIZE*3}
+
+		; Do Orange Ghost Y
+		lda <{orange_ghost_y-red_ghost_y}
+		and #$FF
+		asl
+		adc #SCR_OFFSET_Y
+		sta |SP00_Y_POS_L+{SP_SIZE*3}
+
+		; Do Ms Pacman X
+		lda <{pacman_x-red_ghost_y}
+		and #$FF
+		asl		; x2
+		adc #SCR_OFFSET_X
+		sta |SP00_X_POS_L+{SP_SIZE*4}
+
+		; Do Ms Pacman Y
+		lda <{pacman_y-red_ghost_y}
+		and #$FF
+		asl		; x2
+		adc #SCR_OFFSET_Y
+		sta |SP00_Y_POS_L+{SP_SIZE*4}
+
+		; Do Fruit X
+		;lda <{fruit_x-red_ghost_y}
+		lda >fruit_x
+		and #$FF
+		asl		; x2
+		adc #SCR_OFFSET_X
+		sta |SP00_X_POS_L+{SP_SIZE*5}
+
+		; Do Fruit Y
+		;lda <{fruit_y-red_ghost_y}
+		lda >fruit_y
+		and #$FF
+		asl		; x2
+		adc #SCR_OFFSET_Y
+		sta |SP00_Y_POS_L+{SP_SIZE*5}
+
+		pld
+		phk
+		plb
 ;
 ; Then code to refresh the character map
 ; convert from MsPac HW to C256
