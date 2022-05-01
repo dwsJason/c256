@@ -261,7 +261,7 @@ start   ent             ; make sure start is visible outside the file
 ;------------------------------------------------------------------------------
 
 		; This is the Test Loop for showing off the levels
-		jmp JasonTestStuff
+;		jmp JasonTestStuff
 
 ;------------------------------------------------------------------------------
 ;
@@ -1542,9 +1542,11 @@ InstallJiffy mx %00
 ;		pla					   ; 5
 ;		rtl
 
+		php					   ; 3
 		phb 				   ; 3
 		phk 				   ; 3
 		plb 				   ; 4
+		rep #$30			   ; 3
 		inc |{MyDP+dpJiffy}    ; 6
 
 jsr38	nop
@@ -1552,6 +1554,7 @@ jsr38	nop
 		nop
 
 		plb 				   ; 4
+		plp					   ; 4
 		rtl
 
 
