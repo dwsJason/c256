@@ -318,7 +318,7 @@ task_add mx %00
 			ldx #foreground_tasks		; wrap around task list
 :no_wrap
 ;004d  22804c    ld      (#4c80),hl	; store new task pointer back (4c80, 4c81) = hl
-			stz |tasksTail
+			stx |tasksTail
 ;0050  c9        ret     		; return to program
 			rts
 
@@ -1063,7 +1063,16 @@ gamemode_dispatch mx %00
 ;------------------------------------------------------------------------------
 ; arrive here after power on
 ;03d4
-power_on
+power_on mx %00
+
+			nop
+			nop
+			nop
+;]stop		bra ]stop
+			nop
+			nop
+			nop
+
 ;03d4  3a014e	ld	a,(#4e01)	; load A with main routine 0, subroutine #
 ;03d5  e7        rst     #20		; jump based on A
 			lda |mainroutine0
@@ -1126,6 +1135,16 @@ power_on
 ; attract mode main routine
 ;03fe
 attract_mode mx %00
+
+			nop
+			nop
+			nop
+;]stop		bra ]stop
+; We're getting here at least
+			nop
+			nop
+			nop
+
 ;03fe  cda12b    call    #2ba1		; write # of credits on screen
 			jsr task_drawCredits
 ;0401  3a6e4e    ld      a,(#4e6e)	; load A with # of credits
