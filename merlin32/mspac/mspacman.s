@@ -1139,7 +1139,7 @@ attract_mode mx %00
 			nop
 			nop
 			nop
-;]stop		bra ]stop
+; ]stop		bra ]stop
 ; We're getting here at least
 			nop
 			nop
