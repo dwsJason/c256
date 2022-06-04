@@ -268,6 +268,7 @@ task_drawText mx %00
 		bne :next2
 ;95eb  ccf695    call    z,#95f6		; yes, draw midway logo and copyright text
 		jsr :midway_logo
+:next2
 ;95ee  fe06      cp      #06		; == #06 ?   ( code for "READY!" )
 		cpy #$06
 		bne :next3
@@ -323,34 +324,64 @@ task_drawText mx %00
 	; first byte is color, 2nd byte is graphic code, third & fourth are screen locations
 :mspac_gr_table
 
-9616  09 20 f5 41 			; screen location #41F5
-961a  09 21 15 42			; screen location #4215
-961e  09 22 f6 41 			; screen location #41F6
-9622  09 23 16 42 			; screen location #4216
-9626  ff
+;9616  09 20 f5 41 			; screen location #41F5
+	db $09,$20
+	dw tile_ram+$1F5
+
+;961a  09 21 15 42			; screen location #4215
+	db $09,$22
+	dw tile_ram+$215
+
+;961e  09 22 f6 41 			; screen location #41F6
+	db $09,$22
+	dw tile_ram+$1F6
+
+;9622  09 23 16 42 			; screen location #4216
+	db $09,$23
+	dw tile_ram+$216
+
+;9626  ff
+	db $ffff
 
 	; subroutine for start button press
 	; called from #9610
 	; draws the MS PAC MAN which appears between "ADDITIONAL" and "AT 10,000 pts"
 draw_table mx %00
+;9627  7e        ld      a,(hl)		; load A with table data
+]loop
+		lda |0,x
+;9628  feff      cp      #ff		; are we done?
+		cmp #$FFFF
+;962a  280f      jr      z,#963b         ; yes, return
+		beq :done
+;962c  47        ld      b,a		; else load B with this first data byte
+;962d  23        inc     hl		; next table entry
+;962e  7e        ld      a,(hl)		; load A with next data
+;962f  23        inc     hl		; next table entry
+;9630  5e        ld      e,(hl)		; load E with next data
+;9631  23        inc     hl		; next table entry
+;9632  56        ld      d,(hl)		; load D with next data
+		ldy |2,x
+;9633  12        ld      (de),a		; Draws element to screen
+		sep #$20
+		sta |$400,y		; stores out the color data into the palette_ram
+;9634  78        ld      a,b		; load A with B
+;9635  cbd2      set     2,d		; set bit 2 of D.  changes DE to color grid
+;9637  12        ld      (de),a		; store A into color grid
+;9638  23        inc     hl		; next table entry
+		xba
+		sta |0,y		; stores out the graphic character number
 
-9627  7e        ld      a,(hl)		; load A with table data
-9628  feff      cp      #ff		; are we done?
-962a  280f      jr      z,#963b         ; yes, return
-962c  47        ld      b,a		; else load B with this first data byte
-962d  23        inc     hl		; next table entry
-962e  7e        ld      a,(hl)		; load A with next data
-962f  23        inc     hl		; next table entry
-9630  5e        ld      e,(hl)		; load E with next data
-9631  23        inc     hl		; next table entry
-9632  56        ld      d,(hl)		; load D with next data
-9633  12        ld      (de),a		; Draws element to screen
-9634  78        ld      a,b		; load A with B
-9635  cbd2      set     2,d		; set bit 2 of D.  changes DE to color grid
-9637  12        ld      (de),a		; store A into color grid
-9638  23        inc     hl		; next table entry
-9639  18ec      jr      #9627           ; loop again
-963b  c9        ret     		; return
+		rep #$31
+		txa
+		adc #4
+		tax
+
+;9639  18ec      jr      #9627           ; loop again
+		bra ]loop
+:done
+;963b  c9        ret     		; return
+		rts
 
 	; called from #95F0.  clears intermission indicator
 clear_intermission mx %00
