@@ -13325,6 +13325,7 @@ FLASHEN
 
 	; called from #23A7 for task = #1C
 	; prints text or graphics based on parameter loaded into B
+task_drawText
 
 95E3: 78	ld	a,b		; load A with parameter
 95E4: FE 0A	cp	#0A		; == #0A ?
@@ -13396,7 +13397,7 @@ FLASHEN
 963b  c9        ret     		; return
 
 	; called from #95F0.  clears intermission indicator
-
+clear_intermission
 963c  3e00      ld      a,#00		; A := #00
 963e  32004f    ld      (#4f00),a	; clear the intermission indicator
 9641  c9        ret     		; return

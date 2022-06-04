@@ -251,9 +251,116 @@ task_drawLives
 task_drawFruit
 		rts
 ;------------------------------------------------------------------------------
+
 ; #95E3	; A=1C	; used to draw text and some other functions  ; parameter lookup for text found at #36a5
-task_drawText
+; A=Argument, string number
+task_drawText mx %00
+;95E3: 78	ld	a,b		; load A with parameter
+;95E4: FE 0A	cp	#0A		; == #0A ?
+		tay
+		cpy #$0A
+		bne :next1
+;95e6  cc0b96    call    z,#960b		; Yes, draw the MS PAC MAN graphic which appears between "ADDITIONAL" and "AT 10,000 pts"
+		jsr :table_subroutine
+:next1
+;95e9  fe0b      cp      #0b		; == #0B ?
+		cpy #$0B
+		bne :next2
+;95eb  ccf695    call    z,#95f6		; yes, draw midway logo and copyright text
+		jsr :midway_logo
+;95ee  fe06      cp      #06		; == #06 ?   ( code for "READY!" )
+		cpy #$06
+		bne :next3
+;95f0  cc3c96    call    z,#963c		; yes, clear the intermission indicator
+		jsr clear_intermission
+:next3
+;95f3  c35e2c    jp      #2c5e		; jump to print routine
+		jmp DrawText
+
+:midway_logo	
+;95f6  c5        push    bc		; save BC
+;95f7  e5        push    hl		; save HL
+;95f8  cd4296    call    #9642		; draw the midway logo and copyright text for the 'press start' screen
+		jsr	draw_logo_text 
+;95fb  e1        pop     hl		; restore HL
+;95fc  c1        pop     bc		; resore BC
+
+	; check for dip switch settings if there are extra lives awarded
+
+;95fd  3a8050    ld      a,(#5080)	; load A with Dip switches
+		lda |DSW1
+;9600  e630      and     #30		; mask bits
+		and #$30
+;9602  fe30      cp      #30		; are bits 4 and 5 on ?   This happens when there is no bonus life awarded.
+		cmp #$30
+;9604  78        ld      a,b		; A := B
+		tya
+		bne :rts
+;9605  c0        ret     nz		; no, return
+
+;9606  3e20      ld      a,#20		; yes, A := #20
+		lda #$20
+;9608  0620      ld      b,#20		; B := #20
+		tay
+;960a  c9        ret     		; return (to #95EE)
+:rts
 		rts
+
+	; table subroutine
+:table_subroutine
+
+;960b  c5        push    bc		; save BC
+;960c  e5        push    hl		; save HL
+;960d  211696    ld      hl,#9616	; load HL with start of table data
+		ldx #:mspac_gr_table
+;9610  cd2796    call    #9627		; draws the MS PAC MAN graphic which appears between "ADDITIONAL" and "AT 10,000 pts" 
+;9613  e1        pop     hl		; restore HL
+;9614  c1        pop     bc		; restore BC
+;9615  c9        ret     		; return
+		rts
+
+	; table data, used in sub below to draw MS PAC graphic
+	; first byte is color, 2nd byte is graphic code, third & fourth are screen locations
+:mspac_gr_table
+
+9616  09 20 f5 41 			; screen location #41F5
+961a  09 21 15 42			; screen location #4215
+961e  09 22 f6 41 			; screen location #41F6
+9622  09 23 16 42 			; screen location #4216
+9626  ff
+
+	; subroutine for start button press
+	; called from #9610
+	; draws the MS PAC MAN which appears between "ADDITIONAL" and "AT 10,000 pts"
+draw_table mx %00
+
+9627  7e        ld      a,(hl)		; load A with table data
+9628  feff      cp      #ff		; are we done?
+962a  280f      jr      z,#963b         ; yes, return
+962c  47        ld      b,a		; else load B with this first data byte
+962d  23        inc     hl		; next table entry
+962e  7e        ld      a,(hl)		; load A with next data
+962f  23        inc     hl		; next table entry
+9630  5e        ld      e,(hl)		; load E with next data
+9631  23        inc     hl		; next table entry
+9632  56        ld      d,(hl)		; load D with next data
+9633  12        ld      (de),a		; Draws element to screen
+9634  78        ld      a,b		; load A with B
+9635  cbd2      set     2,d		; set bit 2 of D.  changes DE to color grid
+9637  12        ld      (de),a		; store A into color grid
+9638  23        inc     hl		; next table entry
+9639  18ec      jr      #9627           ; loop again
+963b  c9        ret     		; return
+
+	; called from #95F0.  clears intermission indicator
+clear_intermission mx %00
+;963c  3e00      ld      a,#00		; A := #00
+;963e  32004f    ld      (#4f00),a	; clear the intermission indicator
+		stz |is_intermission
+
+;9641  c9        ret     		; return
+		rts
+
 ;------------------------------------------------------------------------------
 ; #2BA1	; A=1D	; write # of credits on screen
 task_drawCredits
