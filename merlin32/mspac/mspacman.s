@@ -3477,6 +3477,8 @@ Pac2PhxColor mx %00
 ;
 BlitMap mx %00
 
+; This does the main map area
+
 :row_offset = temp0
 :cursor	    = temp1
 :count      = temp2
@@ -3489,7 +3491,7 @@ BlitMap mx %00
 
 ]row_loop
 
-		sta <:cursor
+]		sta <:cursor
 
 		lda #28
 		sta <:count
@@ -3526,12 +3528,56 @@ BlitMap mx %00
 		bcc ]row_loop
 
 ;------------------------------------------------------------------------------
+; Need the Top 2 lines
+
+		phb
+		pea >{VRAM+VICKY_MAP0}
+		plb
+		plb
+
+; 3DF->3C0 - line 0
+		ldy #64*2+{{25-14}*2}-2	; offset into vicky
+		ldx #tile_ram-MyDP+$3C0
+		jsr :BlitLine
+
+; 3FF->3E0 - line 1
+		ldy #64*4+{{25-14}*2}-2	; offset into vicky
+		ldx #tile_ram-MyDP+$3E0
+		jsr :BlitLine
+
+;------------------------------------------------------------------------------
+; Need the Bottom 2 lines
+
+; 01F->000 - line 34
+		ldy #64*{{34*2}+2}+{{25-14}*2}-2	; offset into vicky
+		ldx #tile_ram-MyDP+$000
+		jsr :BlitLine
+; 03F->020 - line 35
+		ldy #64*{{35*2}+2}+{{25-14}*2}-2	; offset into vicky
+		ldx #tile_ram-MyDP+$020
+		jsr :BlitLine
+
+		plb
+
+;------------------------------------------------------------------------------
 ; temp test code
 
 		lda |level
 		ldx #VICKY_MAP0+{64*2}+4
 		jsr PrintHex
 
+		rts
+
+:BlitLine
+		sep #$20    ; short a
+]count  =  0
+		lup 32
+		lda <$1F-]count,x
+		sta |VRAM+VICKY_MAP0+{]count*2},y
+]count = ]count+1
+		--^
+
+		rep #$31    ; mxc=0
 		rts
 
 ;------------------------------------------------------------------------------

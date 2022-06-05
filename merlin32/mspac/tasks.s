@@ -394,7 +394,63 @@ clear_intermission mx %00
 
 ;------------------------------------------------------------------------------
 ; #2BA1	; A=1D	; write # of credits on screen
-task_drawCredits
+task_drawCredits mx %00
+
+;		nop
+;		nop
+;		nop
+;]wait   bra ]wait
+;		nop
+;		nop
+;		nop
+
+;2ba1  3a6e4e    ld      a,(#4e6e)	; load A with number of credits in ram
+;2ba4  feff      cp      #ff		; set for free play?
+;2ba6  2005      jr      nz,#2bad        ; no? then skip ahead
+		lda |no_credits
+		bpl :not_free
+
+;2ba8  0602      ld      b,#02		; load code for "FREE PLAY"
+;2baa  c35e2c    jp      #2c5e		; print FREE PLAY and return from sub
+		ldy #2						; "FREE PLAY"
+		jmp DrawText
+
+:not_free
+;2bad  0601      ld      b,#01		; else load code for "CREDIT"
+		ldy #1						; "CREDIT"
+;2baf  cd5e2c    call    #2c5e		; print "CREDIT" on screen
+		jsr DrawText
+
+		sep #$20
+;2bb2  3a6e4e    ld      a,(#4e6e)	; load A with number of credits in ram
+		lda |no_credits
+;2bb5  e6f0      and     #f0		; mask bits.  is it bigger than 9?
+		and #$F0
+;2bb7  2809      jr      z,#2bc2         ; yes, only draw 1 position
+		beq :one_digit
+;2bb9  0f        rrca  			; else ...  
+;2bba  0f        rrca    		;
+;2bbb  0f        rrca    		; 
+;2bbc  0f        rrca    		; rotate right 4 times, which moves the 10's digit to the 1's digit
+		lsr
+		lsr
+		lsr
+		lsr
+;2bbd  c630      add     a,#30		; Add #30 to account for ascii code for numbers
+		ora #$30
+;2bbf  323440    ld      (#4034),a	; put tens digit for number of credits on screen
+		sta |tile_ram+$34
+:one_digit
+;2bc2  3a6e4e    ld      a,(#4e6e)	; load A with number of credits in ram
+		lda |no_credits
+;2bc5  e60f      and     #0f		; mask out high bits.  result is between 0 and 9
+		and #$0F
+;2bc7  c630      add     a,#30		; Add #30 to account for ascii code for numbers
+		ora #$30
+;2bc9  323340    ld      (#4033),a	; put 1's digit number of credits on screen
+		sta |tile_ram+$33
+		rep #$31
+;2bcc  c9        ret     		; return
 		rts
 ;------------------------------------------------------------------------------
 ; #2675	; A=1E	; clear fruit, pacman, and all ghosts
