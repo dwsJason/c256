@@ -798,6 +798,16 @@ SCR_OFFSET_Y equ {{600-{256*2}}/2}
 ;01d9  fb        ei      		; enable cpu interrupts
 ;01da  f1        pop     af		; restore AF [was saved at #008D]
 ;01db  c9        ret     		; return
+
+;------------------------------------------------------------------------------
+; Inject our code to copy the original Ms Pacman HW areas, over to the
+; C256 so that we can see what's happening
+;
+
+;			jsr BlitColor		; Based on Color RAM, fix up Vicky CLUTs
+			jsr BlitMap			; Copy the map data from tile_ram, to the Vicky RAM
+
+
 			rts
 
 ;------------------------------------------------------------------------------
