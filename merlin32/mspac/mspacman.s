@@ -9813,6 +9813,8 @@ string_table
 	da :s1C	; #38C4	; 1c        SUPER PAC-MAN
 	da :s1D	; #38CE	; 1d        MAN
 	da :s1E	; #38D8	; 1e        AN
+	da :s1F	; #38E2	; 1f        - ? -
+
 	da :s20	; #3820	; 20        - ? -
 	da :s21	; #38F6	; 21        - ? -
 	da :s22	; #3900	; 22        - ? -
