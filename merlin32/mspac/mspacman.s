@@ -393,6 +393,25 @@ rst38 mx %00
 ;; (gets called from the #1f9b patch, from #0038)
 ;008d
 VBL_Handler mx %00
+; I think there's a problem with my temp variables getting stomped
+; because I don't know what will be called in this interrupt here
+		pei temp0
+		pei temp0+2
+		pei temp1
+		pei temp1+2
+		pei temp2
+		pei temp2+2
+		pei temp3
+		pei temp3+2
+		pei temp4
+		pei temp4+2
+		pei temp5
+		pei temp5+2
+		pei temp6
+		pei temp6+2
+		pei temp7
+		pei temp7+2
+
 ;
 ; I think first thing in VBlank Should be code to refresh the sprites
 ; convert from MsPac HW to C256
@@ -808,6 +827,44 @@ SCR_OFFSET_Y equ {{600-{256*2}}/2}
 			jsr BlitMap			; Copy the map data from tile_ram, to the Vicky RAM
 
 
+;
+; Restore the temp variables, that might have been stomped on, that
+; the foreground tasks might be using
+;
+
+			plx
+			pla
+			sta <temp7
+			stx <temp7+2
+			plx
+			pla
+			sta <temp6
+			stx <temp6+2
+			plx
+			pla
+			sta <temp5
+			stx <temp5+2
+			plx
+			pla
+			sta <temp4
+			stx <temp4+2
+			plx
+			pla
+			sta <temp3
+			stx <temp3+2
+			plx
+			pla
+			sta <temp2
+			stx <temp2+2
+			plx
+			pla
+			sta <temp1
+			stx <temp1+2
+			plx
+			pla
+			sta <temp0
+			stx <temp0+2
+
 			rts
 
 ;------------------------------------------------------------------------------
@@ -1146,15 +1203,6 @@ power_on mx %00
 ;03fe
 attract_mode mx %00
 
-			nop
-			nop
-			nop
-; ]stop		bra ]stop
-; We're getting here at least
-			nop
-			nop
-			nop
-
 ;03fe  cda12b    call    #2ba1		; write # of credits on screen
 			jsr task_drawCredits
 ;0401  3a6e4e    ld      a,(#4e6e)	; load A with # of credits
@@ -1237,7 +1285,9 @@ draw_text mx %00
 ;058b  4a 02 00		    		; timer = #4A, task = 2, parameter = 0
 ; BUGFIX03 - Blue maze - Don Hodges
 ;058b  41 02 00		    		; 41 is 1/10 second rather than 1 second
-			lda #$0241
+;			lda #$0241
+			lda #$024a   	   ; things run further without Don's patch, so we're going to
+							   ; leave the original code for now.  And debug
 			ldy #0
 			jsr rst30
  						 
@@ -9049,6 +9099,14 @@ move_mspac_marquee mx %00
 ; Passing Y as the offset, instead of C
 ;349c
 play_cutscene mx %00
+			nop
+			nop
+			nop
+]wait		bra ]wait  ; we know stuff crashes in here, or after here
+			nop
+			nop
+			nop
+
 
 cutscene_loop_counter = temp0
 hl = temp1
