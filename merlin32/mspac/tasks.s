@@ -235,8 +235,138 @@ task_pacmanAI mx %00
 		bra :cont
 
 ;------------------------------------------------------------------------------
+;; draw the score to the screen
+; DE has the address of msb of the score
+; Y = DE
+; HL has starting screen position
+; X = HL
+; B has #03, and C has #04 or #06
+; A = BC
+; 2abe
+DrawScore mx %00
+:C equ temp0
+:B equ temp0+1
+
+		pei temp0
+
+		sta <:C
+
+		sep #$20    ;mx = 10, short a, long xy
+;2abe  1a        ld      a,(de)		; load A with byte of score
+]loop
+		lda |0,y
+;2abf  0f        rrca    
+;2ac0  0f        rrca    
+;2ac1  0f        rrca    
+;2ac2  0f        rrca 			; roll right 4 times through carry flag, result is digits transposed (eg. 82 converts to #28)
+		lsr
+		lsr
+		lsr
+		lsr
+;2ac3  cdce2a    call    #2ace		; drawtens digit to screen
+		jsr :draw_digit
+
+;2ac6  1a        ld      a,(de)		; load A with byte of score
+		lda |0,y
+;2ac7  cdce2a    call    #2ace		; draw ones digit to screen
+		jsr :draw_digit
+
+;2aca  1b        dec     de		; next score digit
+		dey
+
+;2acb  10f1      djnz    #2abe           ; loop 3 times
+		dec <:B
+		bne ]loop
+
+;2acd  c9        ret     		; return
+		rep #$30
+		pla
+		sta <temp0
+		rts
+:draw_digit mx %10
+;2ace  e60f      and     #0f		; mask out left 4 bits to zero
+		and #$0F
+;2ad0  2804      jr      z,#2ad6         ; result zero?  yes, skip next 2 steps
+		beq :is_zero
+
+;2ad2  0e00      ld      c,#00		; C := #00
+;2ad4  1807      jr      #2add           ; skip ahead
+		stz <:C
+
+:is_zero
+;2ad6  79        ld      a,c		; load A with C
+;2ad7  a7        and     a		; == #00 ?
+		lda <:C
+;2ad8  2803      jr      z,#2add         ; yes, skip ahead
+		beq :skip
+
+;2ada  3e40      ld      a,#40		; else A := #40
+		lda #$40
+;2adc  0d        dec     c		; decrement C
+		dec <:C
+:skip
+;2add  77        ld      (hl),a		; draw score to screen
+		sta |0,x
+;2ade  2b        dec     hl		; next screen position
+		dex
+;2adf  c9        ret     		; return
+		rts
+
+;------------------------------------------------------------------------------
 ; #2AE0 ; A=18	; draws "high score" and scores.  clears player 1 and 2 scores to zero.
-task_resetScores
+task_resetScores mx %00
+;2ae0  0600      ld      b,#00		; B := #00
+		ldy #0
+;2ae2  cd5e2c    call    #2c5e		; print HIGH SCORE
+		jsr DrawText
+
+;2ae5  af        xor     a		; A := #00
+;2ae6  21804e    ld      hl,#4e80	; load HL with player 1 score start address
+;2ae9  0608      ld      b,#08		; set counter to 8
+;2aeb  cf        rst     #8		; clear player 1 and player 2 scores to zero
+		stz |p1_score
+		stz |p1_score+2
+		stz |p2_score
+		stz |p2_score+2
+
+;2aec  010403    ld      bc,#0304	; load BC with counters
+		lda #$0304
+;2aef  11824e    ld      de,#4e82	; load DE with p1 msb of score
+		ldy #p1_score+2
+;2af2  21fc43    ld      hl,#43fc	; load HL with screen pos for p1 current score
+		ldx #tile_ram+$3fc
+;2af5  cdbe2a    call    #2abe		; draw score to screen
+		jsr DrawScore
+
+;2af8  010403    ld      bc,#0304	; load BC with counters
+;2afb  11864e    ld      de,#4e86	; load DE with player 2 address
+		ldy #p2_score+2
+;2afe  21e943    ld      hl,#43e9	; load HL with screen pos for player 2 score
+		ldx #tile_ram+$3e9
+
+;2b01  3a704e    ld      a,(#4e70)	; load A with number of players (0=1 player, 1=2 players)
+;2b04  a7        and     a		; is this a 1 player game?
+;2b05  20b7      jr      nz,#2abe        ; no, draw player 2 score and return
+
+		lda |no_players
+		beq :useC6
+		lda #$0304
+		bra DrawScore
+:useC6
+;2b07  0e06      ld      c,#06		; else C := #06
+		lda #$0306
+;2b09  18b3      jr      #2abe           ; draw player 2 score and return
+		bra DrawScore
+
+; called from #2A65, #2A9B
+
+;2b0b  3a094e    ld      a,(#4e09)	; load A with current player number:  0=P1, 1=P2
+;2b0e  21804e    ld      hl,#4e80	; load HL with player 1 score start address
+;2b11  a7        and     a		; is this player 1 ?
+;2b12  c8        ret     z		; yes, return
+
+;2b13  21844e    ld      hl,#4e84	; else load HL with player 2 start address
+;2b16  c9        ret     		; return
 		rts
 ;------------------------------------------------------------------------------
 ; #2A5A ; A=19	; update score.  B has code for items scored, draw score on screen, check for high score and extra lives

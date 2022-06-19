@@ -619,11 +619,16 @@ cocktail_mode dw 0
 ;	4e75	ghost names mode (0 or 1)
 ;
 ;		SCORE AABBCC
-;	4e80-4e82 score P1	80=CC 81=BB 82=CC
+;	4e80-4e82 score P1	80=CC 81=BB 82=AA
+p1_score ds 3
 ;	4e83	P1 got bonus life?  1=yes
-;	4e84-4e86 score P2	84=CC 85=BB 86=CC
+p1_bonus_life db 0
+;	4e84-4e86 score P2	84=CC 85=BB 86=AA
+p2_score ds 3
 ;	4e87	P2 got bonus life?  1=yes
-;	4e88-4e8a high score	88=CC 89=BB 8A=CC
+p2_bonus_life db 0
+;	4e88-4e8a high score	88=CC 89=BB 8A=AA
+high_score ds 3
 ;
 ; Sound Registers
 

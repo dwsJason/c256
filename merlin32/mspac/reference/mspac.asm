@@ -787,11 +787,11 @@ Orange      Pokey/Clyde     Sam/Newton      Bonnie      Sue
 ;	4e75	ghost names mode (0 or 1)
 ;
 ;		SCORE AABBCC
-;	4e80-4e82 score P1	80=CC 81=BB 82=CC
+;	4e80-4e82 score P1	80=CC 81=BB 82=AA
 ;	4e83	P1 got bonus life?  1=yes
-;	4e84-4e86 score P2	84=CC 85=BB 86=CC
+;	4e84-4e86 score P2	84=CC 85=BB 86=AA
 ;	4e87	P2 got bonus life?  1=yes
-;	4e88-4e8a high score	88=CC 89=BB 8A=CC
+;	4e88-4e8a high score	88=CC 89=BB 8A=AA
 ;
 ; Sound Registers
 
@@ -8209,6 +8209,7 @@ update_score
 	; DE has the address of msb of the score
 	; HL has starting screen position
 	; B has #03, and C has #04 or #06
+DrawScore
 
 2abe  1a        ld      a,(de)		; load A with byte of score
 2abf  0f        rrca    
@@ -8241,7 +8242,7 @@ update_score
 
 	; prints "high score", player 1 and player 2 score
 	; this is task #18 called from #23A7
-
+task_resetScores
 2ae0  0600      ld      b,#00		; B := #00
 2ae2  cd5e2c    call    #2c5e		; print HIGH SCORE
 2ae5  af        xor     a		; A := #00
