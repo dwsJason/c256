@@ -12324,40 +12324,94 @@ draw_logo_text mx %00
 			lda #$351C
 			jsr rst28
 
+			nop
+			nop
+			nop
+;]wait		bra ]wait
+			nop
+			nop
+			nop
+
+
+
     ; draws vertical strips of the midway logo starting with the rightmost
 ;$$JGA TODO
 ;9648  21 9A 42	LD	HL,#429A	; load HL with start of screen location
+			ldx #$029A
+			lda #$01BF
+]loop
+			sep #$21
 ;964b  3ebf      ld      a,#bf		; A := #BF = 1st code for midway logo graphic
 ;964d  a7        and     a		; clear the carry flag
 ;964e  111d00    ld      de,#001d	; load DE with offset for each strip
 ;9651  010004    ld      bc,#0400	; load BC with offset for color grid
 
 ;9654  77        ld      (hl),a		; draw first element
+			sta |tile_ram,x
 ;9655  09        add     hl,bc		; add color offset
 ;9656  3601      ld      (hl),#01	; color first element
+			xba
+			sta |palette_ram,x
 ;9658  ed42      sbc     hl,bc		; remove color offset
 ;965a  23        inc     hl		; next location
 ;965b  d604      sub     #04		; next element
+		    xba
+			; c=1
+			sbc #$04
 ;965d  77        ld      (hl),a		; draw 2nd element
+			sta |tile_ram+1,x
 ;965e  09        add     hl,bc		; add color offset
 ;965f  3601      ld      (hl),#01	; color 2nd element
+			xba
+			sta |palette_ram+1,x
 ;9661  ed42      sbc     hl,bc		; remove color offset
 ;9663  23        inc     hl		; next location
 ;9664  d604      sub     #04		; next element
+			xba
+			;sec
+			;c=1
+			sbc #4
 ;9666  77        ld      (hl),a		; draw 3rd element
+			sta |tile_ram+2,x
 ;9667  09        add     hl,bc		; add color offset		
 ;9668  3601      ld      (hl),#01	; color 3rd element
+			xba
+			sta |palette_ram+2,x
 ;966a  ed42      sbc     hl,bc		; remove color offset
 ;966c  23        inc     hl		; next location
 ;966d  d604      sub     #04		; next element
+			xba
+			;sec
+			;c=1
+			sbc #4
 ;966f  77        ld      (hl),a		; draw 4th element
+			sta |tile_ram+3,x
 ;9670  09        add     hl,bc		; add color offset
 ;9671  3601      ld      (hl),#01	; color 4th element
+			xba
+			sta |palette_ram+1,x
 ;9673  ed42      sbc     hl,bc		; remove color offset
 ;9675  19        add     hl,de		; next strip
+			xba
 ;9676  c60b      add     a,#0b		; add offset
+			;clc
+			;adc  #$0B
+			;c=1
+			adc #$0A ;+1 = #$0B
 ;9678  febb      cp      #bb		; are we done?
+			cmp #$BB
+			beq :done
 ;967a  20d8      jr      nz,#9654        ; No, loop again
+			rep #$31
+			tay
+			txa
+			adc #$20
+			tax
+			tya
+			bra ]loop
+
+:done
+			rep #$30
 ;967c  c9        ret     		; return
 			rts
 ;------------------------------------------------------------------------------
