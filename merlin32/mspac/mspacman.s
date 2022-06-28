@@ -372,12 +372,12 @@ rst30 mx %00
 ;0062: 10 FA	djnz	#005E		; next B
 ;0064: E9	jp	(hl)		; return to program (HL now has return address following the 3 data bytes)
 			pla
-			sta |0,x
-			pla
 			sta |1,x
 			pla
-			sta |2,x
+			sta |0,x
+			pla
 			pla			; Y was wide here
+			sta |2,x
 			rep #$20
 			rts
 
@@ -1000,6 +1000,7 @@ check_timed_tasks mx %00
 
 ;0224: 3A 8A 4C	ld	a,(#4C8A)	; load A with number of counter limits changes in this frame
 			lda |counter_limits
+			and #$FF
 			sta <:counter_mask
 ;0227: 4F	ld	c,a		; save to C for testing in line #0232
 ;0228: 06 10	ld	b,#10		; for B = 1 to #10
@@ -1023,11 +1024,11 @@ check_timed_tasks mx %00
 ;0231: 07	rlca			; rotate twice left.  The time unit bits are now rightmost, in bits 0 and 1.  EG #02 for seconds
 			rol
 			rol
-			rep #$20
+;			rep #$20
 ;0232: B9	cp	c		; compare to counter.  is it time to count down the timer?
 			cmp <:counter_mask
 ;0233: 30 28	jr	nc,#025D	; if no, jump ahead and loop for next task
-			bcs :next_task
+			bcc :next_task
 
 ;0235: 35	dec	(hl)		; else decrease the task timer
 			lda (:pTask)
@@ -1041,7 +1042,7 @@ check_timed_tasks mx %00
 			bne :next_task
 
 ;023B: 77	ld	(hl),a		; yes, store A into task timer.  this should be zero and effectively clears the task
-			sep #$20
+;   		sep #$20
 			sta (:pTask)
 			rep #$20
 
@@ -1090,6 +1091,7 @@ check_timed_tasks mx %00
 ;025D: 2C            inc  l
 ;025E: 2C            inc  l
 ;025F: 2C            inc  l		; next task
+			rep #$30
 			inc <:pTask
 			inc <:pTask
 			inc <:pTask
@@ -1286,7 +1288,7 @@ draw_text mx %00
 ; BUGFIX03 - Blue maze - Don Hodges
 ;058b  41 02 00		    		; 41 is 1/10 second rather than 1 second
 ;			lda #$0241
-			lda #$024a   	   ; things run further without Don's patch, so we're going to
+ 			lda #$024a   	   ; things run further without Don's patch, so we're going to
 							   ; leave the original code for now.  And debug
 			ldy #0
 			jsr rst30
@@ -12324,18 +12326,7 @@ draw_logo_text mx %00
 			lda #$351C
 			jsr rst28
 
-			nop
-			nop
-			nop
-;]wait		bra ]wait
-			nop
-			nop
-			nop
-
-
-
     ; draws vertical strips of the midway logo starting with the rightmost
-;$$JGA TODO
 ;9648  21 9A 42	LD	HL,#429A	; load HL with start of screen location
 			ldx #$029A
 			lda #$01BF
