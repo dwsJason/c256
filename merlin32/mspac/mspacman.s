@@ -893,7 +893,7 @@ update_timers mx %00
 			ldx #4
 			stx <:loop_count
 
-			txy
+			tyx
 :loop
 ;01e9  34        inc     (hl)		; increase memory
 			inc |counter0,x
@@ -944,40 +944,40 @@ update_timers mx %00
 			lda <:c
 			sta |counter_limits
 ;0208  2c        inc     l		; next address.  HL now has #4C8B
-			inx
+;			inx
 ;0209  7e        ld      a,(hl)		; load A with the value from this timer
-			lda |counter0,x
+			lda |unused_rng0
 ;020a  87        add     a,a		; A := A * 2
 			asl
 ;020b  87        add     a,a		; A := A * 2
 			asl
 ;020c  86        add     a,(hl)		; A := A + (HL) (A is now 5 times what it was)
 			clc
-			adc |counter0,x
+			adc |unused_rng0
 ;020d  3c        inc     a		; increment.   (A is now 5 times plus 1 what it was)
 			inc
 ;020e  77        ld      (hl),a		; store new value
-			sta |counter0,x
+			sta |unused_rng0
 ;020f  2c        inc     l		; next address.  HL now has #4C8C
-			inx
+;			inx
 ;0210  7e        ld      a,(hl)		; load A with the value from this timer
-			lda |counter0,x
+			lda |unused_rng1
 ;0211  87        add     a,a		; A := A * 2
 			asl
 ;0212  86        add     a,(hl)		; A := A + (HL) (A is now 3 times what it was)  
 			clc
-			adc |counter0,x
+			adc |unused_rng1
 ;0213  87        add     a,a		; A := A * 2
 			asl
 ;0214  87        add     a,a		; A := A * 2
 			asl
 ;0215  86        add     a,(hl)		; A := A + (HL) (A is now 13 times what it was)
 			clc
-			adc |counter0,x
+			adc |unused_rng1
 ;0216  3c        inc     a		; increment.  (A is now 13 times plus 1 what it was)
 			inc
 ;0217  77        ld      (hl),a		; store result
-			sta |counter0,x
+			sta |unused_rng1
 ;0218  c9        ret			; return
 		rep #$20
 		rts
@@ -998,33 +998,31 @@ check_timed_tasks mx %00
 			lda #irq_tasks
 			sta <:pTask
 
+			sep #$20
+
 ;0224: 3A 8A 4C	ld	a,(#4C8A)	; load A with number of counter limits changes in this frame
 			lda |counter_limits
-			and #$FF
 			sta <:counter_mask
 ;0227: 4F	ld	c,a		; save to C for testing in line #0232
 ;0228: 06 10	ld	b,#10		; for B = 1 to #10
 			lda #16
 			sta <:loop_count
-
+			stz <:loop_count+1
 :task_loop
 ;022A: 7E	ld	a,(hl)		; load A with task list first value (timer)
 			lda (:pTask)
 ;022B: A7	and	a		; == #00 ?  (is this task empty?)
-			and #$FF
 ;022C: 28 2F	jr	z,#025D		; Yes, jump ahead and loop for next task
 			beq :next_task
 
 ;022E: E6 C0	and	#C0		; else mask bits with binary 1100 0000 - the left 2 bits (6 and 7) are the time units
 			and #$C0
-			sep #$20
 			clc
 ;0230: 07	rlca
 			rol		
 ;0231: 07	rlca			; rotate twice left.  The time unit bits are now rightmost, in bits 0 and 1.  EG #02 for seconds
 			rol
 			rol
-;			rep #$20
 ;0232: B9	cp	c		; compare to counter.  is it time to count down the timer?
 			cmp <:counter_mask
 ;0233: 30 28	jr	nc,#025D	; if no, jump ahead and loop for next task
