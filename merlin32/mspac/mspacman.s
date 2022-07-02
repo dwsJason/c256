@@ -1028,10 +1028,9 @@ check_timed_tasks mx %00
 ;0232: B9	cp	c		; compare to counter.  is it time to count down the timer?
 			cmp <:counter_mask
 ;0233: 30 28	jr	nc,#025D	; if no, jump ahead and loop for next task
-			;bcc :next_task
-		    ;beq :next_task
+		    ;beq :dec_time
 			bcs :next_task
-
+:dec_time
 ;0235: 35	dec	(hl)		; else decrease the task timer
 			lda (:pTask)
 			dec
@@ -9106,7 +9105,7 @@ play_cutscene mx %00
 			nop
 			nop
 			nop
-]wait		bra ]wait  ; we know stuff crashes in here, or after here
+;]wait		bra ]wait  ; we know stuff crashes in here, or after here
 			nop
 			nop
 			nop
@@ -9204,6 +9203,16 @@ anim_code_loop
 			da op_END		;35cb $FF - END
 
 :invalid_opcode mx %00
+
+			nop
+			nop
+			nop
+]wait   	bra ]wait
+			nop
+			nop
+			nop
+
+
 			wai	; simulate halt
 				; falling through here seems bad - but this is the way
 
@@ -9215,16 +9224,34 @@ anim_code_loop
 ; Y =  offset to the cutscene_parts list
 ; A =  index to the current opcode
 ;34de
-op_LOOP mx %00    
+op_LOOP mx %00
+
+:opcode = temp3
+:arg0   = temp3+2
+:arg1   = temp4
+:arg2   = temp4+2
+
+
 			tax					; index to current opcode data
 ;34de  e5        push    hl
 ;			phy					; need to preserve, act offset
 ;34df  3e01      ld      a,#01
 ;34e1  d7        rst     #10   ; ptr to byte
 			lda |0,x
-			pha				    ; first opcode + arg0
+			and #$FF
+			sta <:opcode
+
+			lda |1,x
+			and #$FF
+			sta <:arg0
+
 			lda |2,x
-			pha					; arg1 and arg2
+			and #$FF
+			sta <:arg1		; arg1 and arg2
+
+			lda |3,x
+			and #$FF
+			sta <:arg2
 
 			; now I don't have to worry about X, it's free to use
 
@@ -9245,7 +9272,7 @@ op_LOOP mx %00
 			sep #$20
 			clc
 			xba
-			adc 2,s
+			adc <:arg0
 			xba
 			rep #$30
 
@@ -9266,29 +9293,42 @@ op_LOOP mx %00
 ;34f0  df        rst     #18   ; ptr to word
 			lda <cutscene_loop_counter
 			asl
-			adc 1,s
+			adc 1,s   	; 1,s is hl in this case
 			sta 1,s
+			;tax
 			plx
-			lda |0,x
+			lda |0,x  	; a=DE
+			tax
 
 ;34f1  7c        ld      a,h	; X position
 ;34f2  81        add     a,c    ; Add to C, which might be arg0
+			sep #$20
+			clc
+			lda 2,s
+			adc <:arg0
 ;34f3  12        ld      (de),a ; store back in X position
+			sta |0,x
+			rep #$30
 
 ;34f4  e1        pop     hl
 ;34f5  e5        push    hl
 ;34f6  3e02      ld      a,#02
 ;34f8  d7        rst     #10	; returns arg1 on the opcode
+
 ;34f9  4f        ld      c,a
+
+			; c=arg1
+
 ;34fa  212e4f    ld      hl,#4f2e
 ;34fd  df        rst     #18
 			lda <cutscene_loop_counter
 			asl
 			adc #cutscene_char-2
 			; A has pointer to character anim data
-
 ;34fe  79        ld      a,c
 ;34ff  85        add     a,l
+			adc <:arg1
+
 ;3500  cd5635    call    #3556
 			jsr :shift_thing
 
@@ -9302,8 +9342,14 @@ op_LOOP mx %00
 			asl
 			adc 1,s
 			sta 1,s
-			tax
+			plx
 			lda |0,x 	; xy
+
+			; Well here's "a" problem
+			; looks like the only unfinished part of this function
+			; A = HL
+			; c = :arg1
+			; X = DE
 
 ;3509  7d        ld      a,l
 ;350a  81        add     a,c
