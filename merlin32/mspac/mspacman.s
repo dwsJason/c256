@@ -340,7 +340,7 @@ rst30 mx %00
 	; continuation of rst 30 from #0035 (Task manager)
 :loop
 ;0051: 1A	ld	a,(de)		; load A with task
-			lda |0,x
+			lda |0,x		; actually this is the task timer, not task no
 ;0052: A7	and	a		; == #00 ?
 ;0053: 28 06	jr	z,#005B 	; yes, skip ahead, we will insert the new task here
 			beq :insert_task_here
@@ -372,12 +372,12 @@ rst30 mx %00
 ;0062: 10 FA	djnz	#005E		; next B
 ;0064: E9	jp	(hl)		; return to program (HL now has return address following the 3 data bytes)
 			pla
-			sta |1,x
-			pla
 			sta |0,x
 			pla
-			pla			; Y was wide here
+			sta |1,x
+			pla
 			sta |2,x
+			pla			; Y was wide here
 			rep #$20
 			rts
 
@@ -990,7 +990,9 @@ update_timers mx %00
 ; checks timed tasks
 ; counts down timer and executes the task if the timer has expired
 ; called from #018F
+;0221
 check_timed_tasks mx %00
+
 :pTask = temp0
 :counter_mask = temp1
 :loop_count = temp2
@@ -1026,7 +1028,9 @@ check_timed_tasks mx %00
 ;0232: B9	cp	c		; compare to counter.  is it time to count down the timer?
 			cmp <:counter_mask
 ;0233: 30 28	jr	nc,#025D	; if no, jump ahead and loop for next task
-			bcc :next_task
+			;bcc :next_task
+		    ;beq :next_task
+			bcs :next_task
 
 ;0235: 35	dec	(hl)		; else decrease the task timer
 			lda (:pTask)
