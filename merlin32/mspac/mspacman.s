@@ -798,6 +798,7 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 
 ;01b9    call    #2d0c                   ; process effects
 ;01bc    call    #2cc1                   ; process waves
+			jsr intermission_sprite_blit ; 9797
 
 ; restore registers.  they were saved at #0096
 
@@ -12518,6 +12519,52 @@ draw_logo_text mx %00
 ;967c  c9        ret     		; return
 			rts
 ;------------------------------------------------------------------------------
+; This is needed to get cutscene sprite frames copied into the hardware
+; 9797
+intermission_sprite_blit mx %00
+;9797  3a004f    ld      a,(#4f00)	; load A with intermission indicator
+			lda |is_intermission
+;979a  fe00      cp      #00		; is an intermission running ?
+;979c  280b      jr      z,#97a9         ; no, skip next 4 steps
+			beq :not_intermission
+
+;979e  11024c    ld      de,#4c02	; yes, load destination DE := #4C02
+;97a1  21504f    ld      hl,#4f50	; load source HL := #4F50
+;97a4  010c00    ld      bc,#000c	; set byte counter to #0C
+;97a7  edb0      ldir    		; copy
+]src = 0
+]dst = 0
+			lup 6
+
+			lda |cutscene_misc2+]src
+			and #$FF
+			sta |redghostsprite+]dst
+
+			lda |cutscene_misc2+]src+1
+			and #$FF
+			sta |redghostcolor+]dst
+]src = ]src+2
+]dst = ]dst+4
+			--^
+
+
+:not_intermission
+;97a9  3a094e    ld      a,(#4e09)	; load A with current player number:  0=P1, 1=P2
+;97ac  21724e    ld      hl,#4e72	; load HL with cocktail mode (0=no, 1=yes)
+;97af  a6        and     (hl)		; mix together.  Is this 2 player and cocktail mode ?
+;97b0  280c      jr      z,#97be         ; no, skip ahead
+;
+;97b2  3a0a4c    ld      a,(#4c0a)	; yes, load A with mspac sprite number
+;97b5  fe3f      cp      #3f		; == #3F ?  - end of death animation?
+;97b7  2005      jr      nz,#97be        ; no, skip ahead
+;
+;97b9  3eff      ld      a,#ff		; yes, A := #FF
+;97bb  320a4c    ld      (#4c0a),a	; store into mspac sprite number
+;
+;97be  218596    ld      hl,#9685	; HL := #9685
+;97c1  c3c42c    jp      #2cc4		; jump back to program
+			rts
+
 ;------------------------------------------------------------------------------
 ; Return parity of the 8 bit accumulator
 getparity8 mx %10

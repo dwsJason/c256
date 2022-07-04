@@ -13563,6 +13563,7 @@ draw_logo_text
 
 	; something with sprites for cocktail?
 	; jump here from #2CC1
+intermission_sprite_blit
 
 9797  3a004f    ld      a,(#4f00)	; load A with intermission indicator
 979a  fe00      cp      #00		; is an intermission running ?
