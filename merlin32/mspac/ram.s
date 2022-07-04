@@ -742,7 +742,7 @@ cutscene_vel ds 12  ; velocity or accelleration
 ;4F40
 cutscene_anim ds 12 ; anim address
 ;4F50
-cutscene_misc2 ds 12 ;
+cutscene_misc2 ds 12 ; sprite frame no, sprite color no
 
 ;Stack ds $C0
 

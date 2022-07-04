@@ -9111,9 +9111,10 @@ play_cutscene mx %00
 			nop
 
 
-cutscene_loop_counter = temp0
-hl = temp1
-bc = temp2
+cutscene_loop_counter  = temp0
+cutscene_loop_counter2 = temp0+2
+;hl = temp1
+;bc = temp2
 
 ;349c  3a004f    ld      a,(#4f00)	; load A with intermission indicator
 			lda |is_intermission
@@ -9129,6 +9130,8 @@ bc = temp2
 			; usually used as a counter
 			lda #6
 			sta <cutscene_loop_counter
+			asl
+			sta <cutscene_loop_counter2 ; x2
 
 ; 4f02-03 ppart 1
 ; 4f04-05 ppart 2
@@ -9229,26 +9232,22 @@ op_LOOP mx %00
 		nop
 		nop
 		nop
-]wait   bra ]wait
+;]wait   bra ]wait
 		nop
 		nop
 		nop
 
-:opcode = temp3
-:arg0   = temp3+2
-:arg1   = temp4
-:arg2   = temp4+2
-:pXY    = temp5
+:arg0   = temp3
+:arg1   = temp3+2
+:arg2   = temp4
+:pXY    = temp4+2
 
-
-			tax					; index to current opcode data
 ;34de  e5        push    hl
-;			phy					; need to preserve, act offset
+			phy					; need to preserve, act offset
 ;34df  3e01      ld      a,#01
 ;34e1  d7        rst     #10   ; ptr to byte
-			lda |0,x
-			and #$FF
-			sta <:opcode
+
+			tax					; index to current opcode data
 
 			lda |1,x
 			and #$FF
@@ -9263,31 +9262,35 @@ op_LOOP mx %00
 			sta <:arg2
 
 			; now I don't have to worry about X, it's free to use
+			; y is now free to use
+
+
+
 
 ;34e2  4f        ld      c,a
 			; c = first byte argument
 
 ;34e3  212e4f    ld      hl,#4f2e
 ;34e6  df        rst     #18      ; hl = hl + 2*b,  (hl) -> e, (++hl) -> d, de -> hl 
-			clc
-			lda <cutscene_loop_counter
-			asl
-			adc #cutscene_char-2
-			tax
-			lda |0,x			  ; pointer to the character sequence data
 
-			xba
-			and #$00FF
-;34e7  79        ld      a,c
-;34e8  84        add     a,h
+			ldy #cutscene_vel-2+1
+			lda (<cutscene_loop_counter2),y	  ; pointer to the velocity data
+
+			sep #$20
+			clc
 			adc <:arg0
 
 ;34e9  cd5635    call    #3556
 			jsr :shift_thing
 
 ;34ec  12        ld      (de),a
+			sta (<cutscene_loop_counter2),y ; update the velocity data
+
+			rep #$30
+
 ;34ed  cd4136    call    #3641
 			jsr get_intermission_xy  ; returns pointer to XY data in A
+			inc
 			sta <:pXY
 
 ; rst 18 (for dereferencing pointers to words)
@@ -9297,21 +9300,15 @@ op_LOOP mx %00
 ;	; after the call, HL gets the data in HL+(2*B).  DE becomes HL+2B
 ;	; modified: DE, A
 ;34f0  df        rst     #18   ; ptr to word
-			lda <cutscene_loop_counter
-			asl
-			adc <:pXY
-			sta <:pXY
-			lda (<:pXY)
-			tax
-
+			tay
 ;34f1  7c        ld      a,h	; X position
-;34f2  81        add     a,c    ; Add to C, which might be arg0
+;34f2  81        add     a,c    ; Add to C, which is the X Velocity
 			sep #$20
+			txa 					 	; X velocity into A
 			clc
-			xba
-			adc <:arg0
+			adc (<cutscene_loop_counter2),y ; Add X position
 ;34f3  12        ld      (de),a ; store back in X position
-			sta |1,x
+			sta (<cutscene_loop_counter2),y ; Store back X position
 			rep #$30
 
 ;34f4  e1        pop     hl  ; Refreshing Y
@@ -9326,28 +9323,31 @@ op_LOOP mx %00
 
 ;34fa  212e4f    ld      hl,#4f2e
 ;34fd  df        rst     #18
-			lda <cutscene_loop_counter
-			asl
-			adc #cutscene_char-2
-			; A has pointer to character anim data
-;34fe  79        ld      a,c
-;34ff  85        add     a,l
+
+			ldy #cutscene_vel-2
+			lda (<cutscene_loop_counter2),y
+
+			sep #$20
+			clc
 			adc <:arg1
 
+			; A has pointer to velocity y
+;34fe  79        ld      a,c
+;34ff  85        add     a,l
 ;3500  cd5635    call    #3556
 			jsr :shift_thing
 
 ;3503  1b        dec     de
 ;3504  12        ld      (de),a
+			sta (<cutscene_loop_counter2),y
+			
+			rep #$30
+
 ;3505  cd4136    call    #3641
 			jsr get_intermission_xy  ; returns pointer to XY data in A
 			sta <:pXY
 ;3508  df        rst     #18
-			lda <cutscene_loop_counter
-			asl
-			adc <:pXY
-			sta <:pXY
-			lda (<:pXY) ; xy
+			tay
 
 			; Well here's "a" problem
 			; looks like the only unfinished part of this function
@@ -9356,21 +9356,20 @@ op_LOOP mx %00
 ;3509  7d        ld      a,l
 			sep #$20
 ;350a  81        add     a,c
+			txa
 			clc
-			adc <:arg1
+			adc (<cutscene_loop_counter2),y ; vy + y
 ;350b  1b        dec     de
 ;350c  12        ld      (de),a
-			sta (<:pXY)
+			sta (<cutscene_loop_counter2),y ; store y position
 
 			rep #$31
 
 ;350d  210f4f    ld      hl,#4f0f  ; cs_sprite_index-1
 ;3510  78        ld      a,b
 ;3511  d7        rst     #10
-			lda <cutscene_loop_counter
-			adc #cs_sprite_index-1
-			tax
-			lda |0,x
+			ldy #cs_sprite_index-1
+			lda (<cutscene_loop_counter),y  ; sprite index
 			and #$ff
 
 ;3512  e5        push    hl
@@ -9378,54 +9377,55 @@ op_LOOP mx %00
 			inc
 ;3514  4f        ld      c,a
 ]loop
-			phx
-			pha
-
 ;3515  213e4f    ld      hl,#4f3e
 ;3518  df        rst     #18		; load HL with address (EG 8663)
+			pha
 
-			lda <cutscene_loop_counter
-			asl
-			adc #cutscene_char-2
+			ldy #cutscene_anim-2
+			lda (<cutscene_loop_counter2),y ; pointer to character list, anim sequence
 			tax
 
 ;3519  79        ld      a,c		; Copy C to A
-			pla
+			pla 	; index to sprite frame
+			pha
+			phx
 ;351a  cb2f      sra     a		; Shift right (div by 2)
-			lsr
-			cmp #$40
-			bcc :positive
-			ora #$80
-:positive
-;			cmp #$80   ; signed shift right
-;			ror
-			lsr
-			php
-			cmp #$40
-			bcc :pos2
-			ora #$80
-:pos2
-			plp
-
+			sep #$20
+			cmp #$80
+			ror
+			rep #$30
+			and #$FF
+			cmp #$80
+			bcc :is_positive
+			ora #$FF00
+			clc
+:is_positive
+			adc 1,s
+			sta 1,s
+			plx
 ;351c  d7        rst     #10		; dereference sprite number for intro.  loads A with value in HL+A
-			pla
-			adc <cutscene_loop_counter
-			tax
 			lda |0,x
 ;351d  feff      cp      #ff		; are we done ?
 			and #$FF
+			tax
 			cmp #$FF
+			; A = the actual sprite character number
 ;351f  c22635    jp      nz,#3526	; no, skip ahead
 			bne :not_reset
 
 ;3522  0e00      ld      c,#00		; else reset counter
 ;3524  18ef      jr      #3515           ; loop again
+			pla
 			lda #0
 			bra ]loop
 
 :not_reset
 ;3526  e1        pop     hl
 ;3527  71        ld      (hl),c
+			ldy #cs_sprite_index-1
+			pla
+			sep #$20
+			sta (<cutscene_loop_counter),y
 ;3528  5f        ld      e,a
 ;3529  e1        pop     hl
 ;352a  3e03      ld      a,#03
@@ -9437,14 +9437,22 @@ op_LOOP mx %00
 ;3533  e1        pop     hl
 ;3534  eb        ex      de,hl
 ;3535  72        ld      (hl),d
+			ldy #cutscene_misc2-2+1
+			sep #$20
+			lda <:arg2
+			sta (<cutscene_loop_counter2),y ; color
 ;3536  2b        dec     hl
+			dey
+			txa
+			sta (<cutscene_loop_counter2),y ; sprite frame #
+
 
 ;3537  3a094e    ld      a,(#4e09)
-			lda |player_no
+;			lda |player_no
 
 ;353a  4f        ld      c,a
 ;353b  3a724e    ld      a,(#4e72)
-			lda |cocktail_mode
+;			lda |cocktail_mode
 ;353e  a1        and     c
 ;353f  2804      jr      z,#3545         ; (4)
 
@@ -9459,10 +9467,12 @@ op_LOOP mx %00
 ;3546  21174f    ld      hl,#4f17 ; cutscene_nvalues-1
 ;3549  78        ld      a,b
 ;354a  d7        rst     #10
+
 			lda <cutscene_loop_counter
 			clc
 			adc #cutscene_nvalues-1
 			tax
+			ply
 ;354b  3d        dec     a
 			sep #$20
 			dec |0,x
@@ -9482,9 +9492,7 @@ op_LOOP mx %00
 ;3554  185e      jr      #35b4           ; (94)
 			jmp next2_op
 
-:shift_thing
-			sep #$20
-			xba
+:shift_thing mx %10
 			pha
 ;3556  4f        ld      c,a
 ;3557  cb29      sra     c
@@ -9502,13 +9510,7 @@ op_LOOP mx %00
 			tax
 ;355f  a7        and     a 	      ; effected by a
 			pla
-			jsr getparity8
-
-			rep #$30
-;3560  f26835    jp      p,#3568  ; if even # of bits set, this is true?
-			and #$00FF
-			bcc :parity_true
-
+			bpl :shift_positive
 
 ; arrive here when ghost is moving up the left side of the marquee
 
@@ -9518,7 +9520,7 @@ op_LOOP mx %00
 			inx
 ;3566  1802      jr      #356a           ; (2)
 			rts
-:parity_true
+:shift_positive
 ;3568  e60f      and     #0f
 			and #$0F
 ;356a  c9        ret
@@ -9564,7 +9566,7 @@ op_SETCHAR mx %00
 ;357f  eb        ex      de,hl		; restore HL from DE
 
 ;3580  113e4f    ld      de,#4f3e	; DE := #4F3E (stack)
-			pea cutscene_char-2
+			pea cutscene_anim-2
 ;3583  d5        push    de		; save DE
 ;3584  23        inc     hl		; next location
 ;3585  5e        ld      e,(hl)
@@ -9664,7 +9666,11 @@ next2_op
 ;35c3  dd2b      dec     ix
 			dey
 ;35c5  1001      djnz    #35c8           ; (1)
-			dec <cutscene_loop_counter
+			lda <cutscene_loop_counter
+			dec
+			sta <cutscene_loop_counter
+			asl
+			sta <cutscene_loop_counter2
 			bnel anim_code_loop
 ;35c7  c9        ret     
 			rts

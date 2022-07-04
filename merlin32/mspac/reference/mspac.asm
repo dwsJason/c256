@@ -10295,7 +10295,8 @@ op_LOOP
 355b  cb29      sra     c
 355d  cb29      sra     c				; I need to understand how "and a" changes p
 355f  a7        and     a
-3560  f26835    jp      p,#3568
+3560  f26835    jp      p,#3568 		; on 65816, maybe I can look at v here
+										; but probably just going to look at sign
 
 ; arrive here when ghost is moving up the left side of the marquee
 
