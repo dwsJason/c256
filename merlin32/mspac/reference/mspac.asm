@@ -10234,65 +10234,66 @@ op_LOOP
 350a  81        add     a,c 			; (arg1 + animation location pointer)/16 ; still not making sense to me
 350b  1b        dec     de  			; backup DE to point at Y
 350c  12        ld      (de),a  		; store the new Y position back out (sprite will be rendered here)
-350d  210f4f    ld      hl,#4f0f
-3510  78        ld      a,b
+350d  210f4f    ld      hl,#4f0f		; byte index into the sprite character animation list-1
+3510  78        ld      a,b 			; actor index into A
 3511  d7        rst     #10
-3512  e5        push    hl
-3513  3c        inc     a
-3514  4f        ld      c,a
+3512  e5        push    hl  			; pointer to where that index is stored
+3513  3c        inc     a   			; increment the actual index
+3514  4f        ld      c,a 			; save in c for later
 
-3515  213e4f    ld      hl,#4f3e
-3518  df        rst     #18		; load HL with address (EG 8663)
-3519  79        ld      a,c		; Copy C to A
-351a  cb2f      sra     a		; Shift right (div by 2)
-351c  d7        rst     #10		; dereference sprite number for intro.  loads A with value in HL+A
-351d  feff      cp      #ff		; are we done ?
-351f  c22635    jp      nz,#3526	; no, skip ahead
+3515  213e4f    ld      hl,#4f3e		; animation address table, so pointer to the current animation used in the act
+3518  df        rst     #18				; load HL with address (EG 8663)
+3519  79        ld      a,c				; Copy C to A (index into the animaiton)
+351a  cb2f      sra     a				; Shift right (div by 2)? why is it divided by 2?
+351c  d7        rst     #10				; dereference sprite number for intro.  loads A with value in HL+A
+351d  feff      cp      #ff				; are we done ?
+351f  c22635    jp      nz,#3526		; no, skip ahead
 
-3522  0e00      ld      c,#00		; else reset counter
-3524  18ef      jr      #3515           ; loop again
+3522  0e00      ld      c,#00			; else reset counter, since we can use #ff
+3524  18ef      jr      #3515       	; loop again, make index 0, and read again
 
-3526  e1        pop     hl
-3527  71        ld      (hl),c
-3528  5f        ld      e,a
-3529  e1        pop     hl
-352a  3e03      ld      a,#03
-352c  d7        rst     #10
-352d  57        ld      d,a
-352e  d5        push    de
-352f  214e4f    ld      hl,#4f4e
-3532  df        rst     #18
-3533  e1        pop     hl
-3534  eb        ex      de,hl
-3535  72        ld      (hl),d
-3536  2b        dec     hl
-3537  3a094e    ld      a,(#4e09)
-353a  4f        ld      c,a
-353b  3a724e    ld      a,(#4e72)
+3526  e1        pop     hl  			; pointer to where the anim index is stored
+3527  71        ld      (hl),c  		; save new index off
+3528  5f        ld      e,a 			; a = the actual sprite number to use
+3529  e1        pop     hl  			; original hl, that points at the LOOP opcode
+352a  3e03      ld      a,#03   		; time to get arg2 
+352c  d7        rst     #10 			; hl point at arg2 (we think arg2 might be the color)
+352d  57        ld      d,a 			; arg2 into d
+352e  d5        push    de  			; seems to be just to save d
+352f  214e4f    ld      hl,#4f4e		; cutscene_misc2 - unsure what this is
+3532  df        rst     #18				; HL now contain, the pointer or value in misc2
+										; DE is the address where that pointer lives+1 
+3533  e1        pop     hl  			; seems to be convoluted way to restore d which is arg2
+3534  eb        ex      de,hl   		; restore d, which is arg2
+3535  72        ld      (hl),d  		; save in the misc2+1
+3536  2b        dec     hl  			; now point at misc2+0
+3537  3a094e    ld      a,(#4e09)   	; 0=P1, 1=P2
+353a  4f        ld      c,a 			; stash in c
+353b  3a724e    ld      a,(#4e72)   	; cocktail mode check
 353e  a1        and     c
-353f  2804      jr      z,#3545         ; (4)
+353f  2804      jr      z,#3545         ; (4) ; not cocktail
 
-3541  3ec0      ld      a,#c0
+3541  3ec0      ld      a,#c0   		; change position or flip character?, for cocktail, p2
 3543  ab        xor     e
 3544  5f        ld      e,a
 
-3545  73        ld      (hl),e
-3546  21174f    ld      hl,#4f17
+3545  73        ld      (hl),e  		; save back to misc2+0
+3546  21174f    ld      hl,#4f17		; nvalue for this actore
 3549  78        ld      a,b
-354a  d7        rst     #10
-354b  3d        dec     a
-354c  77        ld      (hl),a
+354a  d7        rst     #10 			; a= current N Value (I think loop count)
+354b  3d        dec     a   			; dec the N Value
+354c  77        ld      (hl),a  		; save it back 
 354d  110000    ld      de,#0000
-3550  2062      jr      nz,#35b4        ; (98)
+3550  2062      jr      nz,#35b4        ; (98), maybe if a != 0, then don't advance to next opcode (de = 0, no advance)
 
-3552  1e04      ld      e,#04
-3554  185e      jr      #35b4           ; (94)
+3552  1e04      ld      e,#04   		; else e=4, skip past this LOOP opcode
+3554  185e      jr      #35b4           ; (94)  ; finish opcode
 
 3556  4f        ld      c,a
 3557  cb29      sra     c
 3559  cb29      sra     c
 355b  cb29      sra     c
-355d  cb29      sra     c
+355d  cb29      sra     c				; I need to understand how "and a" changes p
 355f  a7        and     a
 3560  f26835    jp      p,#3568
 
