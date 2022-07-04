@@ -1451,6 +1451,7 @@ update_timers
 ; counts down timer and executes the task if the timer has expired
 ; called from #018F
 check_timed_tasks
+
 0221: 21 90 4C	ld	hl,#4C90	; load HL with task list address
 0224: 3A 8A 4C	ld	a,(#4C8A)	; load A with number of counter limits changes in this frame
 0227: 4F	ld	c,a		; save to C for testing in line #0232
@@ -10181,40 +10182,58 @@ play_cutscene
 34dd  76        halt			; wait for interrupt
 
 ; for value == #F0 - LOOP
+op_LOOP
     
 34de  e5        push    hl
 34df  3e01      ld      a,#01
-34e1  d7        rst     #10
-34e2  4f        ld      c,a
-34e3  212e4f    ld      hl,#4f2e
-34e6  df        rst     #18
+34e1  d7        rst     #10				
+34e2  4f        ld      c,a 		    ; opcode arg0 into c
+34e3  212e4f    ld      hl,#4f2e		
+34e6  df        rst     #18 		  	; HL now contain, the pointer
+										; DE is he address where that pointer lives+1
+										; to the animation data
+										; which itself is a list of sprite frame
+										; numbers, terminated by $FF
 34e7  79        ld      a,c
-34e8  84        add     a,h
-34e9  cd5635    call    #3556
-34ec  12        ld      (de),a
-34ed  cd4136    call    #3641
-34f0  df        rst     #18
-34f1  7c        ld      a,h
-34f2  81        add     a,c
-34f3  12        ld      (de),a
+34e8  84        add     a,h 	   		; arg0 added to the high byte, of the animation address
+										; this seems wrong, it would make more sense if it
+										; was added to the low byte?
+34e9  cd5635    call    #3556   		; c = a/16, +1 if np, a|F0 if np
+                                        ; a&F0 if p
+34ec  12        ld      (de),a  		; store a into the animation pointer (maybe for moving the anim forward/backward)
+34ed  cd4136    call    #3641 			; get_intermission_xy
+										; puts base address into HL
+34f0  df        rst     #18 			; HL now contain the XY location
+										; of the sprite
+										; DE is the address where that XY lives+1 (so X)
+34f1  7c        ld      a,h 		
+34f2  81        add     a,c 			; (c is arg0+high byte of animation address) / 16
+										; an actual address doesn't make sense to me
+34f3  12        ld      (de),a  		; store a back, to give the sprite a new X position?
 34f4  e1        pop     hl
-34f5  e5        push    hl
+34f5  e5        push    hl  			; original hl, that points at the LOOP opcode
 34f6  3e02      ld      a,#02
-34f8  d7        rst     #10
-34f9  4f        ld      c,a
-34fa  212e4f    ld      hl,#4f2e
-34fd  df        rst     #18
-34fe  79        ld      a,c
-34ff  85        add     a,l
-3500  cd5635    call    #3556
-3503  1b        dec     de
-3504  12        ld      (de),a
-3505  cd4136    call    #3641
-3508  df        rst     #18
-3509  7d        ld      a,l
-350a  81        add     a,c
-350b  1b        dec     de
-350c  12        ld      (de),a
+34f8  d7        rst     #10 			
+34f9  4f        ld      c,a             ; opcode arg1 into c
+34fa  212e4f    ld      hl,#4f2e		; base address for the animation pointer, used for this sprite in the act
+34fd  df        rst     #18 			; HL now contain the pointer to the sprite animation sequence data
+										; DE the address where that pointer lives+1
+34fe  79        ld      a,c 			; c is arg1 (counting 0,1,2)
+34ff  85        add     a,l 			; adding the animation location pointer
+3500  cd5635    call    #3556			; c = a/16, +1 if np, a|F0 if np 
+										; a&F0 if p                      
+3503  1b        dec     de  			; backup pointer home address
+3504  12        ld      (de),a  		; store a back in
+3505  cd4136    call    #3641           ; get_intermission_xy (base address to the table, that has 6 entries (1 for each sprite) 
+										; base address in HL
+
+3508  df        rst     #18             ; HL now contain the XY location                 
+										; of the sprite                                  
+										; DE is the address where that XY lives+1 (so X) 
+3509  7d        ld      a,l 			; y
+350a  81        add     a,c 			; (arg1 + animation location pointer)/16 ; still not making sense to me
+350b  1b        dec     de  			; backup DE to point at Y
+350c  12        ld      (de),a  		; store the new Y position back out (sprite will be rendered here)
 350d  210f4f    ld      hl,#4f0f
 3510  78        ld      a,b
 3511  d7        rst     #10
@@ -11643,6 +11662,7 @@ cutscenes_table
 8254:  F3 75 86			; SETCHAR	#8675	; ACT sign
 8257:  F2 01 			; SETN		01
 8259:  F0 00 00 		; LOOP		00 00
+; what is 825C, it's probably 16
 825D:  F1 BD 52			; SETPOS	BD 52
 8260:  F2 28			; SETN		28
 8262:  F6			; PAUSE

@@ -9226,10 +9226,19 @@ anim_code_loop
 ;34de
 op_LOOP mx %00
 
+		nop
+		nop
+		nop
+]wait   bra ]wait
+		nop
+		nop
+		nop
+
 :opcode = temp3
 :arg0   = temp3+2
 :arg1   = temp4
 :arg2   = temp4+2
+:pXY    = temp5
 
 
 			tax					; index to current opcode data
@@ -9267,14 +9276,11 @@ op_LOOP mx %00
 			tax
 			lda |0,x			  ; pointer to the character sequence data
 
+			xba
+			and #$00FF
 ;34e7  79        ld      a,c
 ;34e8  84        add     a,h
-			sep #$20
-			clc
-			xba
 			adc <:arg0
-			xba
-			rep #$30
 
 ;34e9  cd5635    call    #3556
 			jsr :shift_thing
@@ -9282,7 +9288,7 @@ op_LOOP mx %00
 ;34ec  12        ld      (de),a
 ;34ed  cd4136    call    #3641
 			jsr get_intermission_xy  ; returns pointer to XY data in A
-			pha
+			sta <:pXY
 
 ; rst 18 (for dereferencing pointers to words)
 ;'  ; hl = hl + 2*b,  (hl) -> e, (++hl) -> d, de -> hl
@@ -9293,29 +9299,28 @@ op_LOOP mx %00
 ;34f0  df        rst     #18   ; ptr to word
 			lda <cutscene_loop_counter
 			asl
-			adc 1,s   	; 1,s is hl in this case
-			sta 1,s
-			;tax
-			plx
-			lda |0,x  	; a=DE
+			adc <:pXY
+			sta <:pXY
+			lda (<:pXY)
 			tax
 
 ;34f1  7c        ld      a,h	; X position
 ;34f2  81        add     a,c    ; Add to C, which might be arg0
 			sep #$20
 			clc
-			lda 2,s
+			xba
 			adc <:arg0
 ;34f3  12        ld      (de),a ; store back in X position
-			sta |0,x
+			sta |1,x
 			rep #$30
 
-;34f4  e1        pop     hl
+;34f4  e1        pop     hl  ; Refreshing Y
 ;34f5  e5        push    hl
+
 ;34f6  3e02      ld      a,#02
 ;34f8  d7        rst     #10	; returns arg1 on the opcode
 
-;34f9  4f        ld      c,a
+;34f9  4f        ld      c,a   ; we can just directly access arg1
 
 			; c=arg1
 
@@ -9336,47 +9341,89 @@ op_LOOP mx %00
 ;3504  12        ld      (de),a
 ;3505  cd4136    call    #3641
 			jsr get_intermission_xy  ; returns pointer to XY data in A
-			pha
+			sta <:pXY
 ;3508  df        rst     #18
 			lda <cutscene_loop_counter
 			asl
-			adc 1,s
-			sta 1,s
-			plx
-			lda |0,x 	; xy
+			adc <:pXY
+			sta <:pXY
+			lda (<:pXY) ; xy
 
 			; Well here's "a" problem
 			; looks like the only unfinished part of this function
-			; A = HL
-			; c = :arg1
-			; X = DE
+			; c = arg1
 
 ;3509  7d        ld      a,l
+			sep #$20
 ;350a  81        add     a,c
+			clc
+			adc <:arg1
 ;350b  1b        dec     de
 ;350c  12        ld      (de),a
+			sta (<:pXY)
+
+			rep #$31
 
 ;350d  210f4f    ld      hl,#4f0f  ; cs_sprite_index-1
 ;3510  78        ld      a,b
 ;3511  d7        rst     #10
+			lda <cutscene_loop_counter
+			adc #cs_sprite_index-1
+			tax
+			lda |0,x
+			and #$ff
+
 ;3512  e5        push    hl
 ;3513  3c        inc     a
+			inc
 ;3514  4f        ld      c,a
+]loop
+			phx
+			pha
 
 ;3515  213e4f    ld      hl,#4f3e
 ;3518  df        rst     #18		; load HL with address (EG 8663)
+
+			lda <cutscene_loop_counter
+			asl
+			adc #cutscene_char-2
+			tax
+
 ;3519  79        ld      a,c		; Copy C to A
+			pla
 ;351a  cb2f      sra     a		; Shift right (div by 2)
+			lsr
+			cmp #$40
+			bcc :positive
+			ora #$80
+:positive
 ;			cmp #$80   ; signed shift right
 ;			ror
+			lsr
+			php
+			cmp #$40
+			bcc :pos2
+			ora #$80
+:pos2
+			plp
 
 ;351c  d7        rst     #10		; dereference sprite number for intro.  loads A with value in HL+A
+			pla
+			adc <cutscene_loop_counter
+			tax
+			lda |0,x
 ;351d  feff      cp      #ff		; are we done ?
+			and #$FF
+			cmp #$FF
 ;351f  c22635    jp      nz,#3526	; no, skip ahead
+			bne :not_reset
 
 ;3522  0e00      ld      c,#00		; else reset counter
 ;3524  18ef      jr      #3515           ; loop again
+			lda #0
+			bra ]loop
 
+:not_reset
 ;3526  e1        pop     hl
 ;3527  71        ld      (hl),c
 ;3528  5f        ld      e,a
@@ -9436,7 +9483,7 @@ op_LOOP mx %00
 			jmp next2_op
 
 :shift_thing
-			rep #$20
+			sep #$20
 			xba
 			pha
 ;3556  4f        ld      c,a
@@ -9457,7 +9504,9 @@ op_LOOP mx %00
 			pla
 			jsr getparity8
 
+			rep #$30
 ;3560  f26835    jp      p,#3568  ; if even # of bits set, this is true?
+			and #$00FF
 			bcc :parity_true
 
 
