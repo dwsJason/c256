@@ -9207,13 +9207,13 @@ anim_code_loop
 
 :invalid_opcode mx %00
 
-			nop
-			nop
-			nop
-]wait   	bra ]wait
-			nop
-			nop
-			nop
+;			nop
+;			nop
+;			nop
+;]wait   	bra ]wait
+;			nop
+;			nop
+;			nop
 
 
 			wai	; simulate halt
@@ -9229,13 +9229,6 @@ anim_code_loop
 ;34de
 op_LOOP mx %00
 
-		nop
-		nop
-		nop
-;]wait   bra ]wait
-		nop
-		nop
-		nop
 
 :arg0   = temp3
 :arg1   = temp3+2
@@ -9511,6 +9504,8 @@ op_LOOP mx %00
 ;355f  a7        and     a 	      ; effected by a
 			pla
 			bpl :shift_positive
+			;bit #$40
+			;bvc :shift_positive
 
 ; arrive here when ghost is moving up the left side of the marquee
 
@@ -9679,7 +9674,7 @@ next2_op
 ; for value == #FF (end code)
 op_END mx %00
 ;35cb  211f4f    ld      hl,#4f1f
-			lda |cutscene_act_end-1   ; Set to 1 when END has been encountered
+			lda #cutscene_act_end-1   ; Set to 1 when END has been encountered
 ;35ce  78        ld      a,b
 ;35cf  d7        rst     #10
 			adc <cutscene_loop_counter
