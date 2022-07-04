@@ -473,11 +473,13 @@ SP_SIZE equ 8
 		lda #red_ghost_y
 		tcd
 
-SCR_OFFSET_X equ {{800-{224*2}}/2}
-SCR_OFFSET_Y equ {{600-{256*2}}/2}
+SCR_OFFSET_X equ {{{800-{224*2}}/2}-16}
+SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 
 		; Do Red Ghost X
 		lda <{red_ghost_x-red_ghost_y}
+		eor #$FFFF
+		inc
 		and #$FF
 		asl		; x2
 		adc #SCR_OFFSET_X
@@ -492,6 +494,8 @@ SCR_OFFSET_Y equ {{600-{256*2}}/2}
 
 		; Do Pink Ghost X
 		lda <{pink_ghost_x-red_ghost_y}
+		eor #$FFFF
+		inc
 		and #$FF
 		asl		; x2
 		adc #SCR_OFFSET_X
@@ -506,6 +510,8 @@ SCR_OFFSET_Y equ {{600-{256*2}}/2}
 
 		; Do Blue Ghost X
 		lda <{blue_ghost_x-red_ghost_y}
+		eor #$FFFF
+		inc
 		and #$FF
 		asl		; x2
 		adc #SCR_OFFSET_X
@@ -520,6 +526,8 @@ SCR_OFFSET_Y equ {{600-{256*2}}/2}
 
 		; Do Orange Ghost X
 		lda <{orange_ghost_x-red_ghost_y}
+		eor #$FFFF
+		inc
 		and #$FF
 		asl		; x2
 		adc #SCR_OFFSET_X
@@ -534,6 +542,8 @@ SCR_OFFSET_Y equ {{600-{256*2}}/2}
 
 		; Do Ms Pacman X
 		lda <{pacman_x-red_ghost_y}
+		eor #$FFFF
+		inc
 		and #$FF
 		asl		; x2
 		adc #SCR_OFFSET_X
@@ -549,6 +559,8 @@ SCR_OFFSET_Y equ {{600-{256*2}}/2}
 		; Do Fruit X
 		;lda <{fruit_x-red_ghost_y}
 		lda >fruit_x
+		eor #$FFFF
+		inc
 		and #$FF
 		asl		; x2
 		adc #SCR_OFFSET_X
@@ -9531,6 +9543,7 @@ op_SETPOS mx %00
 ;3573  23        inc     hl
 ;3574  5e        ld      e,(hl)
 			lda |1,x
+			xba
 			pha
 
 ;356c  cd4136    call    #3641		; load HL with either #4CFE or #4Dc6
