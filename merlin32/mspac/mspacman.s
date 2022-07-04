@@ -9460,6 +9460,7 @@ op_LOOP mx %00
 ;3546  21174f    ld      hl,#4f17 ; cutscene_nvalues-1
 ;3549  78        ld      a,b
 ;354a  d7        rst     #10
+			rep #$30
 
 			lda <cutscene_loop_counter
 			clc

@@ -113,8 +113,6 @@ irq_tasks ds 48
 foreground_tasks ds 64
 
 ;4cfe
-;4D00
-cutscene_positions ds 12
 
 ;
 ; Game variables
@@ -137,6 +135,8 @@ PATH dw 0
 ;   4EBC    BNOISE  set bit 5 of BNOISE to make the bounce sound
 bnoise dw 0
 
+;4D00
+cutscene_positions
 ;	4d00	red ghost Y position (bottom to top = decreases)
 red_ghost_y db 0
 ;	4d01	red ghost X position (left to right = decreases)
