@@ -10184,12 +10184,12 @@ play_cutscene
 ; for value == #F0 - LOOP
 op_LOOP
     
-34de  e5        push    hl
+34de  e5        push    hl  			; pointer to the current opcode, F0
 34df  3e01      ld      a,#01
 34e1  d7        rst     #10				
 34e2  4f        ld      c,a 		    ; opcode arg0 into c
-34e3  212e4f    ld      hl,#4f2e		
-34e6  df        rst     #18 		  	; HL now contain, the pointer
+34e3  212e4f    ld      hl,#4f2e		; velocity/speed table (for fractional speed of movement)
+34e6  df        rst     #18 		  	; HL now contain, vy vx
 										; DE is he address where that pointer lives+1
 										; to the animation data
 										; which itself is a list of sprite frame
@@ -10198,9 +10198,9 @@ op_LOOP
 34e8  84        add     a,h 	   		; arg0 added to the high byte, of the animation address
 										; this seems wrong, it would make more sense if it
 										; was added to the low byte?
-34e9  cd5635    call    #3556   		; c = a/16, +1 if np, a|F0 if np
-                                        ; a&F0 if p
-34ec  12        ld      (de),a  		; store a into the animation pointer (maybe for moving the anim forward/backward)
+34e9  cd5635    call    #3556   		; move x, c = a/16, +1 if np, a|F0 if np  
+                                        ; a&0F if p
+34ec  12        ld      (de),a  		; store a into velocity x (maybe for moving the anim forward/backward)
 34ed  cd4136    call    #3641 			; get_intermission_xy
 										; puts base address into HL
 34f0  df        rst     #18 			; HL now contain the XY location
@@ -10215,13 +10215,13 @@ op_LOOP
 34f6  3e02      ld      a,#02
 34f8  d7        rst     #10 			
 34f9  4f        ld      c,a             ; opcode arg1 into c
-34fa  212e4f    ld      hl,#4f2e		; base address for the animation pointer, used for this sprite in the act
-34fd  df        rst     #18 			; HL now contain the pointer to the sprite animation sequence data
+34fa  212e4f    ld      hl,#4f2e		; velocity/speed table (for fractional speed of movement) 
+34fd  df        rst     #18 			; HL now contain vy,vx
 										; DE the address where that pointer lives+1
 34fe  79        ld      a,c 			; c is arg1 (counting 0,1,2)
 34ff  85        add     a,l 			; adding the animation location pointer
-3500  cd5635    call    #3556			; c = a/16, +1 if np, a|F0 if np 
-										; a&F0 if p                      
+3500  cd5635    call    #3556			; move y, c = a/16, +1 if np, a|F0 if np 
+										; a&0F if p                      
 3503  1b        dec     de  			; backup pointer home address
 3504  12        ld      (de),a  		; store a back in
 3505  cd4136    call    #3641           ; get_intermission_xy (base address to the table, that has 6 entries (1 for each sprite) 
@@ -10231,7 +10231,7 @@ op_LOOP
 										; of the sprite                                  
 										; DE is the address where that XY lives+1 (so X) 
 3509  7d        ld      a,l 			; y
-350a  81        add     a,c 			; (arg1 + animation location pointer)/16 ; still not making sense to me
+350a  81        add     a,c 			; (arg1 + vx)/16  (velocity makes more sense)
 350b  1b        dec     de  			; backup DE to point at Y
 350c  12        ld      (de),a  		; store the new Y position back out (sprite will be rendered here)
 350d  210f4f    ld      hl,#4f0f		; byte index into the sprite character animation list-1

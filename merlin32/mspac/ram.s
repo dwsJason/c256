@@ -738,9 +738,9 @@ cutscene_act_end ds 6  ; act has ended flag, for each act
 ; ??? 
 ;4F2E
 ;4F30
-cutscene_char ds 12 ; anim address for the act
+cutscene_vel ds 12  ; velocity or accelleration
 ;4F40
-cutscene_misc ds 12 ; unsure what this is
+cutscene_anim ds 12 ; anim address
 ;4F50
 cutscene_misc2 ds 12 ;
 
