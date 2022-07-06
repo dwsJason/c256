@@ -65,6 +65,7 @@ pixel_buffer = $100000	; need about 120k, put it in memory at 1.25MB mark
 
 
 VRAM = $B00000
+ONEMB = $100000
 
 VICKY_BITMAP0 = $000000
 
@@ -1924,6 +1925,10 @@ InitMsPacVideo mx %00
 
 
 ;------------------------------------------------------------------------------
+; From Previous expermimentation, I know that src and dst addresses
+; of VRAM to VRAM DMA on this machine have to be 1MB apart in memory
+; my best guess, is separate chips?
+;
 ; Generate the Flipped Sprite Banks
 GenerateSpriteFlips mx %00
 
@@ -1940,14 +1945,15 @@ GenerateSpriteFlips mx %00
 
 :src = temp0
 :dst = temp1
+:len = temp2
 
 		lda #VICKY_SPRITE_TILES
 		ldx #^VICKY_SPRITE_TILES
 		sta <:src
 		stx <:src+2
 
-		lda #VICKY_SPRITE_TILES4
-		ldx #^VICKY_SPRITE_TILES4
+		lda #VICKY_SPRITE_TILES3+ONEMB
+		ldx #^{VICKY_SPRITE_TILES3+ONEMB}
 		sta <:dst
 		stx <:dst+2
 
@@ -1968,6 +1974,25 @@ GenerateSpriteFlips mx %00
 		bne ]loop
 
 		rep #$30
+
+; Let's DMA the new tiles back to where they need to live
+
+		lda #VICKY_SPRITE_TILES3+ONEMB
+		ldx #^{VICKY_SPRITE_TILES3+ONEMB}
+		sta <:src
+		stx <:src+2
+
+		lda #VICKY_SPRITE_TILES3
+		ldx #^VICKY_SPRITE_TILES3
+		sta <:dst
+		stx <:dst+2
+
+		; 64K Bytes
+		stz <:len
+		lda #1
+		sta <:len+2
+
+		jsr V2V_DMA
 
 		jsr WaitVBL
 
@@ -2027,9 +2052,14 @@ HFlipSprite mx %01
 
 		rts
 
-		do 1
+		do 0
 
 ; Let's try using the CPU
+; this isn't working because CPU can't read from the VRAM
+; well, we'll do 1 test with video disabled
+; it seems like reading from VRAM, writes a 0, based on what we see
+; on the screen.
+
 :BlitVerticalLine
 
 		phy
@@ -2102,11 +2132,73 @@ HFlipSprite mx %01
 		nop
 ]wait_dma_loop
 		ldx |VDMA_STATUS_REG
-		bpl ]wait_dma_loop
-
+		bmi ]wait_dma_loop
+		nop
 		stz |VDMA_CONTROL_REG
 		rts
 		fin
+
+;------------------------------------------------------------------------------
+;
+V2V_DMA mx %00
+
+:src = temp0
+:dst = temp1
+:len = temp2
+
+		; save P, and B
+		phb
+		php
+
+		; change B, so it points at the hardware registers
+		pea >MASTER_CTRL_REG_L
+		plb
+		plb
+
+		sep #$10  ; mx=01
+
+		ldx #VDMA_CTRL_Enable
+		stx |VDMA_CONTROL_REG
+
+		ldx #0
+		stx |VDMA_BYTE_2_WRITE
+
+		; Source Address
+		lda <:src
+		sta |VDMA_SRC_ADDY_L
+		ldx <:src+2
+		stx |VDMA_SRC_ADDY_H
+
+		; Dest Address
+		lda <:dst
+		sta |VDMA_DST_ADDY_L
+		ldx <:dst+2
+		stx |VDMA_DST_ADDY_H
+
+		; Size
+		lda <:len
+		sta |VDMA_SIZE_L
+		lda <:len+2
+		sta |VDMA_SIZE_H
+
+		stz |VDMA_SRC_STRIDE_L
+		stz |VDMA_DST_STRIDE_L
+
+		lda #VDMA_CTRL_Start_TRF
+		TSB |VDMA_CONTROL_REG
+		NOP
+		NOP
+		NOP
+
+]wait_done
+		ldx |VDMA_STATUS_REG
+		bmi ]wait_done
+		NOP
+		stz |VDMA_CONTROL_REG
+
+		plp
+		plb
+		rts
 
 ;------------------------------------------------------------------------------
 ; Convert the Sprites and Display them!
