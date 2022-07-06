@@ -742,13 +742,13 @@ cutscene_vel ds 12  ; velocity or accelleration
 ;4F40
 cutscene_anim ds 12 ; anim address
 ;4F50
-cutscene_misc2 ds 12 ; sprite frame no, sprite color no
+cutscene_SpriteRAM ds 12 ; sprite frame no, sprite color no
 
 ;Stack ds $C0
 
 ;	4FC0-4FEF	Unused
 ;	4FF0-4FFF	Sprite RAM
-SpriteRAM ds 16
+;SpriteRAM ds 16
 
 RAM_END ds 0
 

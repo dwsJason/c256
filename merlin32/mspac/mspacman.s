@@ -77,12 +77,16 @@ VICKY_BITMAP0 = $000000
 ]VIDEO_MODE = ]VIDEO_MODE+$100                  ; +800x600
 ;]VIDEO_MODE = ]VIDEO_MODE+$200                 ; pixel double/ half resolution
 
-VICKY_MAP_TILES    = $000000
-VICKY_SPRITE_TILES = $010000
-VICKY_MAP0         = $020000   			      ; MAP Data for tile map 0
-VICKY_MAP1         = VICKY_MAP0+{64*64*2}	  ; MAP Data for tile map 1
-VICKY_MAP2         = VICKY_MAP1+{64*64*2}	  ; MAP Data for tile map 2
-VICKY_MAP3         = VICKY_MAP2+{64*64*2}	  ; MAP Data for tile map 3
+VICKY_MAP_TILES     = $000000
+VICKY_SPRITE_TILES  = $010000				      ; Normal Sprites
+VICKY_SPRITE_TILES2 = VICKY_SPRITE_TILES+$010000  ; V-Flip Sprites
+VICKY_SPRITE_TILES3 = VICKY_SPRITE_TILES2+$010000 ; H+V-Flip Sprites
+VICKY_SPRITE_TILES4 = VICKY_SPRITE_TILES3+$010000 ; H Flip Sprites
+
+VICKY_MAP0          = VICKY_SPRITE_TILES3+$010000  ; MAP Data for tile map 0
+VICKY_MAP1          = VICKY_MAP0+{64*64*2}	  ; MAP Data for tile map 1
+VICKY_MAP2          = VICKY_MAP1+{64*64*2}	  ; MAP Data for tile map 2
+VICKY_MAP3          = VICKY_MAP2+{64*64*2}	  ; MAP Data for tile map 3
 
 TILE_CLEAR_SIZE = $010000
 MAP_CLEAR_SIZE = 64*64*2
@@ -192,11 +196,37 @@ start   ent             ; make sure start is visible outside the file
 		; Convert the Sprites so we can see them!
 		jsr TestSprites
 
+		; There are now 64 Sprites, that are 32x32 (1024 bytes each)
+		; at VICKY_SPRITE_TILES
+		; need to convert them to V-Flip, at address VICKY_SPRITE_TILES1
+		; need to convert them to HV-Flip, at address VICKY_SPRITE_TILES2
+		; need to convert them to H-Flip, at address VICKY_SPRITE_TILES3
+
 		; Wait 1 second
 		lda #60
 ]lp 	jsr WaitVBL
 		dec
 		bpl ]lp
+
+; The fastest way to convert them is DMA, and DMA can run very fast
+; as long as video is disabled.
+
+		; Disable Video
+		; generate H-FLip Bank from the base tiles
+		; generate V-Flip Bank from the base tiles
+		; generate HV-Flip Bank from H-Tiles (if that's quicker than from V)
+
+		; looks like VDMA can do 1 horizontal line at a time
+		; which would be decent for doing the V-Flip
+		; it can also do 1 vertical line at a time
+		; which would be good for the H-Flip
+		; unfortunately, is still going to require 32 separate
+		; DMA (in either case)
+		; Right now, I only know I need H-Flip to get the intro working
+		; I'm not sure how long I had that paused, but hopefully
+		; I see the video cut, and catch this.		
+		jsr GenerateSpriteFlips
+
 
 ;------------------------------------------------------------------------------
 ;
@@ -434,6 +464,9 @@ SP_SIZE equ 8
 		sta |SP00_CONTROL_REG+{SP_SIZE*5}
 
 		; Update the Sprite Frames
+		; Turns out the hi-bit is an H-Flip for the sprite
+		; I don't think Phoenix can do this, but I can make this math
+		; 100% work, if I just use more VRAM
 		lda <{redghostsprite-allsprite}
 		asl
 		asl
@@ -1889,6 +1922,191 @@ InitMsPacVideo mx %00
 
 		rts
 
+
+;------------------------------------------------------------------------------
+; Generate the Flipped Sprite Banks
+GenerateSpriteFlips mx %00
+
+		jsr WaitVBL
+
+		; change B, so it points at the hardware registers
+		pea >MASTER_CTRL_REG_L
+		plb
+		plb
+
+		; Disable Video (so we can DMA)
+		lda #Mstr_Ctrl_Disable_Vid
+		tsb |MASTER_CTRL_REG_L
+
+:src = temp0
+:dst = temp1
+
+		lda #VICKY_SPRITE_TILES
+		ldx #^VICKY_SPRITE_TILES
+		sta <:src
+		stx <:src+2
+
+		lda #VICKY_SPRITE_TILES4
+		ldx #^VICKY_SPRITE_TILES4
+		sta <:dst
+		stx <:dst+2
+
+		sep #$10
+		clc
+		ldy #64
+]loop
+		jsr HFlipSprite
+
+		lda <:src
+		adc #32*32
+		sta <:src
+		lda <:dst
+		adc #32*32
+		sta <:dst
+
+		dey
+		bne ]loop
+
+		rep #$30
+
+		jsr WaitVBL
+
+		; Enable Video
+		lda #Mstr_Ctrl_Disable_Vid
+		trb |MASTER_CTRL_REG_L
+
+		phk
+		plb
+
+		rts
+
+;------------------------------------------------------------------------------
+; HFlipSprite
+HFlipSprite mx %01
+
+; Well, this DMA version isn't working, I think it's trashing memory
+
+; CPU version, when we read from VRAM, seems to be clearing VRAM
+
+; I'll have to change the Sprite Converion to dump the sprites into
+; regular SRAM, then I'll be able to flip them, and eventually
+; copy them into the VRAM
+
+; If the hardware just worked, this wouldn't be so frustrating
+
+; If the assembler worked right, this wouldn't be so frustrating
+
+
+:src = temp0
+:dst = temp1
+
+:pSrc = temp2
+:pDst = temp3
+
+		phy
+
+		lda <:src
+		sta <:pSrc
+		lda <:src+2
+		sta <:pSrc+2
+		lda <:dst
+		adc #31
+		sta <:pDst
+		lda <:dst+2
+		sta <:pDst+2
+
+		ldy #32
+]loop
+		jsr :BlitVerticalLine
+		inc <:pSrc
+		dec <:pDst
+		dey
+		bne ]loop
+
+		ply
+
+		rts
+
+		do 1
+
+; Let's try using the CPU
+:BlitVerticalLine
+
+		phy
+		phb
+		php
+
+		rep #$31
+:pSource equ temp4
+:pDest   equ temp5
+
+		lda <:pSrc
+		sta <:pSource
+		lda <:pSrc+2
+		adc #^VRAM
+		sta <:pSource+2
+		lda <:pDst
+		sta <:pDest
+		lda <:pDst+2
+		adc #^VRAM
+		sta <:pDest+2
+
+		sep #$20
+]y_offset = 0
+		lup 32
+		ldy #]y_offset
+		;lda [:pSource],y
+		;sta [:pDest],y
+
+		db $B7,:pSource
+		db $97,:pDest
+
+]y_offset = ]y_offset+32
+		--^
+
+		plp
+		plb
+		ply
+
+		rts
+
+		else
+:BlitVerticalLine
+
+		ldx #VDMA_CTRL_Enable+VDMA_CTRL_1D_2D
+		stx |VDMA_CONTROL_REG
+
+		; Source
+		lda <:pSrc
+		sta |VDMA_SRC_ADDY_L
+		ldx <:pSrc+2
+		stx |VDMA_SRC_ADDY_H
+
+	    ; Dest
+		lda <:pDst
+		sta |VDMA_DST_ADDY_L
+		ldx <:pDst+2
+		stx |VDMA_DST_ADDY_H
+
+		lda #1
+		sta |VDMA_X_SIZE_L
+		lda #32
+		sta |VDMA_Y_SIZE_L
+		sta |VDMA_SRC_STRIDE_L
+		sta |VDMA_DST_STRIDE_L
+
+		lda #VDMA_CTRL_Start_TRF
+		tsb |VDMA_CONTROL_REG
+		nop 				; the example code has this
+		nop
+		nop
+]wait_dma_loop
+		ldx |VDMA_STATUS_REG
+		bpl ]wait_dma_loop
+
+		stz |VDMA_CONTROL_REG
+		rts
+		fin
 
 ;------------------------------------------------------------------------------
 ; Convert the Sprites and Display them!
@@ -9443,7 +9661,7 @@ op_LOOP mx %00
 ;3533  e1        pop     hl
 ;3534  eb        ex      de,hl
 ;3535  72        ld      (hl),d
-			ldy #cutscene_misc2-2+1
+			ldy #cutscene_SpriteRAM-2+1
 			sep #$20
 			lda <:arg2
 			sta (<cutscene_loop_counter2),y ; color
@@ -12536,11 +12754,11 @@ intermission_sprite_blit mx %00
 ]dst = 0
 			lup 6
 
-			lda |cutscene_misc2+]src
+			lda |cutscene_SpriteRAM+]src
 			and #$FF
 			sta |redghostsprite+]dst
 
-			lda |cutscene_misc2+]src+1
+			lda |cutscene_SpriteRAM+]src+1
 			and #$FF
 			sta |redghostcolor+]dst
 ]src = ]src+2
