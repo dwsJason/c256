@@ -1600,12 +1600,12 @@ gameplay_mode mx %00
 			da game_playing ; #08CD		; demo mode or player is playing
 			da player_die   ; #090D		; when player has collided with hostile ghost (died)
 			da :rts 		; #000C		; returns immediately
-;06CE: 40 09				; #0940		; check for game over, do things if true
+			da gameover_check ; #0940		; check for game over, do things if true
 			da :rts 		; #000C		; returns immediately
-;06D2: 72 09 			; #0972		; end of demo mode when ms pac dies in demo.  clears a bunch of memories.
-;06D4: 88 09 			; #0988		; sets a bunch of tasks and displays "ready" or "game over"
+			da end_demo     ; #0972		; end of demo mode when ms pac dies in demo.  clears a bunch of memories.
+			da ready_go     ; #0988		; sets a bunch of tasks and displays "ready" or "game over"
 			da :rts 		; #000C		; returns immediately
-;06D8: D2 09 			; #09D2		; begin start of maze demo after marquee
+			da start_demo   ; #09D2		; begin start of maze demo after marquee
 ;06DA: D8 09 			; #09D8		; clears sounds and sets a small delay.  run at end of each level
 			da :rts 		; #000C		; returns immediately
 ;06DE: E8 09				; #09E8		; flash screen
@@ -4313,6 +4313,7 @@ player_die mx %00
 ;0925  3a424e    ld      a,(#4e42)	; else load A with game state
 ;0928  a7        and     a		; is this the demo mode ?
 ;0929  2813      jr      z,#093e         ; yes, skip ahead
+
 ;092b  3a094e    ld      a,(#4e09)	; else load A with current player number:  0=P1, 1=P2
 		lda |player_no
 ;092e  c603      add     a,#03		; add #03, result is either #03 or #04
@@ -4342,6 +4343,186 @@ player_die mx %00
 ;093f  c9        ret     		; return
 		rts
 
+
+;------------------------------------------------------------------------------
+; arrive from #06C1
+;0940
+gameover_check mx %00
+	; $$JGA TODO
+;0940  3a704e    ld      a,(#4e70)	; load A with number of players
+;0943  a7        and     a		; == #00 ?
+;0944  2806      jr      z,#094c         ; yes, skip ahead if 1 player
+;0946  3a424e    ld      a,(#4e42)	; else load A with game state 
+;0949  a7        and     a		; is a game being played ?
+;094a  2015      jr      nz,#0961        ; yes, skip ahead and switch from player 1 to player 2 or vice versa
+;094c  3a144e    ld      a,(#4e14)	; else load A with number of lives left
+;094f  a7        and     a		; are there any lives left ?
+;0950  201a      jr      nz,#096c        ; yes, jump ahead
+
+	; change 0950 to 
+	; 0950  18 1a		jr	#096C 	; always jump ahead 
+	; for never-ending pac goodness
+
+
+;0952  cda12b    call    #2ba1		; else draw # credits or free play on bottom of screen
+;0955  ef        rst     #28		; insert task #1C , parameter #05 .  Draws text on screen "GAME OVER"
+;0956  1c 05				; task data
+;0958  f7        rst     #30		; set timed task to increase main subroutine number (#4E04)
+;0959  54 00 00    			; task timer=#54, task=0, param=0
+;095c  21044e    ld      hl,#4e04	; Load HL with level state subroutine #
+;095f  34        inc     (hl)		; increment
+;0960  c9        ret     		; return
+
+; arrive here from #094a when there 2 players, when a player dies
+
+;0961  cda60a    call    #0aa6		; transposes data from #4e0a through #4e37 into #4e38 through #4e66
+;0964  3a094e    ld      a,(#4e09)	; load A with current player number:  0=P1, 1=P2
+;0967  ee01      xor     #01		; flip bit 0
+;0969  32094e    ld      (#4e09),a	; store result.  toggles between player 1 and 2
+
+;096c  3e09      ld      a,#09		; A := #09
+;096e  32044e    ld      (#4e04),a	; store into level state subroutine #
+;0971  c9        ret     		; return
+		rts
+
+;------------------------------------------------------------------------------
+; arrive from #06C1 when subroutine# (#4E04)= #08
+; zeros some important variables
+; arrive here after demo mode finishes (ms pac man dies in demo)
+;0972
+end_demo mx %00
+;0972  af        xor     a		; A := #00
+;0973  32024e    ld      (#4e02),a	; clear main routine 1, subroutine #
+		stz |mainroutine1
+;0976  32044e    ld      (#4e04),a	; clear level state subroutine #
+		stz |levelstate
+;0979  32704e    ld      (#4e70),a	; clear number of players
+		stz |no_players
+;097c  32094e    ld      (#4e09),a	; clear current player number
+		stz |player_no
+;097f  320350    ld      (#5003),a	; clear flip screen register
+;0982  3e01      ld      a,#01		; A := #01
+;0984  32004e    ld      (#4e00),a	; set game mode to demo
+		lda #1
+		sta |mainstate
+;0987  c9        ret     		; return (to #057F)
+		rts
+
+;------------------------------------------------------------------------------
+; arrive from #06C1 when (#4E04==#09)  when marquee mode ends or after player has been killed
+; or from #06C1 when (#4E04 == #20) when a level has ended and a new one is about to begin
+;0988
+ready_go mx %00
+;0988  ef        rst     #28		; set task #00, parameter = #01. - clears the maze
+;0989  00 01
+		lda #$0100
+		jsr rst28
+
+;098b  ef        rst     #28		; set task #01, parameter = #01. - colors the maze
+;098c  01 01
+		lda #$0101
+		jsr rst28
+
+;098e  ef        rst     #28		; set task #02, parameter = #00. - draws the maze
+;098f  02 00
+		lda #$0002
+		jsr rst28
+
+;0991  ef        rst     #28		; set task #11, parameter = #00. - clears memories from #4D00 through #4DFF
+;0992  11 00
+		lda #$0011
+		jsr rst28
+
+;0994  ef        rst     #28		; set task #13, parameter = #00. - clears the sprites
+;0995  13 00
+		lda #$0013
+		jsr rst28
+
+;0997  ef        rst     #28		; set task #03, parameter = #00. - draws the pellets
+;0998  03 00
+		lda #$0003
+		jsr rst28
+
+;099a  ef        rst     #28		; set task #04, parameter = #00. - resets a bunch of memories
+;099b  04 00
+		lda #$0004
+		jsr rst28
+
+;099d  ef        rst     #28		; set task #05, parameter = #00. - resets ghost home counter
+;099e  05 00
+		lda #$0005
+		jsr rst28
+
+;09a0  ef        rst     #28		; set task #10, parameter = #00. - sets up difficulty
+;09a1  10 00
+		lda #$0010
+		jsr rst28
+
+;09a3  ef        rst     #28		; set task #1A, parameter = #00. - draws remaining lives at bottom of screen
+;09a4  1a 00
+		lda #$001a
+		jsr rst28
+
+;09a6  ef        rst     #28		; set task #1C, parameter = #06. Draws text on screen "READY!" and clears the intermission indicator
+;09a7  1c 06
+		lda #$061c
+		jsr rst28
+
+;09a8  3a004e    ld      a,(#4e00)	; load A with game state
+		lda |mainstate
+;09ac  fe03      cp      #03		; is someone playing ?
+		cmp #3
+;09ae  2806      jr      z,#09b6         ; Yes, skip ahead
+		beq :yes_playing
+
+;09b0  ef        rst     #28		; set task #1C, parameter = #05.  Draws text on screeen "GAME OVER"
+;09b1  1c 05
+		lda #$051c
+		jsr rst28
+
+;09b3  ef        rst     #28		; set task #1D - write # of credits on screen
+;09b4  1d 00
+		lda #$001d
+		jsr rst28
+
+:yes_playing
+;09b6  f7        rst     #30		; set timed task to increase main subroutine number (#4E04)
+;09b7  54 00 00				; taks timer = #54, task = 00, parameter = 00    
+		lda #$0054
+		ldy #$00
+		jsr rst30
+
+;09ba  3a004e    ld      a,(#4e00)	; load A with game sate
+;09bd  3d        dec     a		; is this the demo mode ?
+		lda |mainstate
+		dec
+;09be  2804      jr      z,#09c4         ; yes, skip next step
+		beq :is_demo
+
+;09c0  f7        rst     #30		; set timed task to clear the "READY!" text from the screen
+;09c1  54 06 00				; timer = #54, task = 6, parameter = 00
+		lda #$0654
+		ldy #$00
+		jsr rst30
+
+:is_demo
+;09c4  3a724e    ld      a,(#4e72)	; load A with cocktail mode (0=no, 1=yes)
+;09c7  47        ld      b,a		; copy to B
+;09c8  3a094e    ld      a,(#4e09)	; load A with current player #
+;09cb  a0        and     b		; mix together
+;09cc  320350    ld      (#5003),a	; flip screens if player 2 in cocktail mode, else screen is set upright
+;09cf  c39408    jp      #0894		; increase main routine # and return from sub
+		jmp ttask0
+
+; called after marquee mode is done during demo
+; called from #06C1 when (#4E04 == #0B)
+start_demo mx %00
+;09d2  3e03      ld      a,#03		; A := #03
+		lda #3  					; ghost move
+;09d4  32044e    ld      (#4e04),a	; store into main routine #.  signals the maze part of game is on
+		sta |levelstate
+;09d7  c9        ret     		; return
+		rts
 
 ;------------------------------------------------------------------------------
 ; called from #08FD

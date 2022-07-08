@@ -2631,6 +2631,7 @@ player_die
 093f  c9        ret     		; return
 
 ; arrive from #06C1
+gameover_check
 
 0940  3a704e    ld      a,(#4e70)	; load A with number of players
 0943  a7        and     a		; == #00 ?
@@ -2672,6 +2673,8 @@ player_die
 	; zeros some important variables
 	; arrive here after demo mode finishes (ms pac man dies in demo)
 
+end_demo
+
 0972  af        xor     a		; A := #00
 0973  32024e    ld      (#4e02),a	; clear main routine 1, subroutine #
 0976  32044e    ld      (#4e04),a	; clear level state subroutine #
@@ -2686,7 +2689,7 @@ player_die
 ; arrive from #06C1 when (#4E04==#09)  when marquee mode ends or after player has been killed
 ; or from #06C1 when (#4E04 == #20) when a level has ended and a new one is about to begin
 
-
+ready_go
 0988  ef        rst     #28		; set task #00, parameter = #01. - clears the maze
 0989  00 01
 098b  ef        rst     #28		; set task #01, parameter = #01. - colors the maze
@@ -2736,7 +2739,7 @@ player_die
 
 ; called after marquee mode is done during demo
 ; called from #06C1 when (#4E04 == #0B)
-
+start_demo
 09d2  3e03      ld      a,#03		; A := #03
 09d4  32044e    ld      (#4e04),a	; store into main routine #.  signals the maze part of game is on
 09d7  c9        ret     		; return

@@ -582,7 +582,7 @@ pilldata ds 30
 powerpills ds 4
 
 
-;	4e38-4e65 copy of level data (430a-4e37)
+;	4e38-4e65 copy of level data (4e0a-4e37)
 
 
 
