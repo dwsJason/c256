@@ -2482,7 +2482,7 @@ gameplay_mode
 
 ; main routine #3.  arrive here at the start of the game when a new game is started
 ; arrive from #04E5 or #06C1
-
+game_init
 0879  21094e    ld      hl,#4e09	; load HL with player # address
 087c  af        xor     a		; A := #00
 087d  060b      ld      b,#0b		; set counter to #0B
@@ -2505,7 +2505,7 @@ ttask0
 0898  c9        ret     		; return
 
 ; arrive from #06C1
-
+game_setup
 0899  3a004e    ld      a,(#4e00)	; load A with game mode
 089c  3d        dec     a		; are we in the demo mode ?
 089d  2006      jr      nz,#08a5        ; no, skip ahead

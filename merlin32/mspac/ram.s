@@ -45,6 +45,14 @@ fruitspritecolor	dw 0	;	4c0d	fruit sprite entry
 ;	4C40-4C41 used for moving fruit positions
 ; 	4C42-4C43 used to hold address of the fruit path
 ;	4c44-4c7f unused/unknown
+
+;   4C40    COUNT current place in fruit path
+COUNT dw 0
+;   4C41    BCNT    current place within bounce
+BCNT dw 0
+;   4C42    PATH    pointer to the path the fruit is currently following
+PATH dw 0
+
 ;
 ; Tasks and Timers
 ;
@@ -122,16 +130,6 @@ foreground_tasks ds 64
 FRUITP dw 0
 ;   4DD4    FVALUE  value of the current fruit (0=no fruit)
 FVALUE dw 0
-;   4C40    COUNT current place in fruit path
-COUNT dw 0
-;   4E0C    FIRSTF  flag to indicate that first fruit has been released
-FIRSTF dw 0
-;   4E0D    SECONDF flag to indicate that second fruit has been eaten
-SECONDF dw 0
-;   4C41    BCNT    current place within bounce
-BCNT dw 0
-;   4C42    PATH    pointer to the path the fruit is currently following
-PATH dw 0
 ;   4EBC    BNOISE  set bit 5 of BNOISE to make the bounce sound
 bnoise dw 0
 
@@ -538,20 +536,17 @@ cs_state2 dw 0
 player_no dw 0
 
 ;	4e0a-4e0b pointer to current difficulty settings
-;
-;	4C40	COUNT current place in fruit path
-;	4E0C	FIRSTF  flag to indicate that first fruit has been released
-;	4E0D	SECONDF flag to indicate that second fruit has been eaten
-;	4C41	BCNT	current place within bounce
-;	4C42	PATH	pointer to the path the fruit is currently following
+pDifficulty dw 0
+
+;	4e0c	first fruit flag (1 if fruit has appeared)
+;   4E0C    FIRSTF  flag to indicate that first fruit has been released
+FIRSTF dw 0
+;	4e0d	second fruit flag (1 if fruit has appeared)
+;   4E0D    SECONDF flag to indicate that second fruit has been eaten
+SECONDF dw 0
+;	4e0e	number of pills eaten in this level
 ;	4E0E	DOTSEAT	how many dots the current player has eaten
 dotseat dw 0
-
-;	4EBC	BNOISE	set bit 5 of BNOISE to make the bounce sound
-;
-;	4e0c	first fruit flag (1 if fruit has appeared)
-;	4e0d	second fruit flag (1 if fruit has appeared)
-;	4e0e	number of pills eaten in this level
 ;	4e0f	counter incremented if orange, blue and pink ghosts are home
 ;		and pacman is eating pills.
 ;		used to make pink ghost leave home (rel 4db8)
@@ -616,6 +611,7 @@ bonus_life dw 0
 cocktail_mode dw 0
 ;	4e73-4e74 pointer to difficulty settings
 ;		4e73: 68=normal 7d=hard checked at start of game
+p_difficulty dw 0
 ;	4e75	ghost names mode (0 or 1)
 ;
 ;		SCORE AABBCC

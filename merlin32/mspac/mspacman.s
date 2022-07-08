@@ -81,8 +81,8 @@ VICKY_BITMAP0 = $000000
 VICKY_MAP_TILES     = $000000
 VICKY_SPRITE_TILES  = $010000				      ; Normal Sprites
 VICKY_SPRITE_TILES2 = VICKY_SPRITE_TILES+$010000  ; V-Flip Sprites
-VICKY_SPRITE_TILES3 = VICKY_SPRITE_TILES2+$010000 ; H+V-Flip Sprites
-VICKY_SPRITE_TILES4 = VICKY_SPRITE_TILES3+$010000 ; H Flip Sprites
+VICKY_SPRITE_TILES3 = VICKY_SPRITE_TILES2+$010000 ; H-Flip Sprites
+VICKY_SPRITE_TILES4 = VICKY_SPRITE_TILES3+$010000 ; HV-Flip Sprites
 
 VICKY_MAP0          = VICKY_SPRITE_TILES3+$010000  ; MAP Data for tile map 0
 VICKY_MAP1          = VICKY_MAP0+{64*64*2}	  ; MAP Data for tile map 1
@@ -761,7 +761,9 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 
 ; power pill active
 
-		;; $$JGA TODO
+		;; $$JGA TODO - I will need to do all this sprite stuff here and above
+		;; so that we cn have the sprites sorted
+
 ;015a  ed4b224c  ld      bc,(#4c22)	; else swap pac for first ghost.  load BC with red ghost sprite
 ;015e  ed5b324c  ld      de,(#4c32)	; load DE with highest sprite for spriteram
 ;0162  2a2a4c    ld      hl,(#4c2a)	; load HL with fruit sprite
@@ -784,6 +786,7 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 ; 4FF6,7 - blue ghost (8x,11)
 ; 4FF8,9 - orange ghost (8x,11)
 
+; the actual hardware sprite BLIT
 
 ;017f  edb0      ldir    		; copy
 
@@ -807,8 +810,10 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 			jsr gamemode_dispatch
 
 ;0195  3a004e    ld      a,(#4e00)	; load A with game mode
+			lda |mainstate
 ;0198  a7        and     a		; is the game still in power-on mode ?
 ;0199  2812      jr      z,#01ad         ; yes, skip over next calls
+			beq :init
 
 ;019B  cd9d03    call    #039d		; check for double size pacman in intermission (pac-man only)
 ;019E  cd9014    call    #1490		; when player 1 or 2 is played without cockatil mode, update all sprites
@@ -819,17 +824,20 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 					; print player 1 and player two
 					; check for game mode 3
 					; draw cprt stuff
-
+:init
 ;01ad  3a004e    ld      a,(#4e00)	; load A with game mode
+			lda |mainstate
 ;01b0  3d        dec     a		; are we in the demo mode ?
+			dec
 ;01b1  2006      jr      nz,#01b9        ; no, skip next 2 steps		; set to jr #01b9 to enable sound in demo
+			bne :not_demo
 ;01B3: 32 AC 4E	ld	(#4EAC),a	; yes, clear sound channel 2
 ;01B6: 32 BC 4E	ld	(#4EBC),a	; clear sound channel 3
 
         ;; VBLANK - 2 (SOUND)
         ;;
         ;; Process sound
-
+:not_demo
 ;01b9    call    #2d0c                   ; process effects
 ;01bc    call    #2cc1                   ; process waves
 			jsr intermission_sprite_blit ; 9797
@@ -845,8 +853,10 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 ;
 
 ;01c6  3a004e    ld      a,(#4e00)	; load A with game mode
+			lda |mainstate
 ;01c9  a7        and     a		; is this the initialization?
 ;01ca  2808      jr      z,#01d4         ; yes, skip ahead
+			beq :init_state
 
 ;01cc  3a4050    ld      a,(#5040)	; else load A with IN1
 ;01cf  e610      and     #10		; is the service mode switch set ?
@@ -858,7 +868,7 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 	;
 
 ;01d1  ca0000    jp      z,#0000		; yes, reset
-
+:init_state
 ;01d4  3e01      ld      a,#01		; else A := #01
 ;01d6  320050    ld      (#5000),a	; reenable hardware interrupts
 ;01d9  fb        ei      		; enable cpu interrupts
@@ -1182,14 +1192,6 @@ gamemode_dispatch mx %00
 ;03d4
 power_on mx %00
 
-			nop
-			nop
-			nop
-;]stop		bra ]stop
-			nop
-			nop
-			nop
-
 ;03d4  3a014e	ld	a,(#4e01)	; load A with main routine 0, subroutine #
 ;03d5  e7        rst     #20		; jump based on A
 			lda |mainroutine0
@@ -1362,17 +1364,18 @@ oneortwo mx %00
 			asl
 			tax
 			jmp (:table,x)
-			rts
+
 ;05E5: 3A 03 4E	ld	a,(#4E03)	; load A with main routine 2, subroutine #
 ;05E8: E7	rst	#20		; jump based on A
 
 :table
 			da :drawinfo    ; #05F3		; inserts tasks to draw info on screen
 			da :disp12  	; #061B		; display 1/2 player and check start buttons
-;05ED: 74 06				; #0674		; run when start button pressed, gets game ready to be played
-;05EF: 0C 00				; #000C		; returns immediately
-;05F1: A8 06				; #06A8		; draw remaining lives at bottom of screen and start game
-
+			da :press_start	; #0674		; run when start button pressed, gets game ready to be played
+			da :rts		    ; #000C		; returns immediately
+			da :drawlives	; #06A8		; draw remaining lives at bottom of screen and start game
+:rts
+			rts
 ;05F3
 :drawinfo mx %00
 ;05F3: CD A1 2B	call	#2BA1		; write # of credits on screen
@@ -1492,35 +1495,63 @@ oneortwo mx %00
 ;0673  c9        ret     		; return (to #0195)
 			rts
 	; arrive from #05E8 when start button has been pressed
-
+:press_start mx %00
 ;0674  ef        rst     #28		; set task #00, parameter #01 - clears the maze
 ;0675  00 01
+			lda #$0100
+			jsr rst28
 ;0677  ef        rst     #28		; set task #01, parameter #01 - colors the maze
 ;0678  01 01
+			lda #$0101
+			jsr rst28
 ;067a  ef        rst     #28		; set task #02, parameter #00 - draws the maze
 ;067b  02 00
+			lda #$0200
+			jsr rst28
 ;067d  ef        rst     #28		; set task #12, parameter #00 - sets up coded pill and power pill memories
 ;067e  12 00
+			lda #$0012
+			jsr rst28
 ;0680  ef        rst     #28		; set task #03, parameter #00 - draws the pellets
 ;0681  03 00
+			lda #$0003
+			jsr rst28
 ;0683  ef        rst     #28		; set task #1C, parameter #03 - draws text on screen "PLAYER 1"
 ;0684  1c 03
+			lda #$031c
+			jsr rst28
 ;0686  ef        rst     #28		; set task #1C, parameter #06 - draws text on screen "READY!" and clears the intermission indicator
 ;0687  1c 06
+			lda #$061c
+			jsr rst28
 ;0689  ef        rst     #28		; set task #18, parameter #00 - draws "high score" and scores.  clears player 1 and 2 scores to zero.
 ;068a  18 00
+			lda #$0018
+			jsr rst28
 ;068c  ef        rst     #28		; set task #1B, parameter #00 - draws fruit at bottom right of screen
 ;068d  1b 00
+			lda #$001b
+			jsr rst28
 
 ;068f  af        xor     a		; A := #00
 ;0690  32134e    ld      (#4e13),a	; current board level = 0
+			stz |level
 ;0693  3a6f4e    ld      a,(#4e6f)	; load number of lives to start
+			lda |no_lives
 ;0696  32144e    ld      (#4e14),a	; set number of lives
+			sta |num_lives
 ;0699  32154e    ld      (#4e15),a	; set number of lives displayed
+			sta |displayed_lives
 ;069c  ef        rst     #28		; set task #1A, parameter #00 - draws remaining lives at bottom of screen
 ;069d  1a 00
+			lda #$001a
+			jsr rst28
+
 ;069f  f7        rst     #30		; set timed task to increment main routine 2, subroutine # (#4E03)
 ;06a0  57 01 00				; task data: timer=#57, task=01, parameter=0.
+			lda #$0157
+			ldy #$0000
+			jsr rst30
 
 ;------------------------------------------------------------------------------
 ; also arrive here from #0246.   This is timed task #01
@@ -1534,28 +1565,37 @@ ttask1 mx %00
 ;------------------------------------------------------------------------------
 
 	;; draw lives displayed onto the screen
-
+:drawlives
 ;06a8  21154e    ld      hl,#4e15	; load HL with lives displayed on screen loc
 ;06ab  35        dec     (hl)		; decrement
 ;06ac  cd6a2b    call    #2b6a		; draw remaining lives at bottom of screen 
 ;06af  af        xor     a		; A := #00
 ;06b0  32034e    ld      (#4e03),a	; clear main routine 2, subroutine #
+			stz |mainroutine2
 ;06b3  32024e    ld      (#4e02),a	; clear main routine 1, subroutine #
+			stz |mainroutine1
 ;06b6  32044e    ld      (#4e04),a	; clear level state subroutine #
+			stz |levelstate
 ;06b9  21004e    ld      hl,#4e00	; load HL with game mode address
 ;06bc  34        inc     (hl)		; inc game mode.  game mode is now 3 = game is just now starting
+			inc |mainstate
 ;06bd  c9        ret     		; return
 			rts
 
 ;------------------------------------------------------------------------------
 ; arrive here from #03CB or from #057C, when someone or demo is playing
 gameplay_mode mx %00
-			rts
 ;06BE: 3A 04 4E      ld   a,(#4E04)	; load A with level state
 ;06C1: E7            rst  #20		; jump based on A
-
-;06C2: 79 08				; #0879		; set up game initialization
-;06C4: 99 08 			; #0899		; set up tasks for beginning of game
+			lda |levelstate
+			asl
+			tax
+			jmp (:table,x)
+:rts
+			rts
+:table
+			da game_init	; #0879		; set up game initialization
+			da game_setup   ; #0899		; set up tasks for beginning of game
 ;06C6: 0C 00 			; #000C		; returns immediately
 ;06C8: CD 08 			; #08CD		; demo mode or player is playing
 ;06CA: 0D 09 			; #090D		; when player has collided with hostile ghost (died)
@@ -1941,7 +1981,8 @@ GenerateSpriteFlips mx %00
 
 		; Disable Video (so we can DMA)
 		lda #Mstr_Ctrl_Disable_Vid
-		tsb |MASTER_CTRL_REG_L
+		; this will be annoying until the emulator is fixed
+		;tsb |MASTER_CTRL_REG_L
 
 :src = temp0
 :dst = temp1
@@ -4052,6 +4093,43 @@ GetLevelColor mx %00
 
 
 ;------------------------------------------------------------------------------
+; main routine #3.  arrive here at the start of the game when a new game is started
+; arrive from #04E5 or #06C1
+;0879
+game_init mx %00
+;0879  21094e    ld      hl,#4e09	; load HL with player # address
+;087c  af        xor     a		; A := #00
+;087d  060b      ld      b,#0b		; set counter to #0B
+;087f  cf        rst     #8		; clear memories from #4E09 through #4E09 + #0B
+			stz |player_no
+			stz |pDifficulty
+			stz |FIRSTF
+			stz |SECONDF
+			stz |dotseat
+			stz |all_home_counter
+			stz |blue_home_counter
+			stz |orange_home_counter
+			stz |pacman_dead
+			stz |level
+			stz |num_lives
+			stz |displayed_lives
+
+;0880  cdc924    call    #24c9		; set up pills and power pills in RAM
+			jsr ResetPills
+
+;0883  2a734e    ld      hl,(#4e73)	; load HL with difficulty
+			lda |p_difficulty
+;0886  220a4e    ld      (#4e0a),hl	; store difficulty
+			sta |pDifficulty
+
+		   ; unsure why we need this, circle back
+		   ; $$JGA TODO
+;0889  210a4e    ld      hl,#4e0a	; load source with difficulty
+;088c  11384e    ld      de,#4e38	; load destination with difficulty
+;088f  012e00    ld      bc,#002e	; set byte counter at #2E
+;0892  edb0      ldir    		; copy
+
+;------------------------------------------------------------------------------
 ; arrive here from #09CF
 ; this is also timed task #00, arrive from #0246
 ;0894
@@ -4062,6 +4140,71 @@ ttask0 mx %00
 ;0898  c9        ret     		; return
 			inc |levelstate
 			rts
+
+;------------------------------------------------------------------------------
+; arrive from #06C1
+;0899
+game_setup mx %00
+;0899  3a004e    ld      a,(#4e00)	; load A with game mode
+			lda |mainstate
+;089c  3d        dec     a		; are we in the demo mode ?
+			dec
+;089d  2006      jr      nz,#08a5        ; no, skip ahead
+			bne :not_demo
+
+;089f  3e09      ld      a,#09		; yes, load A with #09
+			lda #9
+;08a1  32044e    ld      (#4e04),a	; store in main subroutine
+			sta |levelstate
+;08a4  c9        ret    			; return 
+			rts
+:not_demo
+;08a5  ef        rst     #28		; insert task #11 - clears memories from #4D00 through #4DFF
+;08a6  11 00
+			lda #$0011
+			jsr rst28
+;08a8  ef        rst     #28		; insert task #1C, parameter #83 - displays or clears text
+;08a9  1c 83
+			lda #$831c
+			jsr rst28
+;08ab  ef        rst     #28		; insert task #04 - resets a bunch of memories and
+;08ac  04 00
+			lda #$0004
+			jsr rst28
+;08ae  ef        rst     #28		; insert task #05 - resets ghost home counter
+;08af  05 00
+			lda #$0005
+			jsr rst28
+;08b1  ef        rst     #28		; insert task #10 - sets up difficulty
+;08b2  10 00
+			lda #$0010
+			jsr rst28
+
+;08b4  ef        rst     #28		; insert task #1A - draws remaining lives at bottom of screen
+;08b5  1a 00
+			lda #$001a
+			jsr rst28
+
+;08b7  f7        rst     #30		; set timed task to increase the main subroutine number (#4E04)
+;08b8  54 00 00				; task timer=#54, task=0, param=0    
+			lda #$0054
+			ldy #$00
+			jsr rst30
+
+;08bb  f7        rst     #30		; set timed task to clear the "READY!" message
+;08bc  54 06 00				; task timer=#54, task=6, param=0
+			lda #$0654
+			lda #$00
+			jsr rst30
+
+;08bf  3a724e    ld      a,(#4e72)	; load A with cocktail or upright
+;08c2  47        ld      b,a		; copy to B
+;08c3  3a094e    ld      a,(#4e09)	; load A with current player #
+;08c6  a0        and     b		; is this game cockatil mode and player # 2 ? If so , this value becomes 1
+;08c7  320350    ld      (#5003),a	; store into flip screen register
+;08ca  c39408    jp      #0894		; loop back to increment level complete register and return
+			bra ttask0
+
 ;------------------------------------------------------------------------------
 ; demo or game is playing
 ;
