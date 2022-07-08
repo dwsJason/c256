@@ -2596,7 +2596,7 @@ NOP
 
 
 ; arrive here from #06C1 when player has died
-
+player_die
 090d  3e01      ld      a,#01		; A := #01
 090f  32124e    ld      (#4e12),a	; store into player dead flag
 

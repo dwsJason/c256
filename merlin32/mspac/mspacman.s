@@ -1596,41 +1596,41 @@ gameplay_mode mx %00
 :table
 			da game_init	; #0879		; set up game initialization
 			da game_setup   ; #0899		; set up tasks for beginning of game
-;06C6: 0C 00 			; #000C		; returns immediately
-;06C8: CD 08 			; #08CD		; demo mode or player is playing
-;06CA: 0D 09 			; #090D		; when player has collided with hostile ghost (died)
-;06CC: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
+			da game_playing ; #08CD		; demo mode or player is playing
+			da player_die   ; #090D		; when player has collided with hostile ghost (died)
+			da :rts 		; #000C		; returns immediately
 ;06CE: 40 09				; #0940		; check for game over, do things if true
-;06D0: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;06D2: 72 09 			; #0972		; end of demo mode when ms pac dies in demo.  clears a bunch of memories.
 ;06D4: 88 09 			; #0988		; sets a bunch of tasks and displays "ready" or "game over"
-;06D6: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;06D8: D2 09 			; #09D2		; begin start of maze demo after marquee
 ;06DA: D8 09 			; #09D8		; clears sounds and sets a small delay.  run at end of each level
-;06DC: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;06DE: E8 09				; #09E8		; flash screen
-;06E0: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;06E2: FE 09				; #09FE		; flash screen
-;06E4: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;06E6: 02 0A 			; #0A02		; flash screen
-;06E8: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;06EA: 04 0A 			; #0A04		; flash screen
-;06EC: 0C 00				; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;06EE: 06 0A				; #0A06		; flash screen
-;06F0: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;06F2: 08 0A 			; #0A08		; flash screen
-;06F4: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;06F6: 0A 0A 			; #0A0A		; flash screen
-;06F8: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;06FA: 0C 0A 			; #0A0C		; flash screen
-;06FC: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;06FE: 0E 0A				; #0A0E		; set a bunch of tasks
-;0700: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;0702: 2C 0A 			; #0A2C		; clears all sounds and runs intermissions when needed
-;0704: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;0706: 7C 0A 			; #0A7C		; clears sounds, increases level, increases difficulty if needed, resets pill maps
 ;0708: A0 0A 			; #0AA0		; get game ready to play and set this sub back to #03
-;070A: 0C 00 			; #000C		; returns immediately
+			da :rts 		; #000C		; returns immediately
 ;070C: A3 0A 			; #0AA3		; sets sub # back to #03
 
 
@@ -4276,6 +4276,71 @@ game_playing mx %00
 	    jsr DOFRUIT
 
 	    rts   			; return ( to #0195 ) 
+
+;------------------------------------------------------------------------------
+; arrive here from #06C1 when player has died
+;090d
+player_die mx %00
+;090d  3e01      ld      a,#01		; A := #01
+		lda #1
+;090f  32124e    ld      (#4e12),a	; store into player dead flag
+		sta |pacman_dead
+
+;	4e12	1 after dying in a level, reset to 0 if ghosts have left home
+;		because of 4d9f
+
+;0912  cd8724    call    #2487		; save pellet info to memory
+		jsr task_updatePills
+
+;0915  21044e    ld      hl,#4e04	; load HL with main subroutine number
+;0918  34        inc     (hl)		; increase it
+		inc |levelstate
+
+;0919  3a144e    ld      a,(#4e14)	; load A with number of lives left
+		lda |num_lives
+;091c  a7        and     a		; == #00 ?
+;091d  201f      jr      nz,#093e        ; no, skip ahead
+		bne :keep_playing
+
+		; Game Over 
+;091f  3a704e    ld      a,(#4e70)	; else game over.  load A with number of players (0=1 player, 1=2 players)
+		lda |no_players
+;0922  a7        and     a		; is this a one player game?
+;0923  2819      jr      z,#093e         ; yes, skip ahead
+		beq :one_player_game
+
+		; $$JGA TODO
+;0925  3a424e    ld      a,(#4e42)	; else load A with game state
+;0928  a7        and     a		; is this the demo mode ?
+;0929  2813      jr      z,#093e         ; yes, skip ahead
+;092b  3a094e    ld      a,(#4e09)	; else load A with current player number:  0=P1, 1=P2
+		lda |player_no
+;092e  c603      add     a,#03		; add #03, result is either #03 or #04
+		clc
+		adc #3
+;0930  4f        ld      c,a		; store into C for call below
+		xba
+		and #$FF00
+;0931  061c      ld      b,#1c		; load B with #1C for task call below
+		ora #$1C
+;0933  cd4200    call    #0042		; insert task to draw to screen either "PLAYER ONE" or "PLAYER TWO"
+		jsr task_add
+;0936  ef        rst     #28		; insert task to draw "GAME OVER"
+;0937  1c 05
+		lda #$051c
+		jsr rst28
+;0939  f7        rst     #30		; set timed task to increase the main subroutine number (#4E04)
+;093a  54 00 00				; task timer=#54, task=0, param=0    
+		lda #$0054
+		ldy #$00
+		jsr rst30
+;093d  c9        ret     		; return
+:one_player_game
+:keep_playing
+;093e  34        inc     (hl)		; increase game state
+		inc |levelstate
+;093f  c9        ret     		; return
+		rts
 
 
 ;------------------------------------------------------------------------------
