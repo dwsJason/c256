@@ -1606,7 +1606,7 @@ gameplay_mode mx %00
 			da ready_go     ; #0988		; sets a bunch of tasks and displays "ready" or "game over"
 			da :rts 		; #000C		; returns immediately
 			da start_demo   ; #09D2		; begin start of maze demo after marquee
-;06DA: D8 09 			; #09D8		; clears sounds and sets a small delay.  run at end of each level
+			da clear_sounds ; #09D8		; clears sounds and sets a small delay.  run at end of each level
 			da :rts 		; #000C		; returns immediately
 ;06DE: E8 09				; #09E8		; flash screen
 			da :rts 		; #000C		; returns immediately
@@ -4523,6 +4523,28 @@ start_demo mx %00
 		sta |levelstate
 ;09d7  c9        ret     		; return
 		rts
+
+; called from #06C1 when (#4E04 == #0C)
+; arrive here at end of level
+clear_sounds mx %00
+;09d8  f7        rst     #30		; set timed task to increase main subroutine number (#4E04)
+;09d9  54 00 00    			; timer = #54, task = #00, parameter = #00
+		lda #$0054
+		ldy #$00
+		jsr rst30
+
+;09DC: 21 04 4E	ld	hl,#4E04	; load HL with game subroutine #
+;09DF: 34	inc	(hl)		; increase 
+		inc |levelstate
+
+;09E0: AF	xor	a		; A := #00
+;09E1: 32 AC 4E	ld	(#4EAC),a	; clear sound channel 2
+		stz |CH2_E_NUM
+;09E4: 32 BC 4E	ld	(#4EBC),a	; clear sound channel 3
+		stz |CH3_E_NUM
+;09E7: C9	ret			; return   
+		rts
+
 
 ;------------------------------------------------------------------------------
 ; called from #08FD

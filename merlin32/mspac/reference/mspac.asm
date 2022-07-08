@@ -2746,7 +2746,7 @@ start_demo
 
 ; called from #06C1 when (#4E04 == #0C)
 ; arrive here at end of level
-
+clear_sounds
 09d8  f7        rst     #30		; set timed task to increase main subroutine number (#4E04)
 09d9  54 00 00    			; timer = #54, task = #00, parameter = #00
 09DC: 21 04 4E	ld	hl,#4E04	; load HL with game subroutine #
