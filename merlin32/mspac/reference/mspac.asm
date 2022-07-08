@@ -2757,9 +2757,9 @@ clear_sounds
 09E7: C9	ret			; return   
 
 ; Called from #06C1 when (#4E04 == #0E)
-
+flash_screen
 09e8  0e02      ld      c,#02		; C := #02
-
+flash_screen2
 09ea  0601      ld      b,#01		; B := #01
 09ec  cd4200    call    #0042		; set task #01 with parameter #02, or task #01 with parameter #00
 09ef  f7        rst     #30		; set timed task to increase main subroutine number (#4E04)
@@ -2771,7 +2771,7 @@ clear_sounds
 09fd  c9        ret     		; return
 
 ; the following calls are made at end of level to flash the screen
-
+flash_off
 09fe  0e00      ld      c,#00		; set code to flash screen
 0a00  18e8      jr      #09ea           ; flash screen
 
@@ -2789,7 +2789,7 @@ clear_sounds
 
 ; arrive here at end of level after screen has flashed several times
 ; called from #06C1 when (#4E04 == #14)
-
+after_flash
 0a0e  ef        rst     #28		; insert task #00, parameter #01 - clears the maze
 0a0f  00 01
 0a11  ef        rst     #28		; insert task #06, parameter #00 - clears the color RAM
@@ -7457,12 +7457,13 @@ JP SCOLOR
 ; called from #136E after mspac has died
 ; called from #23A7 as task #1E
 
+task_clearActors
 2675  210000    ld      hl,#0000	; HL := #0000
 2678  22d24d    ld      (#4dd2),hl	; clear fruit position
 267b  22084d    ld      (#4d08),hl	; clear pacman position
 
 ; called from #09F6
-
+clear_ghosts
 267e  22004d    ld      (#4d00),hl	; clear red ghost
 2681  22024d    ld      (#4d02),hl	; clear pink ghost
 2684  22044d    ld      (#4d04),hl	; clear blue ghost (inky)

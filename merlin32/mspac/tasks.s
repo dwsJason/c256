@@ -588,6 +588,7 @@ task_clearActors mx %00
 		stz |fruit_y
 		stz |pacman_y
 
+;267e
 clear_ghosts
 		stz |red_ghost_y
 		stz |pink_ghost_y

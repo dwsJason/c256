@@ -1608,23 +1608,23 @@ gameplay_mode mx %00
 			da start_demo   ; #09D2		; begin start of maze demo after marquee
 			da clear_sounds ; #09D8		; clears sounds and sets a small delay.  run at end of each level
 			da :rts 		; #000C		; returns immediately
-;06DE: E8 09				; #09E8		; flash screen
+			da flash_screen ; #09E8		; flash screen
 			da :rts 		; #000C		; returns immediately
-;06E2: FE 09				; #09FE		; flash screen
+			da flash_off	; #09FE		; flash screen
 			da :rts 		; #000C		; returns immediately
-;06E6: 02 0A 			; #0A02		; flash screen
+			da flash_screen ; #0A02		; flash screen
 			da :rts 		; #000C		; returns immediately
-;06EA: 04 0A 			; #0A04		; flash screen
+			da flash_off    ; #0A04		; flash screen
 			da :rts 		; #000C		; returns immediately
-;06EE: 06 0A				; #0A06		; flash screen
+			da flash_screen ; #0A06		; flash screen
 			da :rts 		; #000C		; returns immediately
-;06F2: 08 0A 			; #0A08		; flash screen
+			da flash_off    ; #0A08		; flash screen
 			da :rts 		; #000C		; returns immediately
-;06F6: 0A 0A 			; #0A0A		; flash screen
+			da flash_screen ; #0A0A		; flash screen
 			da :rts 		; #000C		; returns immediately
-;06FA: 0C 0A 			; #0A0C		; flash screen
+			da flash_off    ; #0A0C		; flash screen
 			da :rts 		; #000C		; returns immediately
-;06FE: 0E 0A				; #0A0E		; set a bunch of tasks
+			da after_flash	; #0A0E		; set a bunch of tasks
 			da :rts 		; #000C		; returns immediately
 ;0702: 2C 0A 			; #0A2C		; clears all sounds and runs intermissions when needed
 			da :rts 		; #000C		; returns immediately
@@ -4514,8 +4514,10 @@ ready_go mx %00
 ;09cf  c39408    jp      #0894		; increase main routine # and return from sub
 		jmp ttask0
 
+;------------------------------------------------------------------------------
 ; called after marquee mode is done during demo
 ; called from #06C1 when (#4E04 == #0B)
+;09d2
 start_demo mx %00
 ;09d2  3e03      ld      a,#03		; A := #03
 		lda #3  					; ghost move
@@ -4524,8 +4526,10 @@ start_demo mx %00
 ;09d7  c9        ret     		; return
 		rts
 
+;------------------------------------------------------------------------------
 ; called from #06C1 when (#4E04 == #0C)
 ; arrive here at end of level
+;09d8
 clear_sounds mx %00
 ;09d8  f7        rst     #30		; set timed task to increase main subroutine number (#4E04)
 ;09d9  54 00 00    			; timer = #54, task = #00, parameter = #00
@@ -4543,6 +4547,89 @@ clear_sounds mx %00
 ;09E4: 32 BC 4E	ld	(#4EBC),a	; clear sound channel 3
 		stz |CH3_E_NUM
 ;09E7: C9	ret			; return   
+		rts
+
+;------------------------------------------------------------------------------
+; Called from #06C1 when (#4E04 == #0E)
+;09e8
+flash_screen mx %00
+;09e8  0e02      ld      c,#02		; C := #02
+		lda #$200
+flash_screen2 mx %00
+;09ea  0601      ld      b,#01		; B := #01
+		ora #$0001
+;09ec  cd4200    call    #0042		; set task #01 with parameter #02, or task #01 with parameter #00
+		jsr task_add
+
+;09ef  f7        rst     #30		; set timed task to increase main subroutine number (#4E04)
+;09f0  42 00 00				; timer = #42, task = #00, parameter = #00
+		lda #$0042
+		ldy #$00
+		jsr rst30
+
+;09f3  210000    ld      hl,#0000	; clear HL
+;09f6  cd7e26    call    #267e		; clears all ghosts from screen
+		jsr clear_ghosts
+
+;09f9  21044e    ld      hl,#4e04	; load HL with game subroutine #
+;09fc  34        inc     (hl)		; increase
+		inc |levelstate
+;09fd  c9        ret     		; return
+		rts
+
+flash_off lda #$0
+		bra flash_screen2
+
+;------------------------------------------------------------------------------
+; arrive here at end of level after screen has flashed several times
+; called from #06C1 when (#4E04 == #14)
+;0a0e
+after_flash mx %00
+;0a0e  ef        rst     #28		; insert task #00, parameter #01 - clears the maze
+;0a0f  00 01
+		lda #$0100
+		jsr rst28
+
+;0a11  ef        rst     #28		; insert task #06, parameter #00 - clears the color RAM
+;0a12  06 00
+		lda #$0006
+		jsr rst28
+
+;0a14  ef        rst     #28		; insert task #11, parameter #00 - clears memories from #4D00 through #4DFF
+;0a15  11 00
+		lda #$0011
+		jsr rst28
+
+;0a17  ef        rst     #28		; insert task #13, parameter #00 - clears the sprites
+;0a18  13 00
+		lda #$0013
+		jsr rst28
+
+;0a1a  ef        rst     #28		; insert task #04, parameter #01 - resets a bunch of memories
+;0a1b  04 01
+		lda #$0104
+		jsr rst28
+
+;0a1d  ef        rst     #28		; insert task #05, parameter #01 - resets ghost home counter
+;0a1e  05 01
+		lda #$105
+		jsr rst28
+
+;0a20  ef        rst     #28		; insert task #10, parameter #13 - sets up difficulty
+;0a21  10 13
+		lda #$1310
+		jsr rst28
+
+;0a23  f7        rst     #30		; set timed task to increase main subroutine number (#4E04)
+;0a24  43 00 00     			; task timer = #43, task #00, parameter #00
+		lda #$0043
+		ldy #$00
+		jsr rst30
+
+;0a27  21044e    ld      hl,#4e04	; load HL with main subroutine number
+;0a2a  34        inc     (hl)		; increase subroutine number
+		inc |levelstate
+;0a2b  c9        ret     		; return
 		rts
 
 
