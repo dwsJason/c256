@@ -437,6 +437,7 @@ pacman_change_dir dw 0
 ;		1: red ghost goes for pacman on scatter
 ;		1: red ghost goes faster
 red_difficulty0 dw 0
+
 ;	4db7	2nd difficulty flag (rel 4dbc) (cruise elroy 2)
 ;		when set, red uses a faster bit speed pattern
 ;		0: not set
@@ -461,9 +462,11 @@ pacman_enter_tunnel dw 0
 ;
 ;	4dc0	changes every 8 frames; used for ghost animations
 ghost_anim_counter dw 0
+
 ;	4dc1	orientation changes index [0..7]. used to get value 4d86-4d93
-orientation_changes_index dw 0
 ;		0: random ghost movement, 1: normal movement (?)
+orientation_changes_index dw 0
+
 ;	4dc2-4dc3 counter related to ghost orientation changes
 ghost_orientation_counter dw 0
 ;	4dc4	counter 0..8 to handle things once every 8 times

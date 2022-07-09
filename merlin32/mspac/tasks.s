@@ -323,8 +323,67 @@ task_setDemoMode mx %00
 ; red ghost logic: (not edible)
 ; #2730 ; A=08   ; red ghost AI 
 task_redGhostAI
+;2730  3ac14d    ld      a,(#4dc1)	; load A with movement indicator .  0= random movement , 1= normal movement
+		lda |orientation_changes_index
+;2733  cb47      bit     0,a		; random movement ?
+		bit #1
+;2735  c25827    jp      nz,#2758	; no, jump to get normal red movement
+		bne :normal_movement
+
+;2738  3ab64d    ld      a,(#4db6)	; yes, load A with red ghost mode 0=normal  1= faster ghost,most dots
+;273b  a7        and     a		; faster mode ?
+;273c  201a      jr      nz,#2758        ; yes, get norm red direction
+		lda |red_difficulty0
+		bne :normal_movement
+
+;273e  3a044e    ld      a,(#4e04)	; no, load A with game mode (3=ghost move, 2=ghost wait for start) (when is this 2 ???)
+		lda |levelstate
+;2741  fe03      cp      #03		; is this normal game mode ?
+		cmp #3
+;2743  2013      jr      nz,#2758        ; no, get normal red direction
+		bne :normal_movement
+
+; random red ghost directions
+
+;2745  2a0a4d    ld      hl,(#4d0a)	; yes, load HL with red ghost location  YY XX
+		ldx |redghost_tile_y
+;2748  3a2c4d    ld      a,(#4d2c)	; load A with red ghost direction
+		lda |red_ghost_dir
+
+; OTTPATCH
+;PATCH TO MAKE THE MONSTERS MOVE RANDOMLY
+;ORG 274BH
+;CALL RCORNER
+;274b  cd6195    call    #9561		; load DE with a (random ?) quadrant for the destination
+		jsr pick_quadrant
+
+;274e  cd6629    call    #2966		; get dir. by finding shortest distance
+		jsr getBestNewDirection
+;2751  221e4d    ld      (#4d1e),hl	; store red ghost movement offsets
+		stx |red_ghost_tchange_y
+;2754  322c4d    ld      (#4d2c),a	; store red ghost direction
+		sta |red_ghost_dir
+;2757  c9        ret     		; return
+		rts
+
+; normal movement get direction for red ghost
+:normal_movement
+;2758  2a0a4d    ld      hl,(#4d0a)	; load HL with red ghost location  YY XX
+		ldx |redghost_tile_y
+;275b  ed5b394d  ld      de,(#4d39)	; load DE with ms pac location YY XX
+		ldy |pacman_tile_pos_y
+;275f  3a2c4d    ld      a,(#4d2c)	; load A with red ghost current direction
+		lda |red_ghost_dir
+;2762  cd6629    call    #2966		; get best new dir. by finding shortest distance
+		jsr getBestNewDirection
+;2765  221e4d    ld      (#4d1e),hl	; store red ghost tile changes
+		stx |red_ghost_tchange_y
+;2768  322c4d    ld      (#4d2c),a	; store red ghost direction
+		sta |red_ghost_dir
+;276b  c9        ret     		; return
 		rts
 ;------------------------------------------------------------------------------
+; red ghost logic: (not edible)
 ; #276C ; A=09   ; pink ghost AI task_pinkGhostAI
 task_pinkGhostAI
 		rts

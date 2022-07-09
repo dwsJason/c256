@@ -3252,6 +3252,7 @@ PelletCount1
 
 	;; ghost destination table for maze 1
 ; 8B2D
+ghost_targets_1
 		db $1d,$22				; column 22, row 1D (top right)
 		db $1d,$39				; column 39, row 1D (top left)
 		db $40,$20				; column 20, row 40 (bottom right)
@@ -3373,6 +3374,7 @@ PelletCount2
 
 	;; destination table for maze 2
 ;8e18
+ghost_targets_2
 		db $1d,$22				; column 22, row 1D (top right)
 		db $1d,$39				; column 39, row 1D (top right)
 		db $40,$20				; column 20, row 40 (bottom right)
@@ -3493,6 +3495,7 @@ PelletCount3
 
 	;; destination table for maze 3
 ;910a
+ghost_targets_3
 		db $40,$2d				; column 2d, row 40 (bottom center)
 		db $1d,$22				; column 22, row 1D (top right)
 		db $1d,$39				; column 39, row 1D (top left)
@@ -3614,6 +3617,7 @@ Power4
 
 	;; destination table for maze 4
 ;9402
+ghost_targets_4
 		db $1d,$22				; column 22, row 1D (top right)
 		db $40,$20				; column 20, row 40 (bottom right)
 		db $1d,$39				; column 39, row 1D (top left)
@@ -4413,6 +4417,10 @@ end_demo mx %00
 ; or from #06C1 when (#4E04 == #20) when a level has ended and a new one is about to begin
 ;0988
 ready_go mx %00
+; We are getting here at least
+;		lda #Mstr_Ctrl_Disable_Vid
+;		sta >MASTER_CTRL_REG_L
+
 ;0988  ef        rst     #28		; set task #00, parameter = #01. - clears the maze
 ;0989  00 01
 		lda #$0100
@@ -4519,6 +4527,7 @@ ready_go mx %00
 ; called from #06C1 when (#4E04 == #0B)
 ;09d2
 start_demo mx %00
+
 ;09d2  3e03      ld      a,#03		; A := #03
 		lda #3  					; ghost move
 ;09d4  32044e    ld      (#4e04),a	; store into main routine #.  signals the maze part of game is on
@@ -13230,6 +13239,52 @@ bounce_table
     db $FF
 
 ;------------------------------------------------------------------------------
+;; pick a quadrant for the destination of a ghost, saved into DE
+;9561
+pick_quadrant mx %00
+;9561  f5        push    af		; save AF
+;9562  c5        push    bc		; save BC
+;9563  e5        push    hl		; save HL
+			phx
+			pha
+
+;9564  217895    ld      hl,#9578	; load HL with ghost destination table
+			ldx #:destination_table
+			stx <temp0
+;9567  cdbd94    call    #94bd		; load BC based on level and HL
+			jsr ChooseMaze
+			pha						; pointer to the destination table
+
+;956a  69        ld      l,c		; 
+;956b  60        ld      h,b		; load HL with BC
+;956c  ed5f      ld      a,r		; load A with random number from refresh register
+;956e  e606      and     #06		; mask bits.  result is either 0,2,4, or 6
+			jsr RANDOM
+			and #$06
+			clc
+			adc 1,s
+			plx
+
+;9570  d7        rst     #10		; HL := HL + A, A := HL.  loads first value from table
+;9571  5f        ld      e,a		; store into E
+;9572  23        inc     hl		; next table entry
+;9573  56        ld      d,(hl)		; load D with this value
+			ldy |0,x
+
+;9574  e1        pop     hl		; restore HL
+;9575  c1        pop     bc		; restore BC
+;9576  f1        pop     af		; restore AF
+;9577  c9        ret     		; return
+			pla
+			plx
+			rts
+
+	; ghost destination table
+:destination_table
+		da ghost_targets_1 ; #8B2D	; 1st maze
+		da ghost_targets_2 ; #8E18	; 2nd maze
+		da ghost_targets_3 ; #910A	; 3rd maze
+		da ghost_targets_4 ; #9402	; 4th maze
 
 
 ;------------------------------------------------------------------------------

@@ -13261,7 +13261,7 @@ FLASHEN
 955e  3a2f4d    ld      a,(#4d2f)	; load A with orange ghost direction
 
 	;; pick a quadrant for the destination of a ghost, saved into DE
-
+pick_quadrant
 9561  f5        push    af		; save AF
 9562  c5        push    bc		; save BC
 9563  e5        push    hl		; save HL
