@@ -825,6 +825,7 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 ;01a4  cd6702    call    #0267		; debounce rack input / add credits
 ;01a7  cdad02    call    #02ad		; debounce coin input / add credits
 ;01aa  cdfd02    call    #02fd		; blink coin lights
+			jsr blink_coin_lights
 					; print player 1 and player two
 					; check for game mode 3
 					; draw cprt stuff
@@ -1172,6 +1173,138 @@ ttask6 mx %00
 			lda #$861C
 			jsr rst28
 ;0266  C9        ret     		; return
+			rts
+
+;------------------------------------------------------------------------------
+; blink coin lights, print player 1 and player 2, check for mode 3
+; called from #01AA
+;02fd
+blink_coin_lights mx %00
+;02fd  21ce4d    ld      hl,#4dce	; load HL with counter started after insert coin (LED and 1UP/2UP blink)
+;0300  34        inc     (hl)		; increment counter
+			inc |insert_coin_timer
+
+:skip_ahead
+;0325  dd21d843  ld      ix,#43d8	; load IX with start address where the screen shows "1UP"
+			ldx #$03d8
+;0329  fd21c543  ld      iy,#43c5	; load IY with start address where the screen shows "1UP"
+			ldy #$03c5
+;032d  3a004e    ld      a,(#4e00)	; load A with game mode
+			lda |mainstate
+;0330  fe03      cp      #03		; is a game being played ?
+			cmp #3
+;0332  ca4403    jp      z,#0344		; Yes, Jump ahead
+			beq :game_played
+
+;0335  3a034e    ld      a,(#4e03)	; else load A with main routine 2, subroutine #
+;0338  fe02      cp      #02		; <= 2 ?
+			lda |mainroutine2
+			cmp #3
+;033a  d24403    jp      nc,#0344	; yes, skip ahead
+			bcc :game_played
+
+;033d  cd6903    call    #0369		; else draw "1UP"
+			jsr draw_1up
+;0340  cd7603    call    #0376		; draw "2UP"
+			jsr draw_2up
+;0343  c9        ret     		; return
+			rts
+
+	;; display and blink 1UP/2UP depending on player up
+:game_played
+;0344  3a094e    ld      a,(#4e09)	; load A with current player number:  0=P1, 1=P2
+			lda |player_no
+			php
+;0347  a7        and     a		; is this player 1 ?
+;0348  3ace4d    ld      a,(#4dce)	; load A with counter started after insert coin (LED and 1UP/2UP blink)
+			lda |insert_coin_timer
+			plp
+;034b  c25903    jp      nz,#0359	; 
+			bne :up2
+
+;034e  cb67      bit     4,a		; test bit 4 of the counter.  is it on?
+			bit #$10
+;0350  cc6903    call    z,#0369		; no, draw  "1UP"
+			bne :clear1up
+			jsr draw_1up
+			bra :skip361
+;0353  c48303    call    nz,#0383	; yes, clear "1UP"
+;356  c36103    jp      #0361		; skip ahead
+:clear1up
+			jsr clear_1up
+			bra :skip361
+:up2
+;0359  cb67      bit     4,a		; test bit 4 of the counter.  is it on?
+			bit #$10
+;035b  cc7603    call    z,#0376		; no, draw  "2UP"
+			bne :clear2up
+			jsr draw_2up
+			bra :skip361
+:clear2up
+;035e  c49003    call    nz,#0390	; yes, clear "2UP"
+			jsr clear_2up
+			rts
+:skip361
+;0361  3a704e    ld      a,(#4e70)	; load A with player# (0=player1, 1=player2)
+;0364  a7        and     a		; is this player 1 ?
+			lda |no_players
+			beq clear_2up
+;0365  cc9003    call    z,#0390		; yes, clear "2UP"
+;0368  c9        ret			; return
+			rts
+
+;------------------------------------------------------------------------------
+; draw "1UP"
+;0369
+draw_1up mx %00
+;0369  dd360050  ld      (ix+#00),#50	; 'P'
+;036d  dd360155  ld      (ix+#01),#55	; 'U'
+			lda #$5550
+			sta |tile_ram,x
+;0371  dd360231  ld      (ix+#02),#31	; '1'
+			lda #$3155
+			sta |tile_ram+1,x
+;0375  c9        ret     
+			rts
+
+;------------------------------------------------------------------------------
+; draw "2UP"
+;0376
+draw_2up mx %00
+;0376  fd360050  ld      (iy+#00),#50	; 'P'
+;037a  fd360155  ld      (iy+#01),#55	; 'U'
+			lda #$5550
+			sta |tile_ram,y
+;037e  fd360232  ld      (iy+#02),#32	; '2'
+			lda #$3255
+			sta |tile_ram+1,y
+;0382  c9        ret     
+			rts
+
+;------------------------------------------------------------------------------
+; clear "1UP"
+;0383
+clear_1up mx %00
+			lda #$4040
+;0383  dd360040  ld      (ix+#00),#40	; ' '
+;0387  dd360140  ld      (ix+#01),#40	; ' '
+;038b  dd360240  ld      (ix+#02),#40	; ' '
+			sta |0,x
+			sta |1,y
+;038f  c9        ret
+			rts
+
+;------------------------------------------------------------------------------
+; clear "2UP"
+;0390
+clear_2up mx %00
+			lda #$4040
+;0390  fd360040  ld      (iy+#00),#40	; ' '
+;0394  fd360140  ld      (iy+#01),#40	; ' '
+			sta |0,y
+;0398  fd360240  ld      (iy+#02),#40	; ' '
+			sta |1,y
+;039c  c9        ret
 			rts
 
 ;------------------------------------------------------------------------------

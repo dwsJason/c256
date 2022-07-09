@@ -482,6 +482,7 @@ big_pill_timer dw 0
 ;	4dcb-4dcc counter while ghosts are blue. effect ceases at 0
 ghosts_blue_timer dw 0
 ;	4dce	counter started after insert coin (LED and 1UP/2UP blink)
+insert_coin_timer dw 0
 ;	4dcf	counter to handle power pill flashes
 powerpill_flash_timer dw 0
 ;	4dd0	current number of killed ghosts (0..4)	(rel 4da5)

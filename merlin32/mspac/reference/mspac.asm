@@ -1607,7 +1607,7 @@ ttask6
 
 	;; blink coin lights, print player 1 and player 2, check for mode 3
 	; called from #01AA
-
+blink_coin_lights
 02fd  21ce4d    ld      hl,#4dce	; load HL with counter started after insert coin (LED and 1UP/2UP blink)
 0300  34        inc     (hl)		; increment counter
 0301  7e        ld      a,(hl)		; load A with counter
