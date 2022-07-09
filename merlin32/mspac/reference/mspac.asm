@@ -2293,7 +2293,7 @@ gameplay_mode
 
 ; arrive here from #000D
 ; sets up game difficulty
-
+task_setDifficulty
 070e  78        ld      a,b		; load A with parameter from task
 070f  a7        and     a		; == #00 ?
 0710  2004      jr      nz,#0716        ; no, skip ahead
@@ -7041,7 +7041,7 @@ process_tasks
 23E2: A1 2B				; #2BA1	; A=1D	; write # of credits on screen
 23E4: 75 26				; #2675	; A=1E	; clear fruit, pacman, and all ghosts
 23E6: B2 26				; #26B2	; A=1F	; writes points needed for extra life digits to screen
-
+task_incMain
 23E8: 21 04 4E	ld	hl,#4E04	; load HL with main subroutine number
 23EB: 34	inc	(hl)		; increase
 23EC: C9	ret			; return
@@ -7186,7 +7186,7 @@ JP DRAWEN
 	;; update the current screen pill config to video ram
 	; called from #0912
 	; called from #23A7 as task #15
-
+task_updatePills
 2487  210040    ld      hl,#4000	; load HL with start of video ram
 
 ; OTTOPATCH
@@ -7490,7 +7490,7 @@ task_setDemoMode
 26a1  c9        ret     		; return
 
 ; task #11 called from #23A7
-
+task_clearMemory4D
 26a2  af        xor     a		; A := #00
 26a3  11004d    ld      de,#4d00	; load DE with starting address
 
@@ -7524,7 +7524,7 @@ task_setDemoMode
 26cf  c9        ret     		; return
 
 ; check dip switches 0 and 1 .  Free play or coins per credit
-
+task_copyDips
 26d0  3a8050    ld      a,(#5080)	; load A with Dip Switch
 26d3  47        ld      b,a		; copy to B
 26d4  e603      and     #03		; mask bits 0000 0011 - is free play set in the DIP ?
@@ -7608,7 +7608,7 @@ task_setDemoMode
 272E  7D 00				; hard at #007D	
 
 ; red ghost logic: (not edible)
-
+task_redGhostAI
 2730  3ac14d    ld      a,(#4dc1)	; load A with movement indicator .  0= random movement , 1= normal movement
 2733  cb47      bit     0,a		; random movement ?
 2735  c25827    jp      nz,#2758	; no, jump to get normal red movement
@@ -7647,7 +7647,7 @@ CALL RCORNER
 276b  c9        ret     		; return
 
 ; pink ghost AI start
-
+task_pinkGhostAI
 276c  3ac14d    ld      a,(#4dc1)	; load A with movement indicator
 276f  cb47      bit     0,a		; random movement ?
 2771  c28e27    jp      nz,#278e	; no, skip ahead and do pink ghost AI
@@ -7690,7 +7690,7 @@ CALL RCORNER
 27a8  c9        ret     		; return
 
 ; blue ghost (inky) AI
-
+task_blueGhostAI
 27a9  3ac14d    ld      a,(#4dc1)	; load A with movement indicator
 27ac  cb47      bit     0,a		; random movement ?
 27ae  c2cb27    jp      nz,#27cb	; no ,skip ahead and do normal inky ghost AI
@@ -7739,7 +7739,7 @@ CALL RCORNER
 27f0  c9        ret   			; return  
 
 ; orange ghost AI
-
+task_orangeGhostAI
 27f1  3ac14d    ld      a,(#4dc1)	; load A with movement indicator
 27f4  cb47      bit     0,a		; random movement ?
 27f6  c21328    jp      nz,#2813	; no, skip ahead and normal orange ghost AI
@@ -7788,7 +7788,7 @@ CALL R2CORNER
 
 ; called from #23A7 when task = #0C
 ; check red ghost movement when power pill active
-
+task_redGhostRun
 283b  3aac4d    ld      a,(#4dac)	; load A with red ghost state
 283e  a7        and     a		; is red ghost alive ?
 283f  ca5528    jp      z,#2855		; yes, skip ahead and give random direction
@@ -7809,7 +7809,7 @@ CALL R2CORNER
 2864  c9        ret     		; return
 
 ; check pink ghost
-
+task_oubjgGhostRun
 2865  3aad4d    ld      a,(#4dad)	; load A with pink ghost state
 2868  a7        and     a		; is pink ghost alive ?
 2869  ca7f28    jp      z,#287f		; yes, skip ahead and give random direction
@@ -7832,7 +7832,7 @@ CALL R2CORNER
 288e  c9        ret     		; return
 
 ; check blue ghost (inky)
-
+task_blueGhostRun
 288f  3aae4d    ld      a,(#4dae)	; load A with inky state
 2892  a7        and     a		; is inky alive ?
 2893  caa928    jp      z,#28a9		; yes, skip ahead and give random direction
@@ -7853,7 +7853,7 @@ CALL R2CORNER
 28b8  c9        ret     		; return
 
 ; check orange ghost
-
+task_orangeGhostRun
 28b9  3aaf4d    ld      a,(#4daf)	; load A with orange ghost state
 28bc  a7        and     a		; is orange ghost alive ?
 28bd  cad328    jp      z,#28d3		; yes, skip ahead and assign random direction
@@ -8099,7 +8099,7 @@ sum_dist_squared
 2a34  c9        ret   
 
 ;  
-
+task_clearSprites
 2a35  114040    ld      de,#4040
 
 2a38  21c043    ld      hl,#43c0

@@ -92,8 +92,183 @@ task_drawPellets mx %00
 		jmp DrawPills
 
 ;------------------------------------------------------------------------------
+; called from #23A7 for task #04
+; resets a bunch of memories to predefined values
 ; #253D ; A=04   ; resets a bunch of memories based on parameter 0 or 1 
-task_resetMemory
+task_resetMemory mx %00
+	; A=Argument
+;253d  dd21004c  ld      ix,#4c00
+;2541  dd360220  ld      (ix+#02),#20	; set red ghost sprite
+		ldx #$20
+		stx |redghostsprite
+;2545  dd360420  ld      (ix+#04),#20	; set pink ghost sprite
+		stx |pinkghostsprite
+;2549  dd360620  ld      (ix+#06),#20	; set inky sprite
+		stx |blueghostsprite
+;254d  dd360820  ld      (ix+#08),#20	; set orange ghost sprite
+		stx |orangeghostsprite
+;2551  dd360a2c  ld      (ix+#0a),#2c	; set ms pac sprite
+		;ldx #$2c
+		;ldx #$80+$2F
+		ldx #$35
+		stx |pacmansprite
+;2555  dd360c3f  ld      (ix+#0c),#3f	; set fruit sprite
+		ldx #$3f
+		stx |fruitsprite
+;2559  dd360301  ld      (ix+#03),#01	; set red ghost color
+		ldx #$01
+		stx |redghostcolor
+;255d  dd360503  ld      (ix+#05),#03	; set pink ghost color
+		ldx #$03
+		stx |pinkghostcolor
+;2561  dd360705  ld      (ix+#07),#05	; set inky color
+		ldx #$05
+		stx |blueghostcolor
+;2565  dd360907  ld      (ix+#09),#07	; set orange ghost color
+		ldx #$07
+		stx |orangeghostcolor
+;2569  dd360b09  ld      (ix+#0b),#09	; set ms pac color
+		ldx #$09
+		stx |pacmancolor
+;256d  dd360d00  ld      (ix+#0d),#00	; set fruit color
+		stz |fruitspritecolor
+
+;2571  78        ld      a,b		; load task parameter
+;2572  a7        and     a		; == #00 ?
+		tax
+;2573  c20f26    jp      nz,#260f	; no, skip ahead
+		beq :position_reset
+		rts
+
+:position_reset
+		; Put everyone in their start positions
+		; why isn't this a table?
+
+;2576  216480    ld      hl,#8064
+;2579  22004d    ld      (#4d00),hl	; set red ghost position
+		lda #$8064
+		sta |red_ghost_y
+
+;257c  217c80    ld      hl,#807c
+;257f  22024d    ld      (#4d02),hl	; set pink ghost position
+		lda #$807C
+		sta |pink_ghost_y
+
+;2582  217c90    ld      hl,#907c
+;2585  22044d    ld      (#4d04),hl	; set inky position
+		lda #$907c
+		sta |blue_ghost_y
+
+;2588  217c70    ld      hl,#707c
+;258b  22064d    ld      (#4d06),hl	; set orange ghost position
+		lda #$707c
+		sta |orange_ghost_y
+
+;258e  21c480    ld      hl,#80c4
+;2591  22084d    ld      (#4d08),hl	; set ms pac position
+		lda #$80c4
+		sta |pacman_y
+
+;2594  212c2e    ld      hl,#2e2c
+;2597  220a4d    ld      (#4d0a),hl	; set red ghost tile position
+;259a  22314d    ld      (#4d31),hl	; set red ghost tile position 2
+		lda #$2e2c
+		sta |redghost_tile_y
+		sta |red_tile_y_2
+
+;259d  212f2e    ld      hl,#2e2f
+;25a0  220c4d    ld      (#4d0c),hl	; set pink ghost tile position
+;25a3  22334d    ld      (#4d33),hl	; set pink ghost tile position 2
+		lda #$2e2f
+		sta |pinkghost_tile_y
+		sta |pink_tile_y_2
+
+;25a6  212f30    ld      hl,#302f
+;25a9  220e4d    ld      (#4d0e),hl	; set inky tile position
+;25ac  22354d    ld      (#4d35),hl	; set inky tile position 2
+		lda #$302f
+		sta |blueghost_tile_y
+		sta |blue_tile_y_2
+
+;25af  212f2c    ld      hl,#2c2f
+;25b2  22104d    ld      (#4d10),hl	; set orange ghost tile position
+;25b5  22374d    ld      (#4d37),hl	; set orange ghost tile position 2
+		lda #$2c2f
+		sta |orangeghost_tile_y
+		sta |orange_tile_y_2
+
+;25b8  21382e    ld      hl,#2e38
+;25bb  22124d    ld      (#4d12),hl	; set pacman tile position
+;25be  22394d    ld      (#4d39),hl	; set pacman tile position 2
+		lda #$2e38
+		sta |pacman_demo_tile_y
+		sta |pacman_tile_pos_y
+
+;25c1  210001    ld      hl,#0100
+;25c4  22144d    ld      (#4d14),hl	; set red ghost tile changes
+;25c7  221e4d    ld      (#4d1e),hl	; set red ghost tile changes 2
+		lda #$0100
+		sta |red_ghost_tchangeA_y
+		sta |red_ghost_tchange_y
+
+;25ca  210100    ld      hl,#0001
+;25cd  22164d    ld      (#4d16),hl	; set pink ghost tile changes
+;25d0  22204d    ld      (#4d20),hl	; set pink ghost tile changes 2
+		lda #$0001
+		sta |pink_ghost_tchangeA_y
+		sta |pink_ghost_tchange_y
+
+;25d3  21ff00    ld      hl,#00ff
+;25d6  22184d    ld      (#4d18),hl	; set inky tile changes
+;25d9  22224d    ld      (#4d22),hl	; set inky tile changes 2
+		lda #$00ff
+		sta |blue_ghost_tchangeA_y
+		sta |blue_ghost_tchange_y
+
+;25dc  21ff00    ld      hl,#00ff
+;25df  221a4d    ld      (#4d1a),hl	; set orange ghost tile changes
+;25e2  22244d    ld      (#4d24),hl	; set orange ghost tile changes 2
+		lda #$00ff
+		sta |orange_ghost_tchangeA_y
+		sta |orange_ghost_tchange_y
+
+;25e5  210001    ld      hl,#0100
+;25e8  221c4d    ld      (#4d1c),hl	; set pacman tile changes
+;25eb  22264d    ld      (#4d26),hl	; set pacman tile changes 2
+		lda #$0100
+		sta |pacman_tchangeA_y
+		sta |wanted_pacman_tile_y
+
+;25ee  210201    ld      hl,#0102
+;25f1  22284d    ld      (#4d28),hl	; set previous red and pink ghost orientation
+;25f4  222c4d    ld      (#4d2c),hl	; set red and pink ghost orientation
+		lda #$0002
+		sta |prev_red_ghost_dir
+		sta |red_ghost_dir
+		lda #$0001
+		sta |prev_pink_ghost_dir
+		sta |pink_ghost_dir
+
+;25f7  210303    ld      hl,#0303
+		lda #$0003
+
+;25fa  222a4d    ld      (#4d2a),hl	; set previous blue and orange ghost orientation
+		sta |prev_blue_ghost_dir
+		sta |prev_orange_ghost_dir
+;25fd  222e4d    ld      (#4d2e),hl	; set blue and orange ghost orientation
+		sta |blue_ghost_dir
+		sta |orange_ghost_dir
+
+;2600  3e02      ld      a,#02
+		lda #$0002
+;2602  32304d    ld      (#4d30),a	; set pacman orientation
+		sta |pacman_dir
+;2605  323c4d    ld      (#4d3c),a	; set wanted pacman orientation
+		sta |wanted_pacman_orientation
+;2608  210000    ld      hl,#0000
+;260b  22d24d    ld      (#4dd2),hl	; set fruit position
+		stz |fruit_y
+;260e  c9        ret     		; return
 		rts
 ;------------------------------------------------------------------------------
 ; resets ghost home counter and if parameter = 1, sets red ghost to chase pac man 
@@ -155,7 +330,7 @@ task_clearMemory4D
 ;------------------------------------------------------------------------------
 ; #24C9 ; A=12	; sets up coded pills and power pills memories
 task_setPills
-		rts
+		jmp ResetPills
 ;------------------------------------------------------------------------------
 ; #2A35 ; A=13	; clears the sprites
 task_clearSprites
