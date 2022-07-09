@@ -564,7 +564,16 @@ task_setDifficulty
 		rts
 ;------------------------------------------------------------------------------
 ; #26A2 ; A=11	; clears memories from #4D00 through #4DFF
-task_clearMemory4D
+task_clearMemory4D mx %00
+		phb
+
+		stz |cutscene_positions
+		ldx #cutscene_positions+1
+		ldy #cutscene_positions+2
+		lda #{mainstate-cutscene_positions}-3
+		mvn ^cutscene_positions,^cutscene_positions
+
+		plb
 		rts
 ;------------------------------------------------------------------------------
 ; #24C9 ; A=12	; sets up coded pills and power pills memories

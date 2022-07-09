@@ -126,10 +126,6 @@ foreground_tasks ds 64
 ; Game variables
 ; ** note - need to be sorted
 ;
-;   4DD2    FRUITP  fruit position
-FRUITP dw 0
-;   4DD4    FVALUE  value of the current fruit (0=no fruit)
-FVALUE dw 0
 ;   4EBC    BNOISE  set bit 5 of BNOISE to make the bounce sound
 bnoise dw 0
 
@@ -496,12 +492,18 @@ dead_ghost_anim_state dw 0
 ;			4dd1 = 0: killed, showing points per kill
 ;			4dd1 = 1: wating
 ;			4dd1 = 2: clearing killed ghost, changing state to 0
+
 ;	4dd2-4dd3 fruit position (sometimes for other sprite)
+;   4DD2    FRUITP  fruit position
+FRUITP
 fruit_y db 0
 fruit_x db 0
 ;
 ;	4dd4	entry to fruit points or 0 if no fruit
+;   4DD4    FVALUE  value of the current fruit (0=no fruit)
+FVALUE
 fruit_entry dw 0
+
 ;	4dd6	used for LED state( 1: game waits for 1P/2P start button press)
 led_state dw 0
 ; Main States
