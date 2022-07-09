@@ -7471,7 +7471,7 @@ clear_ghosts
 268a  c9        ret     		; return
 
 ; task #05 called from #23A7
-
+task_resetGhostHome
 268b  3e55      ld      a,#55
 268d  32944d    ld      (#4d94),a	; store #55 into counter related to ghost movement inside home
 2690  05        dec     b		; check parameter

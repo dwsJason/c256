@@ -272,7 +272,26 @@ task_resetMemory mx %00
 		rts
 ;------------------------------------------------------------------------------
 ; resets ghost home counter and if parameter = 1, sets red ghost to chase pac man 
-task_resetGhostHome
+; task #05 called from #23A7
+; #268B ; A = 5
+task_resetGhostHome mx %00
+;268b  3e55      ld      a,#55
+;268d  32944d    ld      (#4d94),a	; store #55 into counter related to ghost movement inside home
+		ldx #$55
+		stx |home_counter0
+
+;2690  05        dec     b		; check parameter
+;2691  c8        ret     z		; return if parameter == #00
+		dec
+		beq :rts
+
+;2692  3e01      ld      a,#01
+;2694  32a04d    ld      (#4da0),a	; else store #01 into red ghost substate.  makes red ghost chase pac man.
+		lda #1
+		sta |red_substate	; going to pacman
+
+;2697  c9        ret     		; return
+:rts
 		rts
 ;------------------------------------------------------------------------------
 ; #240D ; A=06   ; clears the color RAM 
