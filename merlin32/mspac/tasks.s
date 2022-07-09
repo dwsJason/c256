@@ -577,11 +577,52 @@ task_clearMemory4D mx %00
 		rts
 ;------------------------------------------------------------------------------
 ; #24C9 ; A=12	; sets up coded pills and power pills memories
-task_setPills
+task_setPills mx %00
 		jmp ResetPills
 ;------------------------------------------------------------------------------
+; this is not named correctly at all, it's storing in the tile_ram
+; not into sprite ram
 ; #2A35 ; A=13	; clears the sprites
-task_clearSprites
+task_clearSprites mx %00
+;2a35  114040    ld      de,#4040
+		ldx #$0040
+;2a38  21c043    ld      hl,#43c0
+;2a3b  a7        and     a
+;2a3c  ed52      sbc     hl,de
+;2a3e  c8        ret     z
+		sep #$20
+]loop
+;2a3f  1a        ld      a,(de)
+;2a40  fe10      cp      #10
+;2a42  ca532a    jp      z,#2a53
+		lda |tile_ram,x
+		cmp #$10
+		beq :clear
+
+;2a45  fe12      cp      #12
+;2a47  ca532a    jp      z,#2a53
+		cmp #$12
+		beq :clear
+
+;2a4a  fe14      cp      #14
+;2a4c  ca532a    jp      z,#2a53
+		cmp #$14
+		beq :clear
+;2a4f  13        inc     de
+;2a50  c3382a    jp      #2a38
+		bra :skip
+:clear
+;2a53  3e40      ld      a,#40
+		lda #$40
+;2a55  12        ld      (de),a
+		sta |tile_ram,x
+;2a56  13        inc     de
+:skip
+		inx
+		cpx #$3C0
+		bne ]loop
+;2a57  c3382a    jp      #2a38
+		rep #$30
 		rts
 ;------------------------------------------------------------------------------
 ; #26D0 ; A=14	; checks all dip switches and assigns memories to the settings indicated
