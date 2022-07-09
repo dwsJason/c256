@@ -816,7 +816,11 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 			beq :init
 
 ;019B  cd9d03    call    #039d		; check for double size pacman in intermission (pac-man only)
+			; this is a nop, in ms.pacman
+
 ;019E  cd9014    call    #1490		; when player 1 or 2 is played without cockatil mode, update all sprites
+			jsr sprite_updater
+
 ;01a1  cd1f14    call    #141f		; when player 2 is played on cockatil mode, update all sprites
 ;01a4  cd6702    call    #0267		; debounce rack input / add credits
 ;01a7  cdad02    call    #02ad		; debounce coin input / add credits
@@ -4214,6 +4218,19 @@ game_setup mx %00
 ;
 ; 08CD;
 game_playing mx %00
+		; yes we get here
+		; test if we get here
+		;lda #Mstr_Ctrl_Disable_Vid
+		;sta >MASTER_CTRL_REG_L 
+;		nop
+;		nop
+;		nop
+;]wait   bra ]wait
+;		nop
+;		nop
+;		nop
+
+
 ;
 ; In original code, rack test stuff, that I didn't port
 ;
@@ -6590,6 +6607,539 @@ ghosthouse mx %00
 ;141e  c9        ret     		; return
 	    jmp release_orange
 
+;------------------------------------------------------------------------------
+; called from #019E during core game loop
+; display the sprites in the intro and game and cutscenes
+;1490
+sprite_updater mx %00
+;1490  3a724e    ld      a,(#4e72)	; load A with cocktail mode
+;1493  47        ld      b,a		; store into B
+;1494  3a094e    ld      a,(#4e09)	; load A with player number
+;1497  a0        and     b		; is this player 2 and cocktail mode ?
+;1498  c0        ret     nz		; yes, return
+
+; we already blit from these 4D00 into the Foenix
+; sprite hardware, so do we really needy to do these?
+
+;1499  47        ld      b,a			; B := #00
+;149a  1e09      ld      e,#09		; E := #09
+;149c  0e07      ld      c,#07		; C := #07
+;149e  1606      ld      d,#06		; D := #06
+;14a0  dd21004c  ld      ix,#4c00	; load IX with starting address of sprite values
+
+;14a4  3a004d    ld      a,(#4d00)	; load A with red ghost Y position
+;14a7  2f        cpl			; invert A
+;14a8  83        add     a,e		; Add #09
+;14a9  dd7713    ld      (ix+#13),a	; store into #4C13 (?)
+
+;14ac  3a014d    ld      a,(#4d01)	; load A with red ghost X position
+;14af  82        add     a,d		; add #06
+;14b0  dd7712    ld      (ix+#12),a	; store into #4C12 (?)
+
+;14b3  3a024d    ld      a,(#4d02)	; load A with pink ghost Y position
+;14b6  2f        cpl     		; invert
+;14b7  83        add     a,e		; add #09
+;14b8  dd7715    ld      (ix+#15),a	; store into #4C15 (?)
+
+;14bb  3a034d    ld      a,(#4d03)	; load A with pink ghost X position
+;14be  82        add     a,d		; add #06
+;14bf  dd7714    ld      (ix+#14),a	; store into #4C14 (?)
+
+;14c2  3a044d    ld      a,(#4d04)	; load A with inky Y position
+;14c5  2f        cpl     		; invert
+;14c6  83        add     a,e		; add #06
+;14c7  dd7717    ld      (ix+#17),a	; store into #4C17 (?)
+
+;14ca  3a054d    ld      a,(#4d05)	; load A with inky X position
+;14cd  81        add     a,c		; add #07
+;14ce  dd7716    ld      (ix+#16),a	; store into #4C16 (?)
+
+;14d1  3a064d    ld      a,(#4d06)	; load A with orange ghost Y position
+;14d4  2f        cpl     		; invert
+;14d5  83        add     a,e		; add #09
+;14d6  dd7719    ld      (ix+#19),a	; store into #4C19 (?)
+
+;14d9  3a074d    ld      a,(#4d07)	; load A with orange ghost X position
+;14dc  81        add     a,c		; add #07
+;14dd  dd7718    ld      (ix+#18),a	; store into #4C18 (?)
+
+;14e0  3a084d    ld      a,(#4d08)	; load A with pacman Y position
+;14e3  2f        cpl     		; invert
+;14e4  83        add     a,e		; add #09
+;14e5  dd771b    ld      (ix+#1b),a	; store into #4C1B (?)
+
+;14e8  3a094d    ld      a,(#4d09)	; load A with pacman X position
+;14eb  81        add     a,c		; add #07
+;14ec  dd771a    ld      (ix+#1a),a	; store into #4C1A (?)
+
+;14ef  3ad24d    ld      a,(#4dd2)	; load A with fruit Y position
+;14f2  2f        cpl     		; invert
+;14f3  83        add     a,e		; add #09
+;14f4  dd771d    ld      (ix+#1d),a	; store into #4C1D (?)
+
+;14f7  3ad34d    ld      a,(#4dd3)	; load A with fruit X position
+;14fa  81        add     a,c		; add #07
+;14fb  dd771c    ld      (ix+#1c),a	; store into #4C1C (?)
+
+; also arrive here if player 2 and cocktail mode from #148D
+
+;14fe  3aa54d    ld      a,(#4da5)	; load A with pacman dead animation state (0 if not dead)
+;1501  a7        and     a		; is pacman dead ?
+;1502  c24b15    jp      nz,#154b	; yes, jump ahead
+		lda |pacman_dead_state
+		bne :pacman_dead
+
+;1505  3aa44d    ld      a,(#4da4)	; no, load A with # of ghost killed but no collision for yet
+;1508  a7        and     a		; are we currently eating a ghost ?
+;1509  c2b415    jp      nz,#15b4	; yes, jump ahead
+		lda |num_ghosts_killed
+		bnel :killed_ghost
+
+;150c  211c15    ld      hl,#151c	; no, load HL with return address
+;150f  e5        push    hl		; push return address to stack so RET comes back to #151C
+		pea :return_here-1
+
+;1510: 3A 30 4D	ld	a,(#4D30)	; load A with pacman orientation
+;1513: E7	rst	#20		; jump based on which way pac man is facing - for drawing sprite frames to the screen
+		lda |pacman_dir
+		asl
+		tax
+		jmp (:jmptable,x)
+
+:jmptable
+		da :right ; #168C	; right
+		da :down  ; #16B1	; down
+		da :left  ; #16D6	; left
+		da :up    ; #16F7	; up
+
+:return_here
+; cocktail support
+;151C: 78	ld	a,b		; load A with B which was created earlier to indicate 2 player and cocktail
+;151D: A7	and	a		; is this player 2 and cocktail mode ?
+;151e  282b      jr      z,#154b         ; no, skip ahead
+;
+;1520  0ec0      ld      c,#c0		; yes, C := #C0
+;1522  3a0a4c    ld      a,(#4c0a)	; load A with mspac sprite number
+;1525  57        ld      d,a		; copy into D
+;1526  a1        and     c		; apply mask of #1100 0000 = #C0
+;1527  2005      jr      nz,#152e        ; not zero, skip ahead
+;
+;1529  7a        ld      a,d		; zero, load A with original value
+;152a  b1        or      c		; turn on bits 7 and 6
+;152b  c34815    jp      #1548		; skip ahead
+;
+;152e  3a304d    ld      a,(#4d30)	; load A with pacman orientation
+;1531  fe02      cp      #02		; pacman facing left ?
+;1533  2009      jr      nz,#153e        ; no, skip ahead
+;
+;1535  cb7a      bit     7,d		; yes, turn on bit 7 of D
+;1537  2812      jr      z,#154b         ; if zero, skip ahead
+;
+;1539  7a        ld      a,d		; else A := D
+;153a  a9        xor     c		; flip bits 6 and 7
+;153b  c34815    jp      #1548		; skip ahead
+;
+;153e  fe03      cp      #03		; pacman facing up ?
+;1540  2009      jr      nz,#154b        ; no, skip ahead
+;
+;1542  cb72      bit     6,d		; yes, turn on bit 6 of D
+;1544  2805      jr      z,#154b         ; if zero, skip ahead
+;
+;1546  7a        ld      a,d		; else A := D
+;1547  a9        xor     c		; flip bits 6 and 7
+;
+;1548  320a4c    ld      (#4c0a),a	; store result into mspac sprite number
+
+; the next section of code toggles the sprites for the ghosts based on the counter that flips every 8 frames
+:pacman_dead
+;154b  21c04d    ld      hl,#4dc0	; load HL with counter that changes from 0 to 1 and back every 8 frames; used for ghost animations
+;154e  56        ld      d,(hl)		; load D with the counter
+			lda |ghost_anim_counter
+;154f  3e1c      ld      a,#1c		; A := #1C
+;1551  82        add     a,d		; add to counter
+			clc
+			adc #$1C
+
+; toggle between #1C and #1D (edible ghost sprites) for all ghosts ... those that are not edible are changed again later
+
+;1552  dd7702    ld      (ix+#02),a	; store into red ghost sprite
+			sta |redghostsprite
+;1555  dd7704    ld      (ix+#04),a	; store into pink ghost sprite
+			sta |pinkghostsprite
+;1558  dd7706    ld      (ix+#06),a	; store into inky sprite
+			sta |blueghostsprite
+;155b  dd7708    ld      (ix+#08),a	; store into orange ghost sprite
+			sta |orangeghostsprite
+
+;155e  0e20      ld      c,#20		; C := #20
+
+;1560  3aac4d    ld      a,(#4dac)	; load A with red ghost state
+;1563  a7        and     a		; is red ghost alive ?
+;1564  2006      jr      nz,#156c        ; no, skip next 3 steps
+			lda |redghost_state
+			bne :red_dead
+
+;1566  3aa74d    ld      a,(#4da7)	; yes, load A with red ghost blue flag (0=not blue)
+;1569  a7        and     a		; is red ghost blue (edible) ?
+			lda |redghost_blue
+;156a  2009      jr      nz,#1575        ; yes, skip ahead and check next ghost
+			bne :do_pink
+
+:red_dead
+;156c  3a2c4d    ld      a,(#4d2c)	; no, load A with red ghost orientation
+			lda |red_ghost_dir
+;156f  87        add     a,a		; A := A * 2
+			asl
+;1570  82        add     a,d		; A := A + D
+			adc |ghost_anim_counter
+;1571  81        add     a,c		; A := A + #20
+			adc #$20
+;1572  dd7702    ld      (ix+#02),a	; store into red ghost sprite
+			sta |redghostsprite
+
+:do_pink
+;1575  3aad4d    ld      a,(#4dad)	; load A with pink ghost state
+;1578  a7        and     a		; is pink ghost alive ?
+;1579  2006      jr      nz,#1581        ; no, skip next 3 steps
+			lda |pinkghost_state
+			bne :pink_dead
+
+;157b  3aa84d    ld      a,(#4da8)	; load A with pink ghost blue flag
+;157e  a7        and     a		; is pink ghost blue (edible) ?
+;157f  2009      jr      nz,#158a        ; yes, skip ahead and check next ghost
+			lda |pinkghost_blue
+			bne :do_blue
+
+:pink_dead
+;1581  3a2d4d    ld      a,(#4d2d)	; no, load A with pink ghost orientation
+			lda |pink_ghost_dir
+;1584  87        add     a,a		; A := A * 2
+			asl
+;1585  82        add     a,d		; A := A + D
+			adc |ghost_anim_counter
+;1586  81        add     a,c		; A := A + #20
+			adc #$20
+;1587  dd7704    ld      (ix+#04),a	; store into pink ghost sprite
+			sta |pinkghostsprite
+
+:do_blue
+;158a  3aae4d    ld      a,(#4dae)	; load A with inky state
+;158d  a7        and     a		; is inky alive ?
+;158e  2006      jr      nz,#1596        ; no, skip next 3 steps
+			lda |blueghost_state
+			bne :blue_dead
+
+;1590  3aa94d    ld      a,(#4da9)	; load A with inky blue flag
+;1593  a7        and     a		; is inky edible ?
+;1594  2009      jr      nz,#159f        ; yes, skip ahead and check next ghost
+			lda |blueghost_blue
+			bne :do_orange
+:blue_dead
+;1596  3a2e4d    ld      a,(#4d2e)	; no, load A with inky orientation
+			lda |blue_ghost_dir
+;1599  87        add     a,a		; A := A * 2
+			asl
+;159a  82        add     a,d		; A := A + D
+			adc |ghost_anim_counter
+;159b  81        add     a,c		; A := A + #20
+			adc #$20
+;159c  dd7706    ld      (ix+#06),a	; store into inky sprite
+			sta |blueghostsprite
+
+:do_orange
+;159f  3aaf4d    ld      a,(#4daf)	; load A with orange ghost state
+;15a2  a7        and     a		; is orange ghost alive ?
+;15a3  2006      jr      nz,#15ab        ; no, skip next 3 steps
+			lda |orangeghost_state
+			bne :orange_dead
+
+;15a5  3aaa4d    ld      a,(#4daa)	; load A with orange ghost blue flag
+;15a8  a7        and     a		; is orange ghost blue (edible) ?
+;15a9  2009      jr      nz,#15b4        ; yes, skip ahead
+			lda |orangeghost_blue
+			bne :skip_orange
+:orange_dead
+;15ab  3a2f4d    ld      a,(#4d2f)	; load A with orange ghost orienation
+			lda |orange_ghost_dir
+;15ae  87        add     a,a		; A = A * 2
+			asl
+;15af  82        add     a,d		; A = A + D
+			adc |ghost_anim_counter
+;15b0  81        add     a,c		; A = A + #20
+			adc #$20
+;15b1  dd7708    ld      (ix+#08),a	; store into orange ghost sprite
+			sta |orangeghostsprite
+:skip_orange
+:killed_ghost
+
+;15b4  cde615    call    #15e6		; check for and handle big pac-man sprites in 1st cutscene (pac-man only)
+;15b7  cd2d16    call    #162d		; check for and handle sprites in 2nd cutscene (pac-man only)
+;15ba  cd5216    call    #1652		; check for and handle sprites in 3rd cutscene (pac-man only)
+
+;15bd  78        ld      a,b		; A := B
+;15be  a7        and     a		; is this player 2 and cocktail mode ?
+;15bf  c8        ret     z		; no, return
+
+; 2 player and cocktail
+
+;15c0  0ec0      ld      c,#c0		; C := #C0 (binary 1100 0000)
+;
+;15c2  3a024c    ld      a,(#4c02)	; load A with red ghost sprite
+;15c5  b1        or      c		; make upside down
+;15c6  32024c    ld      (#4c02),a	; store
+;
+;15c9  3a044c    ld      a,(#4c04)	; load A with pink ghost sprite
+;15cc  b1        or      c		; make upside down
+;15cd  32044c    ld      (#4c04),a	; store
+;
+;15d0  3a064c    ld      a,(#4c06)	; load A with inky sprite
+;15d3  b1        or      c		; make upside down
+;15d4  32064c    ld      (#4c06),a	; store
+;
+;15d7  3a084c    ld      a,(#4c08)	; load A with orange ghost sprite
+;15da  b1        or      c		; make upside down
+;15db  32084c    ld      (#4c08),a	; store
+;
+;15de  3a0c4c    ld      a,(#4c0c)	; load A with pacman sprite
+;15e1  b1        or      c		; make upside down
+;15e2  320c4c    ld      (#4c0c),a	; store
+;15e5  c9        ret     		; return
+			rts
+
+; called from #15B4
+
+;15e6  3a064e    ld      a,(#4e06)	; load A with state in first cutscene
+;15e9  d605      sub     #05		; is this cutscene state <= 5 ?
+;15eb  d8        ret     c		; yes, return
+
+; pac-man only, not used in ms. pac
+; arrive here when the big pac-man needs to be animated in the 1st cutscene
+
+;15ec  3a094d    ld      a,(#4d09)
+;15ef  e60f      and     #0f
+;15f1  fe0c      cp      #0c
+;15f3  3804      jr      c,#15f9         ; (4)
+
+;15f5  1618      ld      d,#18
+;15f7  1812      jr      #160b           ; (18)
+
+;15f9  fe08      cp      #08
+;15fb  3804      jr      c,#1601         ; (4)
+
+;15fd  1614      ld      d,#14
+;15ff  180a      jr      #160b           ; (10)
+
+;1601  fe04      cp      #04
+;1603  3804      jr      c,#1609         ; (4)
+
+;1605  1610      ld      d,#10
+;1607  1802      jr      #160b           ; (2)
+
+;1609  1614      ld      d,#14
+;160b  dd7204    ld      (ix+#04),d
+;160e  14        inc     d
+;160f  dd7206    ld      (ix+#06),d
+;1612  14        inc     d
+;1613  dd7208    ld      (ix+#08),d
+;1616  14        inc     d
+;1617  dd720c    ld      (ix+#0c),d
+;161a  dd360a3f  ld      (ix+#0a),#3f
+;161e  1616      ld      d,#16
+;1620  dd7205    ld      (ix+#05),d
+;1623  dd7207    ld      (ix+#07),d
+;1626  dd7209    ld      (ix+#09),d
+;1629  dd720d    ld      (ix+#0d),d
+;162c  c9        ret     
+
+; called from #15B7
+
+;162d  3a074e    ld      a,(#4e07)	; load A with state in second cutscene
+;1630  a7        and     a		; == #00 ?
+;1631  c8        ret     z		; yes, return
+
+; pac-man only, not used in ms. pac
+; arrive here during 2nd cutscene
+
+;1632  57        ld      d,a
+;1633  3a3a4d    ld      a,(#4d3a)
+;1636  d63d      sub     #3d
+;1638  2004      jr      nz,#163e        ;
+
+;163a  dd360b00  ld      (ix+#0b),#00
+;163e  7a        ld      a,d
+;163f  fe0a      cp      #0a
+;1641  d8        ret     c
+
+;1642  dd360232  ld      (ix+#02),#32
+;1646  dd36031d  ld      (ix+#03),#1d
+;164a  fe0c      cp      #0c
+;164c  d8        ret     c
+
+;164d  dd360233  ld      (ix+#02),#33
+;1651  c9        ret     
+
+; called from #15BA
+
+;1652  3a084e    ld      a,(#4e08)	; load A with state in third cutscene
+;1655  a7        and     a		; == #00 ?
+;1656  c8        ret     z		; yes, return
+
+; pac-man only, not used is ms. pac
+; arrive here during 3rd cutscene
+
+;1657  57        ld      d,a
+;1658  3a3a4d    ld      a,(#4d3a)
+;165b  d63d      sub     #3d
+;165d  2004      jr      nz,#1663        ; (4)
+
+;165f  dd360b00  ld      (ix+#0b),#00
+;1663  7a        ld      a,d
+;1664  fe01      cp      #01
+;1666  d8        ret     c
+
+;1667  3ac04d    ld      a,(#4dc0)
+;166a  1e08      ld      e,#08
+;166c  83        add     a,e
+;166d  dd7702    ld      (ix+#02),a
+;1670  7a        ld      a,d
+;1671  fe03      cp      #03
+;1673  d8        ret     c
+
+;1674  3a014d    ld      a,(#4d01)
+;1677  e608      and     #08
+;1679  0f        rrca    
+;167a  0f        rrca    
+;167b  0f        rrca    
+;167c  1e0a      ld      e,#0a
+;167e  83        add     a,e
+;167f  dd770c    ld      (ix+#0c),a
+;1682  3c        inc     a
+;1683  3c        inc     a
+;1684  dd7702    ld      (ix+#02),a
+;1687  dd360d1e  ld      (ix+#0d),#1e
+;168b  c9        ret     
+
+
+; arrive here when pac man is facing right from #1513
+
+; MOVING EAST
+:right
+;168c  c39c86    jp      #869c		; jump to ms. pacman patch to animate ms pac
+; arrive from #168C when ms pac is facing right
+; MSPAC MOVING EAST
+;869c  3a094d    ld      a,(#4d09)	; load A with pacman X position
+			lda |pacman_x
+;869f  e607      and     #07		; mask bits, now between #00 and #07
+			and #$07
+;86a1  cb3f      srl     a		; shift right, now between #00 and #03
+			lsr
+;86a3  2f        cpl     		; invert
+			eor #$FFFF
+;86a4  1e30      ld      e,#30		; E := #30
+;86a6  83        add     a,e		; add #30
+			clc
+			adc #$30
+;86a7  cb47      bit     0,a		; test bit 0.  is it on ?
+			bit #1
+;86a9  2002      jr      nz,#86ad        ; yes, skip next step
+			bne :skip1
+;86ab  3e37      ld      a,#37		; no, A := #37
+			lda #$37
+:skip1
+;86ad  320a4c    ld      (#4c0a),a	; store into mspac sprite number
+			sta |pacmansprite
+;86b0  c9        ret			; return
+			rts
+
+
+; arrive here when pac man is facing down from #1513
+; MOVING SOUTH
+:down
+;16b1  c3b186    jp      #86b1		; jump to ms. pacman patch to animate ms pac
+; arrive from #16B1 when ms pac is facing down
+; MSPAC MOVING SOUTH
+;86b1  3a084d    ld      a,(#4d08)	; load A with pacman Y position
+			lda |pacman_y
+;86b4  e607      and     #07		; mask bits, now between #00 and #07
+			and #$07
+;86b6  cb3f      srl     a		; shift right, now between #00 and #03
+			lsr
+;86b8  1e30      ld      e,#30		; E := #30
+;86ba  83        add     a,e		; add #30
+			clc
+			adc #$30
+;86bb  cb47      bit     0,a		; test bit 0.  is it on ?
+			bit #1
+;86bd  2002      jr      nz,#86c1        ; yes, skip next step
+			bne :skip2
+;86bf  3e34      ld      a,#34		; no, A := #34
+			lda #$34
+:skip2
+;86c1  320a4c    ld      (#4c0a),a	; store into mspac sprite number
+			sta |pacmansprite
+;86c4  c9        ret			; return
+			rts
+
+; arrive here when pac man is facing left from #1513
+; MOVING WEST
+:left
+;16d6  3a094d    ld      a,(#4d09)
+;16d9  c3c586    jp      #86c5		; jump to ms. pacman patch to animate ms pac
+; arrive from #16D9 when ms pac is facing left
+; MSPAC MOVING WEST
+;86c5  3a094d    ld      a,(#4d09)	; load A with pacman X position
+			lda |pacman_x
+;86c8  e607      and     #07		; mask bits, now between #00 and #07
+			and #$7
+;86ca  cb3f      srl     a		; shift right, now between #00 and #03
+			lsr
+;86cc  1eac      ld      e,#ac		; E := #AC
+;86ce  83        add     a,e		; add #AC
+			clc
+			adc #$ac
+;86cf  cb47      bit     0,a		; test bit 0 , is it on ?
+			bit #1
+;86d1  2002      jr      nz,#86d5        ; yes, skip next step
+			bne :skip3
+;86d3  3e35      ld      a,#35		; no, A := #35
+			lda #$35
+:skip3
+;86d5  320a4c    ld      (#4c0a),a	; store into mspac sprite number
+			sta |pacmansprite
+;86d8  c9        ret
+			rts
+
+; arrive here when pac man is facing up from #1513
+; MOVING NORTH
+:up
+;16f7  3a084d    ld      a,(#4d08)
+;16fa  c3d986    jp      #86d9		; jump to ms. pacman patch to animate ms pac
+
+; arrive from #16FA when ms pac is facing up
+; MSPAC MOVING NORTH
+;86d9  3a084d    ld      a,(#4d08)	; load A with pacman Y position
+			lda |pacman_y
+;86dc  e607      and     #07		; mask bits, now between #00 and #07
+			and #$7
+;86de  cb3f      srl     a		; shift right, now between #00 and #03
+			lsr
+;86e0  2f        cpl     		; invert
+			eor #$FFFF
+;86e1  1ef4      ld      e,#f4		; E := #F4
+;86e3  83        add     a,e		; add #F4
+			clc
+			adc #$f4
+;86e4  cb47      bit     0,a		; test bit 0 .  is it on ?
+			bit #1
+;86e6  2002      jr      nz,#86ea        ; yes, skip next step
+			bne :skip4
+;86e8  3e36      ld      a,#36		; no, A := #36
+			lda #$36
+:skip4
+;86ea  320a4c    ld      (#4c0a),a	; store into mspac sprite number
+			sta |pacmansprite
+;86ed  c9        ret     
+			rts
 
 ;------------------------------------------------------------------------------
 ;; normal ghost collision detect

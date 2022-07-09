@@ -626,15 +626,16 @@ task_clearSprites mx %00
 		rts
 ;------------------------------------------------------------------------------
 ; #26D0 ; A=14	; checks all dip switches and assigns memories to the settings indicated
-task_copyDips
+task_copyDips mx %00
 		rts
 ;------------------------------------------------------------------------------
 ; #2487 ; A=15	; update the current screen pill config to video ram
-task_updatePills
+task_updatePills mx %00
 		rts
 ;------------------------------------------------------------------------------
 ; #23E8 ; A=16	; increase main subroutine number (#4E04)
-task_incMain
+task_incMain mx %00
+		inc |levelstate
 		rts
 ;------------------------------------------------------------------------------
 ; #28E3 ; A=17	; controls pac-man AI during demo. 

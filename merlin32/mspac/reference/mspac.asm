@@ -4410,7 +4410,7 @@ ghosthouse
 
 ; called from #019E during core game loop
 ; display the sprites in the intro and game and cutscenes
-
+sprite_updater
 1490  3a724e    ld      a,(#4e72)	; load A with cocktail mode
 1493  47        ld      b,a		; store into B
 1494  3a094e    ld      a,(#4e09)	; load A with player number
