@@ -7074,7 +7074,7 @@ task_incMain
 240c  c9        ret     		; yes, return
 
 ; clears color ram
-
+task_clearColor
 240d  af        xor     a		; A := #00
 240e  010400    ld      bc,#0004	; set up counters
 2411  210044    ld      hl,#4400	; load hL with start of color ram

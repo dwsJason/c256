@@ -296,6 +296,20 @@ task_resetGhostHome mx %00
 ;------------------------------------------------------------------------------
 ; #240D ; A=06   ; clears the color RAM 
 task_clearColor
+;240d  af        xor     a		; A := #00
+;240e  010400    ld      bc,#0004	; set up counters
+;2411  210044    ld      hl,#4400	; load hL with start of color ram
+;2414  cf        rst     #8		; clear color ram
+;2415  0d        dec     c		; loop done ?
+;2416  20fc      jr      nz,#2414        ; no, loop again
+;2418  c9        ret    			; return
+		ldx #1024-3
+]lp
+		stz |palette_ram,x
+		dex
+		dex
+		bpl ]lp
+
 		rts
 ;------------------------------------------------------------------------------
 ; sets demo mode
