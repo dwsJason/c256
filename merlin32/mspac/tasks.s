@@ -453,8 +453,90 @@ task_pinkGhostAI mx %00
 ;27a8  c9        ret     		; return
 		rts
 ;------------------------------------------------------------------------------
-; #27A9 ; A=0A   ; blue ghost (inky) AI   task_orangeGhostAI
-task_blueGhostAI
+; blue ghost (inky) AI
+; #27A9 ; A=0A   ; blue ghost (inky)
+task_blueGhostAI mx %00
+;27a9  3ac14d    ld      a,(#4dc1)	; load A with movement indicator
+		lda |orientation_changes_index
+;27ac  cb47      bit     0,a		; random movement ?
+		bit #1
+;27ae  c2cb27    jp      nz,#27cb	; no ,skip ahead and do normal inky ghost AI
+		bne :normal_movement
+
+;27b1  3a044e    ld      a,(#4e04)	; yes, load A with level cleared register
+;27b4  fe03      cp      #03		; == # 03 ?  (this always 3 during a game ... ?)
+;27b6  2013      jr      nz,#27cb        ; jump if not 3 ahead to do normal AI
+		lda |levelstate
+		cmp #3
+		bne :normal_movement
+
+; random (?) blue ghost (inky) movement
+
+;27b8  2a0e4d    ld      hl,(#4d0e)	; load HL with inky position
+		ldx |blueghost_tile_y
+
+; OTTPATCH
+;PATCH TO MAKE THE MONSTERS MOVE RANDOMLY
+;ORG 2781H
+;CALL RCORNER
+;27bb  cd5995    call    #9559		; pick a random quadrant (why ??? DE is loaded new in next step)
+;27be  114020    ld      de,#2040	; load DE with lower right corner destination
+		ldy #$2040
+;27c1  cd6629    call    #2966		; get best new direction
+		jsr getBestNewDirection
+
+;27c4  22224d    ld      (#4d22),hl	; store new direction into inky's tile changes
+		stx |blue_ghost_tchange_y
+;27c7  322e4d    ld      (#4d2e),a	; store inky's new direction
+		sta |blue_ghost_dir
+;27ca  c9        ret     		; return
+		rts
+
+; normal blue ghost (inky) movement
+:normal_movement
+
+;27cb  ed4b0a4d  ld      bc,(#4d0a)	; load BC with red ghost position (X, Y)
+;27cf  ed5b394d  ld      de,(#4d39)	; load DE with pac man position
+;27d3  2a1c4d    ld      hl,(#4d1c)	; load HL with pacman direction 
+		lda |pacman_tchangeA_y
+					; H loads with (0 = facing up or down, 01 = facing left, FF = facing right)
+					; L loads with (0= facing left or right, 01 = facing down, FF = facing up)
+;27d6  29        add     hl,hl		; HL := HL * 2
+		asl
+;27d7  19        add     hl,de		; add result to pac position.  this now has the position 2 in front of pac
+		clc
+		adc |pacman_tile_pos_y
+		sep #$20
+;27d8  7d        ld      a,l		; load A with computed Y position
+;27d9  87        add     a,a		; A := A * 2
+		asl
+;27da  91        sub     c		; subtract red ghost Y position
+		sec
+		sbc |redghost_tile_y
+;27db  6f        ld      l,a		; save result into L
+;27dc  7c        ld      a,h		; load A with computed X position
+		xba
+;27dd  87        add     a,a		; A := A * 2
+		asl
+;27de  90        sub     b		; subract red ghost X position
+		sec
+		sbc |redghost_tile_x
+;27df  67        ld      h,a		; save result into H
+;27e0  eb        ex      de,hl		; save total result into DE
+		xba
+		rep #$30
+
+;27e1  2a0e4d    ld      hl,(#4d0e)	; load HL with blue ghost (Inky) position
+		ldx |blueghost_tile_y
+;27e4  3a2e4d    ld      a,(#4d2e)	; load A with blue ghost (Inky) direction
+		lda |blue_ghost_dir
+;27e7  cd6629    call    #2966		; get best new direction
+		jsr getBestNewDirection
+;27ea  22224d    ld      (#4d22),hl	; Store blue ghost (inky) y tile changes
+		stx |blue_ghost_tchange_y
+;27ed  322e4d    ld      (#4d2e),a	; store new blue direction
+		sta |blue_ghost_dir
+;27f0  c9        ret   			; return  
 		rts
 ;------------------------------------------------------------------------------
 ; #27F1 ; A=0B  ; orange ghost AI    
