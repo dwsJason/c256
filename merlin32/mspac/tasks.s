@@ -295,7 +295,7 @@ task_resetGhostHome mx %00
 		rts
 ;------------------------------------------------------------------------------
 ; #240D ; A=06   ; clears the color RAM 
-task_clearColor
+task_clearColor mx %00
 ;240d  af        xor     a		; A := #00
 ;240e  010400    ld      bc,#0004	; set up counters
 ;2411  210044    ld      hl,#4400	; load hL with start of color ram
@@ -322,7 +322,7 @@ task_setDemoMode mx %00
 ;------------------------------------------------------------------------------
 ; red ghost logic: (not edible)
 ; #2730 ; A=08   ; red ghost AI 
-task_redGhostAI
+task_redGhostAI mx %00
 ;2730  3ac14d    ld      a,(#4dc1)	; load A with movement indicator .  0= random movement , 1= normal movement
 		lda |orientation_changes_index
 ;2733  cb47      bit     0,a		; random movement ?
@@ -384,8 +384,73 @@ task_redGhostAI
 		rts
 ;------------------------------------------------------------------------------
 ; red ghost logic: (not edible)
+; pink ghost AI start
 ; #276C ; A=09   ; pink ghost AI task_pinkGhostAI
-task_pinkGhostAI
+task_pinkGhostAI mx %00
+;276c  3ac14d    ld      a,(#4dc1)	; load A with movement indicator
+		lda |orientation_changes_index
+;276f  cb47      bit     0,a		; random movement ?
+		bit #1
+;2771  c28e27    jp      nz,#278e	; no, skip ahead and do pink ghost AI
+		bne :normal_movement
+;2774  3a044e    ld      a,(#4e04)	; yes, load A with level cleared register
+;2777  fe03      cp      #03		; == # 03 ? (why?  when game is played, this is always 3 ???)
+;2779  2013      jr      nz,#278e        ; no, skip ahead and do pink ghost AI (never will take this route??)
+		lda |levelstate
+		cmp #3
+		bne :normal_movement
+
+; pink ghost random movement
+
+;277b  2a0c4d    ld      hl,(#4d0c)	; else load HL with pink ghost position
+		ldx |pinkghost_tile_y
+;277e  3a2d4d    ld      a,(#4d2d)	; load A with pink ghost direction
+		lda |pink_ghost_dir
+
+; OTTPATCH
+;PATCH TO MAKE THE MONSTERS MOVE RANDOMLY
+;ORG 2781H
+;CALL RCORNER
+;2781  cd6195    call    #9561		; call new code to pick a location to move toward ?
+		jsr pick_quadrant
+;2784  cd6629    call    #2966		; get new direction by finding shortest distance
+		jsr getBestNewDirection
+;2787  22204d    ld      (#4d20),hl	; store new pink ghost Y and X tile changes
+		stx |pink_ghost_tchange_y
+;278a  322d4d    ld      (#4d2d),a	; store new pink ghost direction
+		sta |pink_ghost_dir
+;278d  c9        ret     		; return
+		rts
+
+; pink ghost normal movement
+:normal_movement
+;278e  ed5b394d  ld      de,(#4d39)	; load DE with pac man position
+;2792  2a1c4d    ld      hl,(#4d1c)	; load HL with pac man direction
+		lda |pacman_tchangeA_y
+
+	; hard hack: HACK6
+	; 2795  00        nop
+
+;2795  29        add     hl,hl		; HL := HL * 2
+		asl
+;2796  29        add     hl,hl		; HL := HL * 2
+		asl
+;2797  19        add     hl,de		; add direction to position
+		clc
+		adc |pacman_tile_pos_y ; 4d39
+;2798  eb        ex      de,hl		; copy to DE
+		tay
+;2799  2a0c4d    ld      hl,(#4d0c)	; load HL with pink ghost position
+		ldx |pinkghost_tile_y
+;279c  3a2d4d    ld      a,(#4d2d)	; load A with pink ghost direction
+		lda |pink_ghost_dir
+;279f  cd6629    call    #2966		; compute best new directions
+		jsr getBestNewDirection
+;27a2  22204d    ld      (#4d20),hl	; store new ping ghost Y and X tile changes
+		stx |pink_ghost_tchange_y
+;27a5  322d4d    ld      (#4d2d),a	; store new pink ghost direction
+		sta |pink_ghost_dir
+;27a8  c9        ret     		; return
 		rts
 ;------------------------------------------------------------------------------
 ; #27A9 ; A=0A   ; blue ghost (inky) AI   task_orangeGhostAI
