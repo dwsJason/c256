@@ -4362,7 +4362,7 @@ BlitMap mx %00
 
 ]row_loop
 
-]		sta <:cursor
+		sta <:cursor
 
 		lda #28
 		sta <:count
@@ -9041,7 +9041,7 @@ red_ghost_move mx %00
 ;1c1c  dd211e4d  ld      ix,#4d1e	; load IX with red ghost tile changes
 	    ldx #red_ghost_tchange_y
 ;1c20  fd210a4d  ld      iy,#4d0a	; load IY with red ghost tile position
-	    ldx #redghost_tile_y
+	    ldy #redghost_tile_y
 ;1c24  cd0020    call    #2000		; HL := (IX) + (IY)
 	    jsr double_add
 ;1c27  220a4d    ld      (#4d0a),hl	; store new result into red ghost tile position
