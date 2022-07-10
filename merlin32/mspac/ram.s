@@ -411,9 +411,10 @@ pinkghost_state dw 0
 blueghost_state dw 0
 ;	4daf	orange ghost state
 orangeghost_state dw 0
-;
+
 ;	4db0	related to difficulty, appears to be unused 
-;
+difficulty_table_entry_1 dw 0
+
 ;		with these, if they're set, ghosts change orientation
 ;	4db1	red ghost change orientation flag
 red_change_dir dw 0

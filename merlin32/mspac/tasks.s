@@ -560,8 +560,8 @@ task_orangeGhostRun
 		rts
 ;------------------------------------------------------------------------------
 ; #000D ; A=10	; sets up difficulty
-task_setDifficulty
-		rts
+;task_setDifficulty mx %00
+;		rts
 ;------------------------------------------------------------------------------
 ; #26A2 ; A=11	; clears memories from #4D00 through #4DFF
 task_clearMemory4D mx %00

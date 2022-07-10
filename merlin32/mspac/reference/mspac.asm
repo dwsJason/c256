@@ -2403,7 +2403,7 @@ task_setDifficulty
 ; includes 4d58 which is blinky's normal speed
 ; include 4d86 which controls timing of reversals
 
-
+copy_difficulty_data
 0814  11464d    ld      de,#4d46	; set destination
 0817  011c00    ld      bc,#001c	; set counter
 081a  edb0      ldir    		; copy
@@ -2424,7 +2424,7 @@ task_setDifficulty
 0839  c9        ret     		; return
 
 ; called from #0749
-
+copy_ooh_data
 083a  11b84d    ld      de,#4db8	; load destination with #4DB8
 083d  010300    ld      bc,#0003	; set bytes to copy at 3
 0840  edb0      ldir    		; copy
@@ -2449,6 +2449,7 @@ task_setDifficulty
 ; b2: remaining number of pills when second difficulty flag is set (cruise elroy 2)
 
 
+pill_difficulty_table
 084f  14 0a
 0851  1e 0f
 0853  28 14
@@ -2463,6 +2464,7 @@ task_setDifficulty
 ; difficulty table - Time the ghosts stay blue when pacman eats a big pill
 ;		-- do not use with l set up at #076D 
 
+blue_diff_table
 0861  c0 03				; 03c0 (960) 8 seconds (not used)
 0863  48 03				; 0348 (840) 7 seconds (not used)
 0865  d0 02				; 02d0 (720) 6 seconds
@@ -2476,6 +2478,7 @@ task_setDifficulty
 ; difficulty table - number of units before ghosts leaves home
 ; set up at #0783
 
+ght_table
 0873  f0 00				; 00f0 (240) 2 seconds
 0875  f0 00				; 00f0 (240) 2 seconds
 0877  b4 00				; 00b4 (180) 1.5 seconds
@@ -9907,9 +9910,9 @@ move_up
 	;
 	; this table is referenced at #0733
 
-330f  2A552A55 55555555 2A552A55 4A5294A5
-      25252525 22222222 01010101
-      0258 0708 0960 0E10 1068 1770 1914
+330f  2A552A55 55555555 2A552A55 4A5294A5   	 ; 16
+      25252525 22222222 01010101				 ; 12
+      0258 0708 0960 0E10 1068 1770 1914		 ; 14 = 42 bytes
 
 3339  4A5294A5 2AAA5555 2A552A55 4A5294A5
       24924925 24489122 01010101
