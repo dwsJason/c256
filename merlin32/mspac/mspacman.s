@@ -1770,6 +1770,319 @@ gameplay_mode mx %00
 			da :rts 		; #000C		; returns immediately
 ;070C: A3 0A 			; #0AA3		; sets sub # back to #03
 
+;------------------------------------------------------------------------------
+; arrive here from #000D
+; sets up game difficulty
+task_setDifficulty mx %00
+;070e  78        ld      a,b		; load A with parameter from task
+;070f  a7        and     a		; == #00 ?
+;0710  2004      jr      nz,#0716        ; no, skip ahead
+			bne :passed_in		; difficulty arg in a
+;0712  2a0a4e    ld      hl,(#4e0a)	; else load HL with difficulty setting pointer.  EG #0068
+;0715  7e        ld      a,(hl)		; load A with difficulty, EG #00
+			lda |pDifficulty
+			and #$FF
+:passed_in
+;0716  dd219607  ld      ix,#0796	; load IX with difficulty table start
+;071a  47        ld      b,a
+;071b  87        add     a,a
+;071c  87        add     a,a
+;071d  80        add     a,b
+;071e  80        add     a,b		; A is now 6 times what it was
+;071f  5f        ld      e,a
+;0720  1600      ld      d,#00
+;0722  dd19      add     ix,de		; adjust IX based on current difficulty
+			; A * 6, then into X
+			asl
+			pha
+			asl
+			adc 1,s
+			sta 1,s
+			ply
+
+;0724  dd7e00    ld      a,(ix+#00)	; load A with first value from table
+			lda |:difficulty_table,y
+			and #$ff
+
+;0727  87        add     a,a 	    ; a*=2
+;0728  47        ld      b,a 		; b = 2a
+;0729  87        add     a,a 		; a*=2
+;072a  87        add     a,a 		; a*=2
+;072b  4f        ld      c,a 		; c = 8a
+;072c  87        add     a,a 		; a*=2
+;072d  87        add     a,a 		; a*=2
+;072e  81        add     a,c 		; a = (32*a) + 8a
+;072f  80        add     a,b 		; +2a
+									; a=a*42
+			asl
+			pha ; 2a
+			asl
+			asl
+			pha ; 8a
+			asl
+			asl
+			adc 1,s  ; (a*32 + 8*a)
+			sta 1,s
+			pla
+			adc 1,s  ; (a*40 + 2*a)
+			sta 1,s
+			pla
+;0730  5f        ld      e,a
+;0731  1600      ld      d,#00
+;0733  210f33    ld      hl,#330f	; load HL with start of data table - speeds of ghosts and pacman
+;0736  19        add     hl,de		; add offset computed above
+			adc #difficulty_data
+			tax
+;0737  cd1408    call    #0814		; copy data into #4d46 through #4d94
+			jsr copy_difficulty_data
+
+;073a  dd7e01    ld      a,(ix+#01)	; load A with second value from table
+			lda |:difficulty_table+1,y
+			and #$FF
+;073d  32b04d    ld      (#4db0),a	; store.  appears to be unused
+			sta |difficulty_table_entry_1
+
+;0740  dd7e02    ld      a,(ix+#02)	; load A with third value from table
+			lda |:difficulty_table+2,y
+			and #$FF
+;0743  47        ld      b,a		; copy to B
+;0744  87        add     a,a		; A := A*2
+;0745  80        add     a,b		; A is now 3 times value in table
+;0746  5f        ld      e,a		; store in E
+;0747  1600      ld      d,#00		; D := #00
+;0749  214308    ld      hl,#0843	; load HL with hard/easy data table check 
+;074c  19        add     hl,de		; add offset computed above
+			pha
+			asl
+			adc 1,s
+			sta 1,s
+			pla         ; a*3
+			adc #ooh_table
+;074d  cd3a08    call    #083a		; copy difficulty info to #4DB8 to #4DBA
+			jsr copy_ooh_data
+;0750  dd7e03    ld      a,(ix+#03)	; load A with fourth value from table
+			lda |:difficulty_table+3,y
+			and #$FF
+;0753  87        add     a,a		; A := A * 2
+			asl
+;0754  5f        ld      e,a		; copy to E
+;0755  1600      ld      d,#00		; D := #00
+;0757  fd214f08  ld      iy,#084f	; load IY with data table start
+;075b  fd19      add     iy,de		; add offset
+			tax
+;075d  fd6e00    ld      l,(iy+#00)	; 
+;0760  fd6601    ld      h,(iy+#01)	; load HL with table data
+			lda |pill_difficulty_table,x
+;0763  22bb4d    ld      (#4dbb),hl	; store into remainder of pills when first diff. flag is set
+			sep #$20
+			sta |pill_remain0
+			xba
+			sta |pill_remain1
+			rep #$30
+
+;0766  dd7e04    ld      a,(ix+#04)	; load A with fifth value from table
+			lda |:difficulty_table+4,y
+			and #$FF
+;0769  87        add     a,a		; A := A * 2
+;076a  5f        ld      e,a		; store into E
+;076b  1600      ld      d,#00		; clear D
+;076d  fd216108  ld      iy,#0861	; load IY with start of table that controls time that ghosts stay blue
+;0771  fd19      add     iy,de		; add offset
+;0773  fd6e00    ld      l,(iy+#00)	; 
+;0776  fd6601    ld      h,(iy+#01)	; load HL with data from table
+			asl
+			tax
+			lda |blue_diff_table,x
+;0779  22bd4d    ld      (#4dbd),hl	; store into time the ghosts stay blue when pacman eats a power pill
+			sta |stay_blue_time
+
+;077c  dd7e05    ld      a,(ix+#05)	; load A with sixth value from table
+			lda |:difficulty_table+5,y
+			and #$FF
+;077f  87        add     a,a		; A := A * 2
+;0780  5f        ld      e,a		; copy to E
+;0781  1600      ld      d,#00		; clear D
+;0783  fd217308  ld      iy,#0873	; load IY with start of difficulty table - number of units before ghosts leaves home
+;0787  fd19      add     iy,de		; add offset
+;0789  fd6e00    ld      l,(iy+#00)
+;078c  fd6601    ld      h,(iy+#01)	; load HL with data from table
+			asl
+			tax
+			lda |ght_table,x
+;078f  22954d    ld      (#4d95),hl	; store
+			sta |home_counter1
+			stz |home_counter2
+;0792  cdea2b    call    #2bea		; draw fruit at bottom of screen
+			jsr task_drawFruit
+;0795  c9        ret			; return (to # 238D ?) 
+			rts
+;	-- difficulty related table
+;	each entry is 6 bytes
+;	byte 0: (0..6) speed bit patterns and orientation changes (table at #330F)
+;	byte 1: (00, 01, 02) stored at #4DB0 - seems to be unused
+;	byte 2: (0..3) ghost counter table to exit home (table at #0843)
+;	byte 3: (0..7) remaining number of pills to set difficulty flags (table at #084F)
+;	byte 4: (0..8) ghost time to stay blue when pacman eats the big pill (table at #0861)
+;	byte 5: (0..2) number of units before a ghost goes out of home (table at #0873)
+
+;0796
+:difficulty_table
+	db $03,$01,$01,$00,$02,$00 ; 0796
+	db $04,$01,$02,$01,$03,$00 ; 079c
+	db $04,$01,$03,$02,$04,$01 ; 07a2
+	db $04,$02,$03,$02,$05,$01 ; 07a8
+	db $05,$00,$03,$02,$06,$02 ; 07ae
+	db $05,$01,$03,$03,$03,$02 ; 07b4
+	db $05,$02,$03,$03,$06,$02 ; 07ba
+	db $05,$02,$03,$03,$06,$02 ; 07c0
+	db $05,$00,$03,$04,$07,$02 ; 07c6
+	db $05,$01,$03,$04,$03,$02 ; 07cc
+	db $05,$02,$03,$04,$06,$02 ; 07d2
+	db $05,$02,$03,$05,$07,$02 ; 07d8
+	db $05,$00,$03,$05,$07,$02 ; 07de
+	db $05,$02,$03,$05,$05,$02 ; 07e4
+	db $05,$01,$03,$06,$07,$02 ; 07ea
+	db $05,$02,$03,$06,$07,$02 ; 07f0
+	db $05,$02,$03,$06,$08,$02 ; 07f6
+	db $05,$02,$03,$06,$07,$02 ; 07fc
+	db $05,$02,$03,$07,$08,$02 ; 0802
+	db $05,$02,$03,$07,$08,$02 ; 0808
+	db $06,$02,$03,$07,$08,$02 ; 080e
+
+
+; called from #0737
+; copies difficulty-related data into #4d46 through #4d94
+; includes 4d58 which is blinky's normal speed
+; include 4d86 which controls timing of reversals
+
+copy_difficulty_data mx %00
+			phy
+;0814  11464d    ld      de,#4d46	; set destination
+			ldy #speedbit_normal
+;0817  011c00    ld      bc,#001c	; set counter
+			lda #28-1
+;081a  edb0      ldir    		; copy
+			mvn ^copy_difficulty_data,^copy_difficulty_data
+
+;081c  010c00    ld      bc,#000c	; set counter
+;081f  a7        and     a		; clear carry flag
+;0820  ed42      sbc     hl,bc		; subtract from source
+;0822  edb0      ldir    		; copy
+			sec
+			txa
+			sbc #12
+			tax
+			lda #12-1
+			mvn ^copy_difficulty_data,^copy_difficulty_data
+
+;0824  010c00    ld      bc,#000c	; set counter
+;0827  a7        and     a		; clear carry flag
+;0828  ed42      sbc     hl,bc		; subtract from source
+;082a  edb0      ldir    		; copy
+			sec
+			txa
+			sbc #12
+			tax
+			lda #12-1
+			mvn ^copy_difficulty_data,^copy_difficulty_data
+
+;082c  010c00    ld      bc,#000c	; set counter
+;082f  a7        and     a		; clear carry flag
+;0830  ed42      sbc     hl,bc		; subtract source
+;0832  edb0      ldir    		; copy
+
+			sec
+			txa
+			sbc #12
+			tax
+			lda #12-1
+			mvn ^copy_difficulty_data,^copy_difficulty_data
+
+;0834  010e00    ld      bc,#000e	; set counter
+;0837  edb0      ldir    		; copy
+			lda #14-1
+			mvn ^copy_difficulty_data,^copy_difficulty_data
+
+;0839  c9        ret     		; return
+			ply
+			rts
+
+;------------------------------------------------------------------------------
+; called from #0749
+copy_ooh_data mx %00
+;083a  11b84d    ld      de,#4db8	; load destination with #4DB8
+;083d  010300    ld      bc,#0003	; set bytes to copy at 3
+;0840  edb0      ldir    		; copy
+;0842  c9        ret     		; return
+			sep #$20
+			lda |0,x
+			sta |pink_home_limit
+			lda |1,x
+			sta |blue_home_limit
+			lda |2,x
+			sta |orange_home_limit
+			rep #$30
+			rts
+
+;------------------------------------------------------------------------------
+;-- table related to difficulty - each entry is 3 bytes
+; b0: when counter at 4E0F reaches this value, pink ghost goes out of home
+; b1: when counter at 4E10 reaches this value, blue ghost goes out of home
+; b2: when counter at 4E11 reaches this value, orange ghost goes out of home
+; out of home table
+; these don't seem to be used in ms-pac at all.
+;0843
+ooh_table
+	db $14,$1e,$46
+	db $00,$1e,$3c
+	db $00,$00,$00
+	db $32,$00,$00,$00
+
+	; hard hack: HACK6
+	; 0843  0f 14 37 04  18 34  02 06 28   00 04 08
+	;
+
+;------------------------------------------------------------------------------
+; -- difficulty table --
+; each entry is 2 bytes
+; b1: remaining number of pills when first difficulty flag is set (cruise elroy 1)
+; b2: remaining number of pills when second difficulty flag is set (cruise elroy 2)
+;084f
+pill_difficulty_table
+	db $14,$0a
+	db $1e,$0f
+	db $28,$14
+	db $32,$19
+	db $3c,$1e
+	db $50,$28
+	db $64,$32
+	db $78,$3c
+	db $8c,$46
+
+;------------------------------------------------------------------------------
+; difficulty table - Time the ghosts stay blue when pacman eats a big pill
+;		-- do not use with l set up at #076D 
+;0861
+blue_diff_table
+	db $c0,$03		; 03c0 (960) 8 seconds (not used)
+	db $48,$03		; 0348 (840) 7 seconds (not used)
+	db $d0,$02		; 02d0 (720) 6 seconds
+	db $58,$02		; 0258 (600) 5 seconds
+	db $e0,$01		; 01e0 (480) 4 seconds
+	db $68,$01		; 0168 (360) 3 seconds
+	db $f0,$00		; 00f0 (240) 2 seconds
+	db $78,$00		; 0078 (120) 1 second
+	db $01,$00		; 0001 (1)   0 seconds
+
+;------------------------------------------------------------------------------
+; difficulty table - number of units before ghosts leaves home
+; set up at #0783
+;0873
+ght_table
+	db $f0,$00		; 00f0 (240) 2 seconds
+	db $f0,$00		; 00f0 (240) 2 seconds
+	db $b4,$00		; 00b4 (180) 1.5 seconds
+
 
 ;------------------------------------------------------------------------------
 ;$$JGA HORRIBLE TEMP RNG
@@ -5408,7 +5721,7 @@ ghost_house_movement mx %00
 ;0d43  322a4d    ld      (#4d2a),a	; set previous inky orientation as moving right
 	    stz |prev_blue_ghost_dir
 ;0d46  322e4d    ld      (#4d2e),a	; set inky orientation as moving right
-	    sta |blue_ghost_dir
+	    stz |blue_ghost_dir
 ;0d49  3a054d    ld      a,(#4d05)	; load A with inky X position
 	    lda |blue_ghost_x
 ;0d4c  fe80      cp      #80		; is inky exactly under the ghost house door ?
@@ -5829,8 +6142,8 @@ pm1017      mx %00
 	    jsr	mspac_death_update
 
 	    lda |pacman_dead_state	; skip out early if dead squence playing
-	    bne :continue
-
+	    beq :continue
+		; else pacman is dead
 	    rts
 
 :continue
@@ -5868,7 +6181,7 @@ pm1017      mx %00
 	    lda |num_ghosts_killed
 ;1042  a7        and     a		; is there a collsion ?
 ;1043  c0        ret     nz		; yes, return
-	    beq :rts
+	    bne :rts
 ;
 ;1044  cd0618    call    #1806		; handle all pac-man movement
 	    jsr pacman_movement
@@ -7549,6 +7862,12 @@ blue_ghost_collide mx %00
 ; called from #1044
 ;1806
 pacman_movement mx %00
+
+		; do we get here?, yes, now we do
+		;lda #Mstr_Ctrl_Disable_Vid
+		;sta >MASTER_CTRL_REG_L
+
+
 ;1806  219d4d    ld      hl,#4d9d	; load HL with address of delay to update pacman movement
 ;1809  3eff      ld      a,#ff		; A := #FF = code for no delay
 	    lda |move_delay
@@ -7562,7 +7881,7 @@ pacman_movement mx %00
 
 
 ;180b  be        cp      (hl)		; is pacman slow due to the eating of a pill ?
-	    cmp #$ffff
+	    bmi :no_delay
 
 	; Hack code
 	; set 0xbe to 0x01 for fast cheat.	; HACK2 (1 of 2)
@@ -7580,7 +7899,6 @@ pacman_movement mx %00
 	; end hack code
 
 ;180c  ca1118    jp      z,#1811		; no, skip ahead
-	    beq :no_delay
 ;180f  35        dec     (hl)		; yes, decrement the counter to delay pacman movement
 	    dec
 	    sta |move_delay
@@ -8233,10 +8551,17 @@ movement_check equ *
 ; arrive here from #18b0 when game is in demo mode
 ;1A19
 :demo_mode
+
+	; not getting here
+	;	lda #Mstr_Ctrl_Disable_Vid
+	;	sta >MASTER_CTRL_REG_L
+
+
 ;1a19  211c4d    ld      hl,#4d1c	; load HL with pacman Y tile changes (A) location
 ;1a1c  7e        ld      a,(hl)		; load A pacman Y tile changes (A)
 	    lda |pacman_tchangeA_y
 ;1a1d  a7        and     a		; == #00 ?  is pacman moving left-right ?
+		and #$FF
 ;1a1e  ca2e1a    jp      z,#1a2e		; yes, skip ahead
 	    beq :left_right
 ;
@@ -10565,6 +10890,47 @@ FinishUpBlankTextDraw mx %10
 ;#else
 ;2cc1  ld      hl,#SONG_TABLE_1
 ;#endif
+
+;------------------------------------------------------------------------------
+; data - table for difficulty
+; 	each entry has 3 sections
+;	0: 0x10 bytes - speed bit patterns
+;	1: 0x0c bytes - ghost data movement bit patterns
+;	2: 0x0e bytes - ghost counters for orientation changes
+;			4dc1-4dc3 related
+;
+; this table is referenced at #0733
+;330f
+difficulty_data
+	hex 2A552A55555555552A552A554A5294A5
+    hex 252525252222222201010101
+    hex 0258070809600E10106817701914
+;3339
+	hex 4A5294A52AAA55552A552A554A5294A5
+    hex 249249252448912201010101
+    hex 0000000000000000000000000000
+;3363
+	hex 2A552A55555555552AAA55552A552A55
+    hex 4A5294A52448912244210844
+    hex 0258083409D80FB4115816081734
+;entry 3:
+	hex 555555556AD56AD56AAAD55555555555
+    hex 2AAA55552492249222222222
+	hex	01A4065407F80CA80DD4128413B0
+;entry 4:
+	hex 6AD56AD55AD6B5AD5AD6B5AD6AD56AD5
+	hex 6AAAD5552492492524489122
+	hex 01A4065407F80CA80DD4FFFEFFFF
+;entry 5:
+	hex 6D6D6D6D6D6D6D6D6DB6DB6D6D6D6D6D
+	hex 5AD6B5AD2525252524922492
+	hex 012C05DC07080BB80CE4FFFEFFFF
+;entry 6:
+	hex 6AD56AD56AD56AD56DB6DB6D6D6D6D6D
+	hex 5AD6B5AD2448912224922492
+	hex 012C05DC07080BB80CE4FFFEFFFF
+
+
 
 ;------------------------------------------------------------------------------
 ; arrive here from #3E67 after Blinky has been introduced
