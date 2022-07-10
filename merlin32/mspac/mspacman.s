@@ -5183,15 +5183,16 @@ ghost_house_movement mx %00
 	    rts
 :do_red
 ;0c47  3a944d    ld      a,(#4d94)	; else load A with counter related to ghost movement inside home
+;0c4a  07        rlca    		; rotate left
+;0c4b  32944d    ld      (#4d94),a	; store result
 	    sep #$20
 	    asl |home_counter0
-;0c4a  07        rlca    		; rotate left
-	    lda #0
-	    rol
-;0c4b  32944d    ld      (#4d94),a	; store result
-	    tsb |home_counter0
+		rep #$30
 ;0c4e  d0        ret     nc		; return if no carry
-	    rep #$30
+		bcc :rts
+
+	    lda #1
+	    tsb |home_counter0
 	    bcc :rts
 
 ;0c4f  3aa04d    ld      a,(#4da0)	; else load A with red ghost substate
@@ -9606,7 +9607,7 @@ double_add  mx %00
 	    xba
 	    clc
 	    lda |0,y
-	    adc |1,y
+	    adc |0,x
 	    rep #$31 	; mxc = 0
 ;200e  c9        ret     		; return
 	    rts
