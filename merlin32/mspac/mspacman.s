@@ -4203,7 +4203,7 @@ FLASHEN	mx %00
 	        tax
 ;9552  12        ld      (de),a		; flash the power pellet
 	    sep #$20
-	        pla
+        pla
 	    sta |0,x
 	    rep #$31
 ;9553  d1        pop     de		; restore DE
@@ -7861,6 +7861,13 @@ blue_ghost_collide mx %00
 ; called from #1044
 ;1806
 pacman_movement mx %00
+		nop
+		nop
+		nop
+;]wait   bra ]wait
+		nop
+		nop
+		nop
 
 		; do we get here?, yes, now we do
 		;lda #Mstr_Ctrl_Disable_Vid
@@ -7916,13 +7923,14 @@ pacman_movement mx %00
 ;1818  2a4c4d    ld      hl,(#4d4c)	; yes, load HL with speed bit patterns for pacman in power pill state (low bytes)
 	    lda |speedbit_bigpill+2
 ;181b  29        add     hl,hl		; double
-	    asl
+	    clc
+		adc |speedbit_bigpill+2
 ;181c  224c4d    ld      (#4d4c),hl	; store result
 	    sta |speedbit_bigpill+2
 ;181f  2a4a4d    ld      hl,(#4d4a)	; load HL with speed bit patterns for pacman in power pill state (high bytes)
 	    lda |speedbit_bigpill
 ;1822  ed6a      adc     hl,hl		; double, with the carry = we have doubled the speed
-	    asl
+	    adc |speedbit_bigpill
 ;1824  224a4d    ld      (#4d4a),hl	; store result. have we reached the threshold ?
 	    sta |speedbit_bigpill
 ;1827  d0        ret     nc		; no, return
@@ -7939,13 +7947,14 @@ pacman_movement mx %00
 ;182f  2a484d    ld      hl,(#4d48)	; load HL with speed for pacman in normal state (low bytes)
 	    lda |speedbit_normal+2
 ;1832  29        add     hl,hl		; double
-	    asl
+	    clc
+		adc |speedbit_normal+2
 ;1833  22484d    ld      (#4d48),hl	; store result
 	    sta |speedbit_normal+2
 ;1836  2a464d    ld      hl,(#4d46)	; load HL with speed for pacman in normal state (high bytes)
 	    lda |speedbit_normal
 ;1839  ed6a      adc     hl,hl		; double with carry
-	    asl
+	    adc |speedbit_normal
 ;183b  22464d    ld      (#4d46),hl	; store result.  is it time for pacman to move?
 	    sta |speedbit_normal
 ;183e  d0        ret     nc		; no, return.  pacman will be idle this time.
@@ -7977,8 +7986,8 @@ pacman_movement mx %00
 	    bcc :yes_tunnel
 
 ;185b  7e        ld      a,(hl)		; load A with pacman X tile position
-	    lda |pacman_tile_pos_x
-	    and #$FF
+	    ;lda |pacman_tile_pos_x
+	    ;and #$FF
 ;185c  063b      ld      b,#3b		; B := #3B
 ;185e  90        sub     b		; subtract. is pacman pas the left edge of the screen?
 	    cmp #$3B
@@ -8305,9 +8314,9 @@ mc_return equ *
 ; arrive here from several locations
 ; HL has the expected new position of a sprite
 :skip_center
+		lda <temp0
 movement_check equ *
 ;1985  22084d    ld      (#4d08),hl	; store the new sprite position into pacman position
-		lda <temp0
 		sta |pacman_y
 ;1988  cd1820    call    #2018		; convert sprite position into a tile position
 		jsr spr_to_tile
