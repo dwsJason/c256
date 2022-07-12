@@ -654,10 +654,11 @@ task_pacmanAI mx %00
 
 		; red ghost is blue
 
-		ldx |pacman_demo_tile_y			;4d12;  X contains both tilepos x and tilepos y
 		ldy |pinkghost_tile_y 			;4d0c;  Y contains both tilepos x and tilepos y
-		lda |wanted_pacman_orientation  ;4d3c; load A with wanted pacman orientation 
 :cont
+		ldx |pacman_demo_tile_y			;4d12;  X contains both tilepos x and tilepos y
+		lda |wanted_pacman_orientation  ;4d3c; load A with wanted pacman orientation 
+
 		jsr getBestNewDirection  		;2966; get best new direction 
 		sta |wanted_pacman_orientation  ;4d3c; store into wanted pacman orientation 
 		stx |wanted_pacman_tile_y       ;4d26; store into wanted pacman tile changes 
