@@ -7812,7 +7812,7 @@ task_redGhostRun
 2864  c9        ret     		; return
 
 ; check pink ghost
-task_oubjgGhostRun
+task_pinkGhostRun
 2865  3aad4d    ld      a,(#4dad)	; load A with pink ghost state
 2868  a7        and     a		; is pink ghost alive ?
 2869  ca7f28    jp      z,#287f		; yes, skip ahead and give random direction
