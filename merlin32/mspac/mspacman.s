@@ -8463,6 +8463,7 @@ movement_check equ *
 	    lda #$FFFF
 ;19CF: 32 9D 4D	ld	(#4D9D),a	; store into delay to update pacman movement
 	    sta |move_delay
+
 ;19D2: 2A 39 4D	ld	hl,(#4D39)	; load HL with pacman's position
 	    lda |pacman_tile_pos_y
 ;19D5: CD 65 00	call	#0065		; load HL with pacman's grid position
@@ -8559,11 +8560,6 @@ movement_check equ *
 ; arrive here from #18b0 when game is in demo mode
 ;1A19
 :demo_mode
-
-	; not getting here
-	;	lda #Mstr_Ctrl_Disable_Vid
-	;	sta >MASTER_CTRL_REG_L
-
 
 ;1a19  211c4d    ld      hl,#4d1c	; load HL with pacman Y tile changes (A) location
 ;1a1c  7e        ld      a,(hl)		; load A pacman Y tile changes (A)
@@ -9074,7 +9070,7 @@ red_ghost_move mx %00
 ;1c41  22004d    ld      (#4d00),hl	; store result into red ghost position
 	    sta |red_ghost_y
 ;1c44  cd1820    call    #2018		; convert sprite position into a tile position
-	    jsr |spr_to_tile
+	    jsr spr_to_tile
 ;1c47  22314d    ld      (#4d31),hl	; store into red ghost tile position 2 
 	    sta |red_tile_y_2
 ;1c4a  c9        ret			; return
@@ -10008,6 +10004,36 @@ spr_to_tile mx %00
 ; 0065 jumps to here. 
 ; 202D
 yx_to_screen mx %00
+
+		sep #$21
+		sta <temp0
+		stz <temp0+1	; Y
+		xba
+		sta <temp1  	; X
+		stz <temp1+1
+
+		rep #$30  ; mxc = 001
+
+		; (0x22..0x3e) (bottom-top = decrease)
+		lda <temp0
+		sbc #$20
+		sta <temp0
+
+		; (0x1e..0x3d) (left-right = decrease) 
+		lda <temp1
+		sbc #$20
+		asl
+		asl
+		asl
+		asl
+		asl
+		adc <temp0
+
+		adc #tile_ram+$40
+
+		rts
+
+		do 0
 :hl = temp0
 :bc = temp1
 ;202D: F5            push af		; save AF
@@ -10027,7 +10053,7 @@ yx_to_screen mx %00
 ;2036: 67            ld   h,a		; store back into H. 
 	    sta <:hl+1
 ;2037: 06 00         ld   b,#00		; load B with #00
-	    stz <:b
+	    stz <:bc
 ;2039: CB 24         sla  h		; shift left through carry flag.  mult by 2
 ;203B: CB 24         sla  h
 ;203D: CB 24         sla  h
@@ -10037,13 +10063,13 @@ yx_to_screen mx %00
 	    asl
 	    asl
 ;2041: CB 10         rl   b
-	    rol <:b
+	    rol <:bc
 ;2043: CB 24         sla  h
 	    asl
 ;2045: CB 10         rl   b
-	    rol <:b
+	    rol <:bc
 ;2047: 4C            ld   c,h
-	    lda <:hl+1
+	    ;lda <:hl+1
 	    sta <:bc+1
 ;2048: 26 00         ld   h,#00
 	    stz <:hl+1
@@ -10054,12 +10080,14 @@ yx_to_screen mx %00
 	    adc <:bc
 ;204B: 01 40 40      ld   bc,#4040	; load BC with grid offset
 ;204E: 09            add  hl,bc		; add into HL
+		and #$03FF
 	    clc
 	    adc #tile_ram+$40
 ;204F: C1            pop  bc		; restore BC
 ;2050: F1            pop  af		; restore AF
-;2051: C9            ret			; return    
+;2051: C9            ret			; return
 	    rts
+		fin
 
 ;------------------------------------------------------------------------------
 ; converts pac-man or ghost Y,X position in HL to a color screen location
