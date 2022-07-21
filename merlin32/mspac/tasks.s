@@ -72,7 +72,7 @@ task_clearScreen mx %00
 ; 2400
 :ClearMaze mx %00
 		lda #$4040		  ; Clear Character
-		ldx #510
+		ldx #1022-128 ;510
 ]lp
 		sta |tile_ram+64,x
 		dex
