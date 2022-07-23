@@ -2466,6 +2466,8 @@ GenerateSpriteFlips mx %00
 
 		rep #$30
 
+		jsr WaitVBL
+
 ; Let's DMA the new tiles back to where they need to live
 
 		lda #VICKY_SPRITE_TILES3+ONEMB
@@ -2487,6 +2489,115 @@ GenerateSpriteFlips mx %00
 
 		jsr WaitVBL
 
+; We need the VFLips and HVFLips
+; VFLIPS ----------------------------------------------------------------------
+		lda #VICKY_SPRITE_TILES
+		ldx #^VICKY_SPRITE_TILES
+		sta <:src
+		stx <:src+2
+
+		lda #VICKY_SPRITE_TILES2+ONEMB
+		ldx #^{VICKY_SPRITE_TILES2+ONEMB}
+		sta <:dst
+		stx <:dst+2
+
+		sep #$10
+		clc
+		ldy #64
+]loop
+		jsr VFlipSprite
+
+		lda <:src
+		adc #32*32
+		sta <:src
+
+		lda <:dst
+		adc #32*32
+		sta <:dst
+
+		dey
+		bne ]loop
+
+		rep #$30
+
+		jsr WaitVBL
+
+; Let's DMA the new tiles back to where they need to live
+
+		lda #VICKY_SPRITE_TILES2+ONEMB
+		ldx #^{VICKY_SPRITE_TILES2+ONEMB}
+		sta <:src
+		stx <:src+2
+
+		lda #VICKY_SPRITE_TILES2
+		ldx #^VICKY_SPRITE_TILES2
+		sta <:dst
+		stx <:dst+2
+
+		; 64K Bytes
+		stz <:len
+		lda #1
+		sta <:len+2
+
+		jsr V2V_DMA
+
+		jsr WaitVBL
+
+; HVFLIPS ---------------------------------------------------------------------
+
+		lda #VICKY_SPRITE_TILES2
+		ldx #^VICKY_SPRITE_TILES2
+		sta <:src
+		stx <:src+2
+
+		lda #VICKY_SPRITE_TILES4+ONEMB
+		ldx #^{VICKY_SPRITE_TILES4+ONEMB}
+		sta <:dst
+		stx <:dst+2
+
+		sep #$10
+		clc
+		ldy #64
+]loop
+		jsr HFlipSprite
+
+		lda <:src
+		adc #32*32
+		sta <:src
+		lda <:dst
+		adc #32*32
+		sta <:dst
+
+		dey
+		bne ]loop
+
+		rep #$30
+
+		jsr WaitVBL
+
+; Let's DMA the new tiles back to where they need to live
+
+		lda #VICKY_SPRITE_TILES4+ONEMB
+		ldx #^{VICKY_SPRITE_TILES4+ONEMB}
+		sta <:src
+		stx <:src+2
+
+		lda #VICKY_SPRITE_TILES4
+		ldx #^VICKY_SPRITE_TILES4
+		sta <:dst
+		stx <:dst+2
+
+		; 64K Bytes
+		stz <:len
+		lda #1
+		sta <:len+2
+
+		jsr V2V_DMA
+
+;------------------------------------------------------------------------------
+
+		jsr WaitVBL
+
 		; Enable Video
 		lda #Mstr_Ctrl_Disable_Vid
 		trb |MASTER_CTRL_REG_L
@@ -2495,6 +2606,58 @@ GenerateSpriteFlips mx %00
 		plb
 
 		rts
+
+;------------------------------------------------------------------------------
+; VFlipSprite
+VFlipSprite mx %01
+:src = temp0
+:dst = temp1
+:len = temp2
+
+		phy
+		pei <:src+2
+		pei <:src
+		pei <:dst+2
+		pei <:dst
+
+		lda #32
+		sta <:len
+		stz <:len+2
+
+		clc
+		lda <:src
+		adc #{32*32}-32
+		sta <:src
+
+		ldy #32
+]loop
+		jsr V2V_DMA
+
+		sec
+		lda <:src
+		sbc #32
+		sta <:src
+
+		clc
+		lda <:dst
+		adc #32
+		sta <:dst
+		
+		dey
+		bne ]loop
+
+		pla
+		sta <:dst
+		pla
+		sta <:dst+2
+		pla
+		sta <:src
+		pla
+		sta <:src+2
+
+		ply
+		rts
+
 
 ;------------------------------------------------------------------------------
 ; HFlipSprite
@@ -3500,6 +3663,13 @@ DrawPowerPills mx %00
 
 ; 24d7
 task_colorMaze mx %00
+
+;24d7  58        ld      e,b		; save task parameter to E, for use later at #24F3
+;24d8  78        ld      a,b		; load A with task parameter
+;24d9  fe02      cp      #02		; == # 02 ?
+;24db  3e1f      ld      a,#1f		; load A with #1F = white color for flashing at end of level
+
+
 ;------------------------------------------------------------------------------
 ;
 ; Color the Maze
@@ -3543,7 +3713,41 @@ ColorMaze mx %00
 
 ;$$TODO, finish task business and mark SLOW Areas
 
+; sets bit 6 in the color grid of certain screen locations on the first three levels.
+; This color bit is ignored when actually coloring the grid, so it is invisible onscreen.
+; When a ghost encounters one of these specially painted areas, he slows down.
+; This is used to slow down the ghosts when they use the tunnels on these levels. 
+; called from #24F9
 
+;95C3 3A 13 4E 	LD 	A,(#4E13) 	; Load A with current level number
+;95C6 FE 03 	CP 	#03 		; Is A < #03 ?
+;95C8 F2 34 25 	JP 	P,#2534 	; No, jump back to program [bug.  should be JP NC, not JP P.]
+;95CB 21 DF 95 	LD 	HL,#95DF 	; Yes, load HL with start of table data address
+;95CE CD BD 94 	CALL 	#94BD 		; Load BC with either #95DF or #95E1 depending on the level
+;95D1 21 00 44 	LD 	HL,#4400 	; Load HL with start of color memory
+;95D4 0A 	LD 	A,(BC) 		; Load A with the table data
+;95D5 03 	INC 	BC 		; Set BC to next value in table
+;95D6 A7 	AND 	A 		; Is A == 0 ?
+;95D7 CA 34 25 	JP 	Z,#2534 	; Yes, jump back to program
+;95DA D7 	RST 	#10 		; No, load A with table value of (HL + A) and load HL with HL + A
+;95DB CB F6 	SET 	6,(HL) 		; Sets bit 6 of HL - MAKE tunnel slow for ghosts
+;95DD 18 F5 	JR 	#95D4 		; Loop back and do again
+
+;95DF 3D 8B 				; #83BD Pointer to table for tunnel data for levels 1 and 2
+;95E1 28 8E 				; #8E28 Pointer to table for tunnel data for level 3
+
+
+
+; ms. pac resumes here
+;2534  3e18      ld      a,#18		; A := #18 = code for pink color
+		sep #$20
+		lda #$18
+;2536  32ed45    ld      (#45ed),a	; store into ghost house door (right side) color
+		sta |palette_ram+$1ED
+;2539  320d46    ld      (#460d),a	; store into ghost house door (left side) color
+		sta |palette_ram+$20D
+		rep #$30
+;253c  c9        ret     		; return
 		rts		
 
 
@@ -7574,7 +7778,7 @@ sprite_updater mx %00
 ;86e1  1ef4      ld      e,#f4		; E := #F4
 ;86e3  83        add     a,e		; add #F4
 			clc
-			adc #$f4
+			adc #$fff4
 ;86e4  cb47      bit     0,a		; test bit 0 .  is it on ?
 			bit #1
 ;86e6  2002      jr      nz,#86ea        ; yes, skip next step
@@ -7582,6 +7786,7 @@ sprite_updater mx %00
 ;86e8  3e36      ld      a,#36		; no, A := #36
 			lda #$36
 :skip4
+			and #$FF
 ;86ea  320a4c    ld      (#4c0a),a	; store into mspac sprite number
 			sta |pacmansprite
 ;86ed  c9        ret     
@@ -9046,6 +9251,11 @@ red_ghost_move mx %00
 
 ;1c16  ef        rst     #28		; no, insert task #08 to control red ghost AI
 ;1c17  08 00
+
+;]waithere bra ]waithere
+; I think this doesn't get through, because the foreground
+; must not be polling
+
 	    lda #$0008
 	    jsr rst28
 
@@ -10647,6 +10857,12 @@ process_tasks mx %00
 ;2398  46        ld      b,(hl)		; load B with task parameter
 ;2399  36ff      ld      (hl),#ff	; store #FF into task parameter value
 ;239b  2c        inc     l		; next task
+
+; If I clear the task, after it's completed
+; then I can debug tasks that don't complete
+; looking at this code, it might be easier just
+; to stuff the last dispatch some place for reference
+
 			lda #$FFFF	; clear the task
 			sta |0,x
 			inx			; increment to next task
@@ -10667,6 +10883,9 @@ process_tasks mx %00
 ;23A7: E7	rst	#20		; jump based on A
 			tya 	 
 			and #$FF 	; mask task number
+
+			sta <$FE  ; Debug
+
 			asl
 			tax
 			tya
@@ -14359,6 +14578,15 @@ bounce_table
 ;; pick a quadrant for the destination of a ghost, saved into DE
 ;9561
 pick_quadrant mx %00
+
+;			nop
+;			nop
+;			nop
+;]wait		bra ]wait
+;			nop
+;			nop
+;			nop
+
 ;9561  f5        push    af		; save AF
 ;9562  c5        push    bc		; save BC
 ;9563  e5        push    hl		; save HL
