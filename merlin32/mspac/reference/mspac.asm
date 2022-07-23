@@ -7050,7 +7050,7 @@ task_incMain
 23EC: C9	ret			; return
 
 ; task #00, called from #23A7
-
+task_clearScreen
 23ED: 78	ld	a,b		; load A with parameter
 23EE: E7	rst	#20		; jump based on A
 23EF: F3 23				; #23F3		; clears entire screen
