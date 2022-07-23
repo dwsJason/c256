@@ -8594,7 +8594,7 @@ movement_check equ *
 ;1a3a  cdd01e    call    #1ed0		; if using tunnel, set carry flag
 	    jsr check_screen_edge
 ;1a3d  3803      jr      c,#1a42		; is pacman in tunnel?  no, skip next 2 steps
-	    bcc  :skip
+	    bcs  :skip
 ;1a3f  ef        rst     #28		; insert task to control pacman AI during demo mode.
 ;1a40  17 00				; task #17, parameter #00
 	    lda #$0017
