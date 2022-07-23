@@ -1164,10 +1164,13 @@ sum_dist_squared mx %00
 		sep #$21		; short a, c=1
 		lda |0,x		; pac y
 		sbc |0,y		; minus ghost y
-		bcc :result_is_good
+		;bcc :result_is_good
+		bpl :result_is_good
+		rep #$30
 
-		eor #$FF
-		inc
+		;eor #$FF
+		;inc
+		ora #$FF00
 
 :result_is_good
 		rep #$30
@@ -1177,10 +1180,13 @@ sum_dist_squared mx %00
 		sep #$21		; short a, c=1
 		lda |1,x		; pac x
 		sbc |1,y 		; minus ghost x
-		bcc :good
+		;bcc :good
+		bpl :good
+		rep #$30
 
-		eor #$FF  		; negate
-		inc
+		;eor #$FF  		; negate
+		;inc
+		ora #$FF00
 :good
 		rep #$31		; long ai c=0
 		jsr squareA
@@ -1195,9 +1201,9 @@ sum_dist_squared mx %00
 ; Take number in A, and return value Squared
 ; 29F9
 squareA mx %00
-		sta <UNSIGNED_MULT_A_LO
-		sta <UNSIGNED_MULT_B_LO
-		lda <UNSIGNED_MULT_AL_LO
+		sta <SIGNED_MULT_A_LO
+		sta <SIGNED_MULT_B_LO
+		lda <SIGNED_MULT_AL_LO
 		rts
 
 ;------------------------------------------------------------------------------
