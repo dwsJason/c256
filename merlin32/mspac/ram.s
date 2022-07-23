@@ -16,6 +16,9 @@ tile_ram    ds 1024
 ; $4400
 palette_ram ds 1024
 
+; pacman colors converted into vicky colors
+color_table ds 1024
+
 
 RAM_START ds 0
 

@@ -197,6 +197,9 @@ start   ent             ; make sure start is visible outside the file
 		; Convert the Sprites so we can see them!
 		jsr TestSprites
 
+		; Decompress the Color ROM into Vicky Format
+		jsr DecompressColors
+
 		; There are now 64 Sprites, that are 32x32 (1024 bytes each)
 		; at VICKY_SPRITE_TILES
 		; need to convert them to V-Flip, at address VICKY_SPRITE_TILES1
@@ -4483,6 +4486,42 @@ ResetPills mx %00
 
 	rts
 
+;------------------------------------------------------------------------------
+;
+; The idea here is to take the 64 palettes that are in the pacman ROM
+; and decompress them into palettes that can be directly copied into
+; the vicky color RAM
+;
+; Each Palette is 4 colors, so it will be 16 bytes * 64 entries
+; 1024 bytes
+;
+DecompressColors mx %00
+
+:color = temp0
+
+		ldx #0
+]lp
+		lda >palette_rom,x
+		and #$FF
+
+		jsr Pac2PhxColor
+
+		txa
+		asl
+		asl
+		tay
+
+		lda <:color
+		sta |color_table,y
+		lda <:color+2
+		sta |color_table+2,y
+
+		inx 	  ; next color
+
+		cpx #256  ; color 0-255
+		bcc ]lp
+
+		rts
 
 ;------------------------------------------------------------------------------
 ; BlitColor
