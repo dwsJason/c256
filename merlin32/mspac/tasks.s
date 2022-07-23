@@ -1096,6 +1096,25 @@ getBestNewDirection mx %00
 		cmp |current_try_orientation
 		beq :try_next
 
+		; need to check to see if the direction is allowed
+		; by checking the maze
+;298f  cd0020    call    #2000		; no, HL := (IX) + (IY)
+		jsr double_add
+;2992  22424d    ld      (#4d42),hl	; store into temp position
+		sta |temp_position
+
+;2995  cd6500    call    #0065		; convert to screen position
+		jsr yx_to_screen
+
+;2998  7e        ld      a,(hl)		; load A with the character in the new position
+		sta <temp0
+		lda (temp0)
+
+;2999  e6c0      and     #c0		; mask bits
+		and #$C0
+		cmp #$C0
+		beq :try_next
+
 		phx
 		phy
 
