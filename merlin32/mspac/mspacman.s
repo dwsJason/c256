@@ -6257,7 +6257,7 @@ red_ghost_death_update mx %00
 :dispatch
 	    da :return   ; #000C	; return immediately when ghost is alive
 	    da :eyes     ; #10C0	; when ghost is dead
-            da :at_house ; #10D2	; when ghost eyes are above and entering the ghost house when returning home
+        da :at_house ; #10D2	; when ghost eyes are above and entering the ghost house when returning home
 
 ; arrive here from #1097 when red ghost is dead (eyes)
 :eyes
@@ -8833,7 +8833,7 @@ control_red mx %00
 	    lda |red_substate
 ;1b3a  c8        ret     z		; yes, return
 	    bne :forward
-:rts	    rts
+:rts	rts
 :forward
 ;1b3b  3aac4d    ld      a,(#4dac)	; else load A with red ghost state
 	    lda |redghost_state
@@ -8860,10 +8860,13 @@ control_red mx %00
 ;1b56  29        add     hl,hl		; double it
 ;1b57  22604d    ld      (#4d60),hl	; store result
 	    asl |speedbit_red_tunnel+2
+
 ;1b5a  2a5e4d    ld      hl,(#4d5e)	; load HL with red ghost speed bit patterns for tunnel areas
 ;1b5d  ed6a      adc     hl,hl		; double it
 ;1b5f  225e4d    ld      (#4d5e),hl	; store result.  have we exceeded the threshold ?
-	    asl |speedbit_red_tunnel
+		lda |speedbit_red_tunnel
+		adc |speedbit_red_tunnel
+		sta |speedbit_red_tunnel
 ;1b62  d0        ret     nc		; no, return
 	    bcs :no_rts
 :rts
@@ -8889,7 +8892,9 @@ control_red mx %00
 ;1b78  2a5a4d    ld      hl,(#4d5a)	; load HL with red ghost speed bit patterns for blue state
 ;1b7b  ed6a      adc     hl,hl		; double it
 ;1b7d  225a4d    ld      (#4d5a),hl	; store result.  have we exceeded the threshold ?
-	    asl |speedbit_red_blue
+		lda |speedbit_red_blue
+		adc |speedbit_red_blue
+		sta |speedbit_red_blue
 ;1b80  d0        ret     nc		; no, return
 	    bcc :rts
 
@@ -8912,7 +8917,10 @@ control_red mx %00
 ;1b96  2a4e4d    ld      hl,(#4d4e)	; load HL with speed bit patterns for second difficulty flag
 ;1b99  ed6a      adc     hl,hl		; double
 ;1b9b  224e4d    ld      (#4d4e),hl	; store result.  have we exceeded the threshold ?
-	    asl |speedbit_difficult2
+		lda |speedbit_difficult2
+		adc |speedbit_difficult2
+		sta |speedbit_difficult2
+
 ;1b9e  d0        ret     nc		; no, return
 	    bcc :rts
 
@@ -8936,7 +8944,9 @@ control_red mx %00
 ;1bb4  2a524d    ld      hl,(#4d52)	; load HL with speed bit patterns for first difficulty flag
 ;1bb7  ed6a      adc     hl,hl		; double
 ;1bb9  22524d    ld      (#4d52),hl	; store result.  have we exceeded the threshold ?
-	    asl |speedbit_difficult
+		lda |speedbit_difficult
+		adc |speedbit_difficult
+		sta |speedbit_difficult
 ;1bbc  d0        ret     nc		; no, return
 	    bcc :rts
 
@@ -8953,9 +8963,11 @@ control_red mx %00
 ;1bcb  2a564d    ld      hl,(#4d56)	; load HL with  speed bit patterns for red ghost normal state
 ;1bce  ed6a      adc     hl,hl		; double
 ;1bd0  22564d    ld      (#4d56),hl	; store result.  have we exceed the threshold ?
-	    asl speedbit_red_normal
+		lda |speedbit_red_normal
+		adc |speedbit_red_normal
+		sta |speedbit_red_normal
 ;1bd3  d0        ret     nc		; no, return
-	    bcc :rts
+	    bccl :rts
 
 ;1bd4  21584d    ld      hl,#4d58	; yes, load HL with speed bit patterns for red ghost normal state
 ;1bd7  34        inc     (hl)		; increase
@@ -8967,7 +8979,6 @@ control_red mx %00
 ; handles red ghost movement
 ; 1bd8
 red_ghost_move mx %00
-
 ;1bd8  21144d    ld      hl,#4d14	; load HL with red ghost Y tile changes address
 ;1bdb  7e        ld      a,(hl)		; load A with red ghost Y tile changes
 	    lda |red_ghost_tchangeA_y
@@ -8995,7 +9006,7 @@ red_ghost_move mx %00
 ;1bf2  fe04      cp      #04		; == #04 ? Is the red ghost in the middle of a tile where he can change direction?
 	    cmp #4
 ;1bf4  c2361c    jp      nz,#1c36	; no, jump ahead
-	    beq :jump_ahead
+	    bne :jump_ahead
 :skip_ahead2
 ;1bf7  3e01      ld      a,#01		; A := #01
 	    lda #1
@@ -9114,7 +9125,9 @@ control_pink mx %00
 ;1c6d  2a6a4d    ld      hl,(#4d6a)	; load HL with speed bit patterns for pink ghost tunnel areas
 ;1c70  ed6a      adc     hl,hl		; double it
 ;1c72  226a4d    ld      (#4d6a),hl	; store result.   Have we exceeded the threshold ?
-	    asl |speedbit_pink_tunnel
+		lda |speedbit_pink_tunnel
+		adc |speedbit_pink_tunnel
+		sta |speedbit_pink_tunnel
 ;1c75  d0        ret     nc		; no, return
 	    bcc :rts
 
@@ -9137,7 +9150,9 @@ control_pink mx %00
 ;1c8b  2a664d    ld      hl,(#4d66)	; load HL with speed bit patterns for pink ghost blue state
 ;1c8e  ed6a      adc     hl,hl		; double it
 ;1c90  22664d    ld      (#4d66),hl	; store result.  have we exceeded the threshold ?
-	    asl |speedbit_pink_blue
+		lda |speedbit_pink_blue
+		adc |speedbit_pink_blue
+		sta |speedbit_pink_blue
 ;1c93  d0        ret     nc		; no, return
 	    bcc :rts
 
@@ -9154,7 +9169,9 @@ control_pink mx %00
 ;1ca2  2a624d    ld      hl,(#4d62)	; load HL with speed bit patterns for pink ghost normal state
 ;1ca5  ed6a      adc     hl,hl		; double it
 ;1ca7  22624d    ld      (#4d62),hl	; store result.  have we exceeded the threshold ?
-	    asl |speedbit_pink_normal
+		lda |speedbit_pink_normal
+		adc |speedbit_pink_normal
+		sta |speedbit_pink_normal
 ;1caa  d0        ret     nc		; no, return
 	    bcc :rts
 ;1cab  21644d    ld      hl,#4d64	; yes, load HL with speed bit patterns for pink ghost normal state
@@ -9305,7 +9322,9 @@ control_inky mx %00
 ;1d44  2a764d    ld      hl,(#4d76)	; load HL with speed bit patterns for inky tunnel areas
 ;1d47  ed6a      adc     hl,hl		; double it
 ;1d49  22764d    ld      (#4d76),hl	; store result.  have we exceeded the threshold?
-	    asl |speedbit_blue_tunnel
+		lda |speedbit_blue_tunnel
+		adc |speedbit_blue_tunnel
+		sta |speedbit_blue_tunnel
 ;1d4c  d0        ret     nc		; no, return
 	    bcc :rts
 
@@ -9328,7 +9347,9 @@ control_inky mx %00
 ;1d62  2a724d    ld      hl,(#4d72)	; load HL with speed bit patterns for inky in blue state
 ;1d65  ed6a      adc     hl,hl		; double it
 ;1d67  22724d    ld      (#4d72),hl	; store result.  have we exceeded the threshold?
-	    asl |speedbit_blue_blue
+		lda |speedbit_blue_blue
+		adc |speedbit_blue_blue
+		sta |speedbit_blue_blue
 ;1d6a  d0        ret     nc		; no, return
 	    bcc :rts
 
@@ -9345,7 +9366,9 @@ control_inky mx %00
 ;1d79  2a6e4d    ld      hl,(#4d6e)	; load HL with speed bit patterns for inky normal state
 ;1d7c  ed6a      adc     hl,hl		; double it
 ;1d7e  226e4d    ld      (#4d6e),hl	; store result. have we exceeded the threshold ?
-	    asl |speedbit_blue_normal
+		lda |speedbit_blue_normal
+		adc |speedbit_blue_normal
+		sta |speedbit_blue_normal
 ;1d81  d0        ret     nc		; no, return
 	    bcc :rts
 
@@ -9493,7 +9516,9 @@ control_orange mx %00
 ;1e1b  2a824d    ld      hl,(#4d82)	; load HL with speed bit patterns for orange ghost tunnel areas
 ;1e1e  ed6a      adc     hl,hl		; double it
 ;1e20  22824d    ld      (#4d82),hl	; store result.  have we exceeded the threshold?
-	    asl |speedbit_orange_tunnel
+		lda |speedbit_orange_tunnel
+		adc |speedbit_orange_tunnel
+		sta |speedbit_orange_tunnel
 ;1e23  d0        ret     nc		; no, return
 	    bcc :rts
 ;
@@ -9516,7 +9541,9 @@ control_orange mx %00
 ;1e39  2a7e4d    ld      hl,(#4d7e)	; load HL with speed bit patterns for orange ghost blue state
 ;1e3c  ed6a      adc     hl,hl		; double it
 ;1e3e  227e4d    ld      (#4d7e),hl	; store result.  have we exceeded the threshold ?
-	    asl |speedbit_orange_blue
+		lda |speedbit_orange_blue
+		adc |speedbit_orange_blue
+		sta |speedbit_orange_blue
 ;1e41  d0        ret     nc		; no, return
 	    bcc :rts
 ;
@@ -9534,7 +9561,9 @@ control_orange mx %00
 ;1e50  2a7a4d    ld      hl,(#4d7a)	; load HL with speed bit patterns for orange ghost normal state
 ;1e53  ed6a      adc     hl,hl		; double it
 ;1e55  227a4d    ld      (#4d7a),hl	; store result.  have we exceeded the threshold ?
-	    asl |speedbit_orange_normal
+	    lda |speedbit_orange_normal
+	    adc |speedbit_orange_normal
+	    sta |speedbit_orange_normal
 ;1e58  d0        ret     nc		; no, return
 	    bcc :rts
 ;
@@ -10105,7 +10134,9 @@ check_slow mx %00
 ;205a  cd5220    call    #2052		; convert ghost Y,X position in HL to a color screen location
 	    jsr yx_to_color_addy
 ;205d  7e        ld      a,(hl)		; load A with the color of the ghost's location
-	    lda |0,y
+	    ;lda |0,y
+		sta <temp0
+		lda (temp0)
 	    and #$FF
 ;205e  fe1b      cp      #1b		; == #1b ? (code for no change of direction, eg above the ghost home in pac-man)
  ;           cmp #$1B
