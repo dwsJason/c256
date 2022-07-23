@@ -459,13 +459,138 @@ SP_SIZE equ 8
 		tcd
 
 		; since this controls color as well, needs tweaked
-		lda #SPRITE_Enable
+		lda #SPRITE_Enable+SPRITE_LUT0
 		sta |SP00_CONTROL_REG+{SP_SIZE*0}
+		lda #SPRITE_Enable+SPRITE_LUT1
 		sta |SP00_CONTROL_REG+{SP_SIZE*1}
+		lda #SPRITE_Enable+SPRITE_LUT2
 		sta |SP00_CONTROL_REG+{SP_SIZE*2}
+		lda #SPRITE_Enable+SPRITE_LUT3
 		sta |SP00_CONTROL_REG+{SP_SIZE*3}
+		lda #SPRITE_Enable+SPRITE_LUT4
 		sta |SP00_CONTROL_REG+{SP_SIZE*4}
+		lda #SPRITE_Enable+SPRITE_LUT5
 		sta |SP00_CONTROL_REG+{SP_SIZE*5}
+
+		; sprite 0
+		lda <{redghostcolor-allsprite}
+		asl
+		asl
+		asl
+		asl
+		tax
+		lda >color_table+4,x
+		sta |GRPH_LUT0_PTR+4+16
+		lda >color_table+6,x
+		sta |GRPH_LUT0_PTR+6+16
+		lda >color_table+8,x
+		sta |GRPH_LUT0_PTR+8+16
+		lda >color_table+10,x
+		sta |GRPH_LUT0_PTR+10+16
+		lda >color_table+12,x
+		sta |GRPH_LUT0_PTR+12+16
+		lda >color_table+14,x
+		sta |GRPH_LUT0_PTR+14+16
+
+		; sprite 1
+		lda <{pinkghostcolor-allsprite}
+		asl
+		asl
+		asl
+		asl
+		tax
+		lda >color_table+4,x
+		sta |GRPH_LUT1_PTR+4+16
+		lda >color_table+6,x
+		sta |GRPH_LUT1_PTR+6+16
+		lda >color_table+8,x
+		sta |GRPH_LUT1_PTR+8+16
+		lda >color_table+10,x
+		sta |GRPH_LUT1_PTR+10+16
+		lda >color_table+12,x
+		sta |GRPH_LUT1_PTR+12+16
+		lda >color_table+14,x
+		sta |GRPH_LUT1_PTR+14+16
+
+		; sprite 2
+		lda <{blueghostcolor-allsprite}
+		asl
+		asl
+		asl
+		asl
+		tax
+		lda >color_table+4,x
+		sta |GRPH_LUT2_PTR+4+16
+		lda >color_table+6,x
+		sta |GRPH_LUT2_PTR+6+16
+		lda >color_table+8,x
+		sta |GRPH_LUT2_PTR+8+16
+		lda >color_table+10,x
+		sta |GRPH_LUT2_PTR+10+16
+		lda >color_table+12,x
+		sta |GRPH_LUT2_PTR+12+16
+		lda >color_table+14,x
+		sta |GRPH_LUT2_PTR+14+16
+
+		; sprite 3
+		lda <{orangeghostcolor-allsprite}
+		asl
+		asl
+		asl
+		asl
+		tax
+		lda >color_table+4,x
+		sta |GRPH_LUT3_PTR+4+16
+		lda >color_table+6,x
+		sta |GRPH_LUT3_PTR+6+16
+		lda >color_table+8,x
+		sta |GRPH_LUT3_PTR+8+16
+		lda >color_table+10,x
+		sta |GRPH_LUT3_PTR+10+16
+		lda >color_table+12,x
+		sta |GRPH_LUT3_PTR+12+16
+		lda >color_table+14,x
+		sta |GRPH_LUT3_PTR+14+16
+
+		; sprite 4
+		lda <{pacmancolor-allsprite}
+		asl
+		asl
+		asl
+		asl
+		tax
+		lda >color_table+4,x
+		sta |GRPH_LUT4_PTR+4+16
+		lda >color_table+6,x
+		sta |GRPH_LUT4_PTR+6+16
+		lda >color_table+8,x
+		sta |GRPH_LUT4_PTR+8+16
+		lda >color_table+10,x
+		sta |GRPH_LUT4_PTR+10+16
+		lda >color_table+12,x
+		sta |GRPH_LUT4_PTR+12+16
+		lda >color_table+14,x
+		sta |GRPH_LUT4_PTR+14+16
+
+		; sprite 5
+		lda <{fruitspritecolor-allsprite}
+		asl
+		asl
+		asl
+		asl
+		tax
+		lda >color_table+4,x
+		sta |GRPH_LUT5_PTR+4+16
+		lda >color_table+6,x
+		sta |GRPH_LUT5_PTR+6+16
+		lda >color_table+8,x
+		sta |GRPH_LUT5_PTR+8+16
+		lda >color_table+10,x
+		sta |GRPH_LUT5_PTR+10+16
+		lda >color_table+12,x
+		sta |GRPH_LUT5_PTR+12+16
+		lda >color_table+14,x
+		sta |GRPH_LUT5_PTR+14+16
 
 		; Update the Sprite Frames
 		; Turns out the hi-bit is an H-Flip for the sprite
@@ -2284,8 +2409,9 @@ InitMsPacVideo mx %00
 ;
 ; Default the first 4 colors of LUT0-LUT7
 
+		rep #$31
+
 		ldx #0
-		clc
 ]loop
 		; Black - Tile Color
 		stz |GRPH_LUT0_PTR,x
@@ -2325,6 +2451,8 @@ InitMsPacVideo mx %00
 		tax
 		cpx #$2000
 		bcc ]loop
+
+		sep #$10
 
 ;---------------------------------------------------------
 ;
