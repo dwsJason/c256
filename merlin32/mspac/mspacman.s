@@ -2278,33 +2278,47 @@ InitMsPacVideo mx %00
 		stz |BACKGROUND_COLOR_G
 
 ;---------------------------------------------------------
-
-; Default the first 4 colors of LUT0
+;
+; Default the first 4 colors of LUT0-LUT7
 
 		ldx #0
 		clc
 ]loop
-		; Black
+		; Black - Tile Color
 		stz |GRPH_LUT0_PTR,x
 		stz |GRPH_LUT0_PTR+2,x 
+		; Black - sprite Color
+		stz |GRPH_LUT0_PTR+16,x
+		stz |GRPH_LUT0_PTR+18,x 
 
-		; Dark Grey
+
+		; Dark Grey - Tile Color
 		lda #$5050
 		sta |GRPH_LUT0_PTR+4,x 
 		sta |GRPH_LUT0_PTR+6,x 
+		; Dark Grey - Sprite Color
+		sta |GRPH_LUT0_PTR+20,x 
+		sta |GRPH_LUT0_PTR+22,x 
 
-		; Dark Grey
+		; Dark Grey - Tile Color
 		lda #$A0A0
 		sta |GRPH_LUT0_PTR+8,x 
 		sta |GRPH_LUT0_PTR+10,x 
+		; Dark Grey - Sprite Color
+		sta |GRPH_LUT0_PTR+24,x 
+		sta |GRPH_LUT0_PTR+26,x 
 
-		; White
+
+		; White - Tile Color
 		lda #$FFFF
 		sta |GRPH_LUT0_PTR+12,x 
 		sta |GRPH_LUT0_PTR+14,x 
+		; White - Sprite Color
+		sta |GRPH_LUT0_PTR+28,x 
+		sta |GRPH_LUT0_PTR+30,x 
 
 		txa
-		adc #$400
+		adc #$400 				 ;next LUT
 		tax
 		cpx #$2000
 		bcc ]loop
@@ -3083,6 +3097,12 @@ TOP  = 64
 		xba
 		ora <:temp
 
+		; Massage the pixel from color index 0-3 up to index 4-7
+		; but if it's 0, we need to leave it alone
+		beq :is_zero1
+		ora #$0404
+:is_zero1
+
 		ldy #6*32
 		sta [:pPixels],y  ; top half of pixel #4
 		ldy #7*32 
@@ -3102,6 +3122,12 @@ TOP  = 64
 		sta <:temp
 		xba
 		ora <:temp
+
+		; Massage the pixel from color index 0-3 up to index 4-7
+		; but if it's 0, we need to leave it alone
+		beq :is_zero2
+		ora #$0404
+:is_zero2
 
 		ldy #4*32
 		sta [:pPixels],y  ; Top half pixel #3 
@@ -3125,6 +3151,12 @@ TOP  = 64
 		sta <:temp
 		xba
 		ora <:temp
+
+		; Massage the pixel from color index 0-3 up to index 4-7
+		; but if it's 0, we need to leave it alone
+		beq :is_zero3
+		ora #$0404
+:is_zero3
 
 		ldy #2*32
 		sta [:pPixels],y  ; Top half of pixel #2
@@ -3150,6 +3182,12 @@ TOP  = 64
 		sta <:temp
 		xba
 		ora <:temp
+
+		; Massage the pixel from color index 0-3 up to index 4-7
+		; but if it's 0, we need to leave it alone
+		beq :is_zero4
+		ora #$0404
+:is_zero4
 
 		sta [:pPixels]		; Top half of pixel
 		ldy #32
