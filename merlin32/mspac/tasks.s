@@ -618,7 +618,40 @@ task_orangeGhostAI mx %00
 		rts
 ;------------------------------------------------------------------------------
 ; #283B ; A=0C   ; red ghost movement when power pill active 
-task_redGhostRun
+task_redGhostRun mx %00
+;283b  3aac4d    ld      a,(#4dac)	; load A with red ghost state
+;283e  a7        and     a		; is red ghost alive ?
+;283f  ca5528    jp      z,#2855		; yes, skip ahead and give random direction
+		lda |redghost_state
+		beq :alive
+
+;2842  112c2e    ld      de,#2e2c	; no, load DE with the destination 2E, 2C which is right above the ghost house
+		ldy #$2e2c
+;2845  2a0a4d    ld      hl,(#4d0a)	; load HL with red ghost tile positions
+		ldx |redghost_tile_y
+;2848  3a2c4d    ld      a,(#4d2c)	; load A with red ghost direction
+		lda |red_ghost_dir
+;284b  cd6629    call    #2966		; get best new direction
+		jsr getBestNewDirection
+;284e  221e4d    ld      (#4d1e),hl	; store new direction tiles for red ghost
+		stx |red_ghost_tchange_y
+;2851  322c4d    ld      (#4d2c),a	; store new ghost direction
+		sta |red_ghost_dir
+;2854  c9        ret     		; return
+		rts
+:alive
+;2855  2a0a4d    ld      hl,(#4d0a)	; load HL with red ghost tile positions
+		ldx #redghost_tile_y
+;2858  3a2c4d    ld      a,(#4d2c)	; load A with red ghost direction
+		lda |red_ghost_dir
+;285b  cd1e29    call    #291e		; load A and HL with random direction and tile direction
+		jsr runAwayGhost
+
+;285e  221e4d    ld      (#4d1e),hl	; store new direction tiles for red ghost
+		stx |red_ghost_tchange_y
+;2861  322c4d    ld      (#4d2c),a	; store new red ghost direction
+		sta |red_ghost_dir
+;2864  c9        ret     		; return
 		rts
 ;------------------------------------------------------------------------------
 ; #2865 ; A=0D	; pink ghost movement when power pill active
@@ -653,6 +686,31 @@ task_clearMemory4D mx %00
 ; #24C9 ; A=12	; sets up coded pills and power pills memories
 task_setPills mx %00
 		jmp ResetPills
+
+
+;------------------------------------------------------------------------------
+;; Random number generator
+;; #2a23 random number generator, only active when ghosts are blue.    
+;; n=(n*5+1) && #1fff.  n is used as an address to read a byte from a rom.
+;; #4dc9, #4dca=n  and a=rnd number. n is reset to 0 at #26a9 when you die,
+;; start of first level, end of every level.  Later a is anded with 3.
+;2a23
+ROMRANDOM mx %00
+		jmp RANDOM
+;2a23  2ac94d    ld      hl,(#4dc9)
+;2a26  54        ld      d,h
+;2a27  5d        ld      e,l
+;2a28  29        add     hl,hl
+;2a29  29        add     hl,hl
+;2a2a  19        add     hl,de
+;2a2b  23        inc     hl
+;2a2c  7c        ld      a,h
+;2a2d  e61f      and     #1f
+;2a2f  67        ld      h,a
+;2a30  7e        ld      a,(hl)
+;2a31  22c94d    ld      (#4dc9),hl
+;2a34  c9        ret   
+
 ;------------------------------------------------------------------------------
 ; this is not named correctly at all, it's storing in the tile_ram
 ; not into sprite ram
@@ -1139,6 +1197,89 @@ clear_ghosts
 ; #26B2	; A=1F	; writes points needed for extra life digits to screen
 task_drawExtraLife
 		rts
+
+;------------------------------------------------------------------------------
+; called from routines above with HL loaded with ghost position and A loaded with ghost direction
+; used when ghosts are blue (edible)
+; load A with new direction, and HL with tile offset for this direction
+; Input X = hl ; pTile
+;       A = A  ; dir
+;
+; output X = hl  ; tchange
+;        A = A   ; dir
+;291e
+runAwayGhost mx %00
+;291e  223e4d    ld      (#4d3e),hl	; store HL into current tile position
+		stx |save_current_tile
+;2921  ee02      xor     #02		; reverse ghost direction
+		eor #$02
+;2923  323d4d    ld      (#4d3d),a	; store into the opposite orientation
+		sta |opposite_orientation
+;2926  cd232a    call    #2a23		; load A with a pseudo random number
+		jsr ROMRANDOM
+;2929  e603      and     #03		; mask bits, now between 0 and 3
+		and #03
+;292b  213b4d    ld      hl,#4d3b	; load HL with best orientation found address
+;292e  77        ld      (hl),a		; store the random direction
+		sta |best_orientation
+;292f  87        add     a,a		; A := A * 2
+;2930  5f        ld      e,a		; store into E
+;2931  1600      ld      d,#00		; D := #00.  DE now has #000X where X is 2 * direction
+;2933  dd21ff32  ld      ix,#32ff	; load IX with data - tile differences tables for movements
+;2937  dd19      add     ix,de		; IX now has the tile difference address
+		asl
+		adc #tile_move_table
+		tax
+;2939  fd213e4d  ld      iy,#4d3e	; load IY with current tile position
+:try_again
+		ldy #save_current_tile
+;293d  3a3d4d    ld      a,(#4d3d)	; load A with opposite direction
+;2940  be        cp      (hl)		; is the random direction == opposite direction ?
+;2941  ca5729    jp      z,#2957		; yes, skip ahead to choose a new direction
+		lda |opposite_orientation
+		cmp |best_orientation
+		beq :new_direction
+
+;2944  cd0f20    call    #200f		; no, load A with the character in the destination screen position
+		phx
+		jsr screen_xy
+		plx
+;2947  e6c0      and     #c0		; mask bits
+;2949  d6c0      sub     #c0		; subtract. is there a wall in the way of this direction ?
+;294b  280a      jr      z,#2957		; yes, choose a new direction and try again
+		and #$C0
+		cmp #$C0
+		beq :new_direction	; blocked by maze choose a new direction
+
+;294d  dd6e00    ld      l,(ix+#00)	; no, load L with tile offset low byte
+;2950  dd6601    ld      h,(ix+#01)	; load H with tile offset high byte
+		lda |0,x
+		tax
+;2953  3a3b4d    ld      a,(#4d3b)	; load A with new direction
+		lda |best_orientation
+;2956  c9        ret			; return
+		rts
+
+; arrive here from #2941 when random direction == opposite direction, or a wall is in the way of the direction computed
+:new_direction
+;2957  dd23      inc     ix		; 
+;2959  dd23      inc     ix		; next direction tile
+		inx
+		inx
+;295b  213b4d    ld      hl,#4d3b	; load HL with best orientation found address
+;295e  7e        ld      a,(hl)		; load A with the random direction
+;295f  3c        inc     a		; increase
+;2960  e603      and     #03		; mask bits to make between #00 and #03, in case #04 was reached it will revert to #00
+;2962  77        ld      (hl),a		; store into new random direction
+		lda |best_orientation
+		inc
+		and #03
+		sta |best_orientation
+
+;2963  c33d29    jp      #293d		; jump back
+		bra :try_again    	; y not preserved, so go back a little further
+
+
 ;------------------------------------------------------------------------------
 ; distance check - used for ghost logic and for pacman logic in the demo
 ;
