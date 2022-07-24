@@ -482,6 +482,7 @@ task_blueGhostAI mx %00
 ;27bb  cd5995    call    #9559		; pick a random quadrant (why ??? DE is loaded new in next step)
 ;27be  114020    ld      de,#2040	; load DE with lower right corner destination
 		ldy #$2040
+		lda |blue_ghost_dir
 ;27c1  cd6629    call    #2966		; get best new direction
 		jsr getBestNewDirection
 
@@ -525,6 +526,7 @@ task_blueGhostAI mx %00
 ;27e0  eb        ex      de,hl		; save total result into DE
 		xba
 		rep #$30
+		tay
 
 ;27e1  2a0e4d    ld      hl,(#4d0e)	; load HL with blue ghost (Inky) position
 		ldx |blueghost_tile_y
@@ -540,7 +542,79 @@ task_blueGhostAI mx %00
 		rts
 ;------------------------------------------------------------------------------
 ; #27F1 ; A=0B  ; orange ghost AI    
-task_orangeGhostAI
+task_orangeGhostAI mx %00
+
+;27f1  3ac14d    ld      a,(#4dc1)	; load A with movement indicator
+		lda |orientation_changes_index
+;27f4  cb47      bit     0,a		; random movement ?
+		bit #1
+;27f6  c21328    jp      nz,#2813	; no, skip ahead and normal orange ghost AI
+		bne :normal_movement
+
+;27f9  3a044e    ld      a,(#4e04)	; load A with level cleared register
+		lda |levelstate
+;27fc  fe03      cp      #03		; == #03 ?  ( this is always 3 during game)
+		cmp #3
+;27fe  2013      jr      nz,#2813        ; jump if not 3 to normal orange ghost AI
+		bne :normal_movement
+
+; random orange ghost movement
+; not really random, the random quadrant gets overridden with the lower left corner
+;2800  2a104d    ld      hl,(#4d10)	; load HL with orange ghost position
+:go_lower_left
+		ldx |orangeghost_tile_y
+		lda |orange_ghost_dir
+; OTTPATCH
+;PATCH TO MAKE THE MONSTERS MOVE RANDOMLY
+;ORG 2803H
+;CALL R2CORNER
+;2803  cd5e95    call    #955e		; pick a random quadrant (why?  DE is loaded new in next step)
+		jsr pick_quadrant
+;2806  11403b    ld      de,#3b40	; load DE with lower left corner destination
+		ldy #$3b40
+;2809  cd6629    call    #2966		; get best new direction
+		jsr getBestNewDirection
+;280c  22244d    ld      (#4d24),hl	; store new orange ghost direction tile changes
+		stx |orange_ghost_tchange_y
+;280f  322f4d    ld      (#4d2f),a	; store new orange ghost direction 
+		sta |orange_ghost_dir
+;2812  c9        ret     		; return
+		rts
+
+; normal orange ghost movement
+:normal_movement
+;2813  dd21394d  ld      ix,#4d39	; load IX with pacman Y and X tile position
+		ldx #pacman_tile_pos_y
+;2817  fd21104d  ld      iy,#4d10	; load IY with orange ghost tile future posiiton
+		ldy #orangeghost_tile_y
+;281b  cdea29    call    #29ea		; load HL with sum of square of X and Y distances
+		jsr sum_dist_squared
+
+;281e  114000    ld      de,#0040	; load DE with offset. #40 is hex for 64 deciamal, which is 8 squared.
+
+    	; hard hack: HACK6
+	; 281e  112400    ld      de,#0024
+	;
+
+;2821  a7        and     a		; clear carry flag
+;2822  ed52      sbc     hl,de		; subtract offset from distance.   is orange ghost getting too close to pac-man?  (<8 units)
+;2824  da0028    jp      c,#2800		; yes, jump back and have ghost move toward lower left corner
+		cmp #64
+		bcc :go_lower_left
+
+;2827  2a104d    ld      hl,(#4d10)	; else load HL with orange ghost future position
+		ldx #orangeghost_tile_y
+;282a  ed5b394d  ld      de,(#4d39)	; load DE with pac man position
+		ldy #pacman_tile_pos_y
+;282e  3a2f4d    ld      a,(#4d2f)	; load A with orange ghost direction
+		lda |orange_ghost_dir
+;2831  cd6629    call    #2966		; get best new direction
+		jsr getBestNewDirection
+;2834  22244d    ld      (#4d24),hl	; store orange ghost tile changes
+		stx |orange_ghost_tchange_y
+;2837  322f4d    ld      (#4d2f),a	; store orange ghost direction
+		sta |orange_ghost_dir
+;283a  c9        ret     		; return
 		rts
 ;------------------------------------------------------------------------------
 ; #283B ; A=0C   ; red ghost movement when power pill active 
