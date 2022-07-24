@@ -3642,6 +3642,23 @@ vmemset0 mx %00
 		rts
 		
 ;------------------------------------------------------------------------------
+; We need some kind of palette manager for use on background plane
+; On MsPacMan hardware we could have up to 64 palettes on the screen at once
+; In practice, we hope that we're less than 8 because that's what we can
+; support on the C256 Foenix
+;
+; I think my basic idea is to record every color write into the "palette_ram"
+;
+; This is to track which palettes are in use, and how many tiles reference them
+; We'll keep a lookup table up-to-date, that can quickly convert map palettes
+; into Foenix Palettes
+;
+; What if we map the palette indices on-the-fly? palette_ram could hold
+; pacman hw indices, or maybe it could hold native Foenix indices?
+;
+
+		
+;------------------------------------------------------------------------------
 ;
 ;  Draw Maze to Screen
 ;
@@ -3860,7 +3877,7 @@ ColorMaze mx %00
 		sta 1,s
 		pla
 
-		ldy #100	; storing out 200 times, but 16 bit per store
+		ldy #$100	; storing out 200 times, but 16 bit per store
 ]lp
 		sta |0,x
 		inx
@@ -4754,6 +4771,15 @@ Pac2PhxColor mx %00
 ;
 ; Copy the Pacman Shadow to real VRAM
 ;
+; This is not fast enough, it's what is keeping the game from going 60hz
+; it also isn't paying any attention to color, so it needs to do more
+; work, and get it done much quicker than it does now
+;
+; is there any way we can use DMA here?
+;
+; Maybe it would be best, to just write values immediately when they
+; are written on the real HW?
+;
 BlitMap mx %00
 
 ; This does the main map area
@@ -4777,10 +4803,10 @@ BlitMap mx %00
 
 ]col_loop
 
-		lda (:cursor),y
+		lda (:cursor),y 	 ; this is doing a load/store
 		and #$FF
 
-		sta >VRAM+VICKY_MAP0,x
+		sta >VRAM+VICKY_MAP0,x   ; it seems like DMA could work here?
 		inx
 		inx
 
@@ -4791,7 +4817,7 @@ BlitMap mx %00
 		sta <:cursor
 
 		dec <:count
-		bne	]col_loop
+		bne ]col_loop
 
 		; adjust destination in tile map
 		txa
@@ -5525,6 +5551,7 @@ ghost_flashing mx %00
 
 ; this subroutine never gets called when the green-eyed ghost bug occurs
 :continue
+
 ;0ac8  dd21004c  ld      ix,#4c00	; else load IX with start of sprites address
 	; 4c00 = allsprite
 ;0acc  fd21c84d  ld      iy,#4dc8	; load IY with (counter used to change ghost colors under big pill effects?)
@@ -5548,10 +5575,9 @@ ghost_flashing mx %00
 	    lda |ghosts_blue_timer
 ;0ae6  a7        and     a		; clear carry flag
 ;0ae7  ed52      sbc     hl,de		; subtract offset of #0100.  has this counter gone under?
-	    sec
-	    sbc #$100
 ;0ae9  3013      jr      nc,#0afe       ; no, skip ahead
-	    bcc :no_pp
+	    cmp #$100
+	    bcs :no_pp
 
 ; arrive here when ghosts start flashing after being blue
 ; this sub controls the flashing and the return
@@ -5586,8 +5612,7 @@ ghost_flashing mx %00
 	    lda |ghosts_blue_timer
 ;0b07  a7        and     a		; clear carry flag
 ;0b08  ed52      sbc     hl,de		; subtract offset (#0100).  has this counter gone under?
-	    sec
-	    sbc #$100
+	    cmp #$100
 ;0b0a  3027      jr      nc,#0b33       ; no, jump ahead and check next ghost
 	    bcs :chk_pink
 
@@ -5629,8 +5654,7 @@ ghost_flashing mx %00
 	    lda |ghosts_blue_timer
 ;0b3c  a7        and     a		; clear carry flag
 ;0b3d  ed52      sbc     hl,de		; subtract offset (#0100).  has this counter gone under?
-	    sec
-	    sbc #$100
+	    cmp #$100
 ;0b3f  3027      jr      nc,#0b68       ; no, jump ahead and check next ghost
 	    bcs :check_inky
 
@@ -5673,8 +5697,7 @@ ghost_flashing mx %00
 	    lda |ghosts_blue_timer
 ;0b71  a7        and     a		; clear carry flag
 ;0b72  ed52      sbc     hl,de		; subtract offset (#0100).  has this counter gone under?
-	    sec
-	    sbc #$100
+	    cmp #$100
 ;0b74  3027      jr      nc,#0b9d        ; no, jump ahead and check next ghost
 	    bcs :check_orange
 
@@ -5719,8 +5742,7 @@ ghost_flashing mx %00
 	    lda |ghosts_blue_timer
 ;0ba6  a7        and     a		; clear carry flag
 ;0ba7  ed52      sbc     hl,de		; subtract offset (#0100).  has this counter gone under?
-	    sec
-	    sbc #$100
+	    cmp #$100
 ;0ba9  3027      jr      nc,#0bd2        ; no, jump ahead
 	    bcs :dec_return
 
@@ -7338,7 +7360,7 @@ control_blue_time mx %00
 ;1395  7c        ld      a,h		; load A with counter high byte
 ;1396  b5        or      l		; or with counter low byte.  are both counters at #00 ?
 ;1397  c0        ret     nz		; no, return
-	    beq :rts
+	    bne :rts
 
 ; arrive here when power pill effect is over, either by timer or by eating all ghosts
 :none_blue
@@ -8916,9 +8938,9 @@ movement_check equ *
 ;19EE: 06 19	ld	b,#19		; load B with #19 for task call below
 ;19F0: 4F	ld	c,a		; load C with A (either #00 or #02)
 ;19F1: CB 39	srl	c		; shift right (div by 2).  now C is either #00 or #01
-	    lsr
 	    tay
-		xba
+	    lsr
+	    xba
 	    ora #$0019
 
 ;19F3: CD 42 00	call	#0042		; set task #19 with variable parameter
