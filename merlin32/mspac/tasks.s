@@ -641,7 +641,7 @@ task_redGhostRun mx %00
 		rts
 :alive
 ;2855  2a0a4d    ld      hl,(#4d0a)	; load HL with red ghost tile positions
-		ldx #redghost_tile_y
+		ldx |redghost_tile_y
 ;2858  3a2c4d    ld      a,(#4d2c)	; load A with red ghost direction
 		lda |red_ghost_dir
 ;285b  cd1e29    call    #291e		; load A and HL with random direction and tile direction
@@ -655,15 +655,118 @@ task_redGhostRun mx %00
 		rts
 ;------------------------------------------------------------------------------
 ; #2865 ; A=0D	; pink ghost movement when power pill active
-task_pinkGhostRun
+; called from #23A7 when task = #0C
+; check red ghost movement when power pill active
+; check pink ghost
+task_pinkGhostRun mx %00
+;2865  3aad4d    ld      a,(#4dad)	; load A with pink ghost state
+;2868  a7        and     a		; is pink ghost alive ?
+;2869  ca7f28    jp      z,#287f		; yes, skip ahead and give random direction
+		lda |pinkghost_state
+		beq :alive
+
+;286c  112c2e    ld      de,#2e2c	; no, load DE with the destination 2E, 2C which is right above the ghost house 
+		ldy #$2e2c
+;286f  2a0c4d    ld      hl,(#4d0c)	; load HL with pink ghost tile positions
+		ldx |pinkghost_tile_y
+;2872  3a2d4d    ld      a,(#4d2d)	; load A with pink ghost direction
+		lda |pink_ghost_dir
+;2875  cd6629    call    #2966		; get best new direction
+		jsr getBestNewDirection
+
+;2878  22204d    ld      (#4d20),hl	; store new direction tiles for pink ghost
+		stx |pink_ghost_tchange_y
+;287b  322d4d    ld      (#4d2d),a	; store new pink ghost direction
+		sta |pink_ghost_dir
+;287e  c9        ret     		; return
+		rts
+:alive
+;287f  2a0c4d    ld      hl,(#4d0c)	; load HL with pink ghost tile direction
+		ldx |pinkghost_tile_y
+;2882  3a2d4d    ld      a,(#4d2d)	; load A with pink ghost orientation
+		lda |pink_ghost_dir
+;2885  cd1e29    call    #291e		; load A and HL with random direction and tile direction
+		jsr runAwayGhost
+;2888  22204d    ld      (#4d20),hl	; store new direction tiles for pink ghost
+		stx |pink_ghost_tchange_y
+;288b  322d4d    ld      (#4d2d),a	; store new pink ghost orientation
+		sta |pink_ghost_dir
+;288e  c9        ret     		; return
 		rts
 ;------------------------------------------------------------------------------
+; check blue ghost (inky)
 ; #288F ; A=0E	; blue ghost (inky) movement when power pill active
 task_blueGhostRun
+;288f  3aae4d    ld      a,(#4dae)	; load A with inky state
+;2892  a7        and     a		; is inky alive ?
+;2893  caa928    jp      z,#28a9		; yes, skip ahead and give random direction
+		lda |blueghost_state
+		beq :alive
+
+;2896  112c2e    ld      de,#2e2c	; no, load DE with the destination 2E, 2C which is right above the ghost house 
+		ldy #$2e2c
+;2899  2a0e4d    ld      hl,(#4d0e)	; load HL with inky tile positions
+		ldx |blueghost_tile_y
+;289c  3a2e4d    ld      a,(#4d2e)	; load A with ink direction
+		lda |blue_ghost_dir
+;289f  cd6629    call    #2966		; get best new direction
+		jsr getBestNewDirection
+
+;28a2  22224d    ld      (#4d22),hl	; store new direction tiles for inky
+		stx |blue_ghost_tchange_y
+;28a5  322e4d    ld      (#4d2e),a	; store new inky direction
+		sta |blue_ghost_dir
+;28a8  c9        ret     		; return
+		rts
+:alive
+;28a9  2a0e4d    ld      hl,(#4d0e)	; load HL with inky tile changes
+		ldx |blueghost_tile_y
+;28ac  3a2e4d    ld      a,(#4d2e)	; load A with inky direction
+		lda |blue_ghost_dir
+;28af  cd1e29    call    #291e		; load A and HL with random direction and tile direction
+		jsr runAwayGhost
+;28b2  22224d    ld      (#4d22),hl	; store inky new tile directions
+		stx |blue_ghost_tchange_y
+;28b5  322e4d    ld      (#4d2e),a	; store new inky direction
+		sta |blue_ghost_dir
+;28b8  c9        ret     		; return
 		rts
 ;------------------------------------------------------------------------------
+; check orange ghost
 ; #28B9 ; A=0F	; orange ghost movement when power pill active
 task_orangeGhostRun
+;28b9  3aaf4d    ld      a,(#4daf)	; load A with orange ghost state
+;28bc  a7        and     a		; is orange ghost alive ?
+;28bd  cad328    jp      z,#28d3		; yes, skip ahead and assign random direction
+		lda |orangeghost_state
+		beq :alive
+
+;28c0  112c2e    ld      de,#2e2c	; no, load DE with the destination 2E, 2C which is right above the ghost house 
+		ldy #$2e2c
+;28c3  2a104d    ld      hl,(#4d10)	; load HL with orange ghost tile directions
+		ldx |orangeghost_tile_y
+;28c6  3a2f4d    ld      a,(#4d2f)	; load A with orange ghost direction
+		lda |orange_ghost_dir
+;28c9  cd6629    call    #2966		; get best new directions
+		jsr getBestNewDirection
+;28cc  22244d    ld      (#4d24),hl	; store new orange ghost tile directions
+		stx |orange_ghost_tchange_y
+;28cf  322f4d    ld      (#4d2f),a	; store new orange ghost direction
+		sta |orange_ghost_dir
+;28d2  c9        ret     		; return
+		rts
+:alive
+;28d3  2a104d    ld      hl,(#4d10)	; load HL with orange ghost tile directions
+		ldx |orangeghost_tile_y
+;28d6  3a2f4d    ld      a,(#4d2f)	; load A with orange ghost direction
+		lda |orange_ghost_dir
+;28d9  cd1e29    call    #291e		; load A and HL with random direction and tile direction
+		jsr runAwayGhost
+;28dc  22244d    ld      (#4d24),hl	; store new orange ghost tile directions
+		stx |orange_ghost_tchange_y
+;28df  322f4d    ld      (#4d2f),a	; store new orange ghost direction
+		sta |orange_ghost_dir
+;28e2  c9        ret     		; return
 		rts
 ;------------------------------------------------------------------------------
 ; #000D ; A=10	; sets up difficulty
