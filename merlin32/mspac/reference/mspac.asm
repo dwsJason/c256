@@ -7917,7 +7917,7 @@ task_pacmanAI
 ; called from routines above with HL loaded with ghost position and A loaded with ghost direction
 ; used when ghosts are blue (edible)
 ; load A with new direction, and HL with tile offset for this direction
-
+runAwayGhost
 291e  223e4d    ld      (#4d3e),hl	; store HL into current tile position
 2921  ee02      xor     #02		; reverse ghost direction
 2923  323d4d    ld      (#4d3d),a	; store into the opposite orientation
@@ -8086,7 +8086,7 @@ sum_dist_squared
 ;; n=(n*5+1) && #1fff.  n is used as an address to read a byte from a rom.
 ;; #4dc9, #4dca=n  and a=rnd number. n is reset to 0 at #26a9 when you die,
 ;; start of first level, end of every level.  Later a is anded with 3.
-
+ROMRANDOM
 2a23  2ac94d    ld      hl,(#4dc9)
 2a26  54        ld      d,h
 2a27  5d        ld      e,l
