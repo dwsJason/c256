@@ -1861,42 +1861,42 @@ gameplay_mode mx %00
 :table
 			da game_init	; #0879		; set up game initialization
 			da game_setup   ; #0899		; set up tasks for beginning of game
-			da :rts 		; #000C		; returns immediately
+			da :rts 	; #000C		; returns immediately
 			da game_playing ; #08CD		; demo mode or player is playing
 			da player_die   ; #090D		; when player has collided with hostile ghost (died)
-			da :rts 		; #000C		; returns immediately
-			da gameover_check ; #0940		; check for game over, do things if true
-			da :rts 		; #000C		; returns immediately
+			da :rts 	; #000C		; returns immediately
+			da gameover_check ; #0940	; check for game over, do things if true
+			da :rts 	; #000C		; returns immediately
 			da end_demo     ; #0972		; end of demo mode when ms pac dies in demo.  clears a bunch of memories.
 			da ready_go     ; #0988		; sets a bunch of tasks and displays "ready" or "game over"
-			da :rts 		; #000C		; returns immediately
+			da :rts 	; #000C		; returns immediately
 			da start_demo   ; #09D2		; begin start of maze demo after marquee
 			da clear_sounds ; #09D8		; clears sounds and sets a small delay.  run at end of each level
-			da :rts 		; #000C		; returns immediately
+			da :rts 	; #000C		; returns immediately
 			da flash_screen ; #09E8		; flash screen
-			da :rts 		; #000C		; returns immediately
+			da :rts 	; #000C		; returns immediately
 			da flash_off	; #09FE		; flash screen
-			da :rts 		; #000C		; returns immediately
+			da :rts 	; #000C		; returns immediately
 			da flash_screen ; #0A02		; flash screen
-			da :rts 		; #000C		; returns immediately
+			da :rts 	; #000C		; returns immediately
 			da flash_off    ; #0A04		; flash screen
-			da :rts 		; #000C		; returns immediately
+			da :rts 	; #000C		; returns immediately
 			da flash_screen ; #0A06		; flash screen
-			da :rts 		; #000C		; returns immediately
+			da :rts 	; #000C		; returns immediately
 			da flash_off    ; #0A08		; flash screen
-			da :rts 		; #000C		; returns immediately
+			da :rts 	; #000C		; returns immediately
 			da flash_screen ; #0A0A		; flash screen
-			da :rts 		; #000C		; returns immediately
+			da :rts 	; #000C		; returns immediately
 			da flash_off    ; #0A0C		; flash screen
-			da :rts 		; #000C		; returns immediately
+			da :rts 	; #000C		; returns immediately
 			da after_flash	; #0A0E		; set a bunch of tasks
-			da :rts 		; #000C		; returns immediately
-;0702: 2C 0A 			; #0A2C		; clears all sounds and runs intermissions when needed
-			da :rts 		; #000C		; returns immediately
-;0706: 7C 0A 			; #0A7C		; clears sounds, increases level, increases difficulty if needed, resets pill maps
-;0708: A0 0A 			; #0AA0		; get game ready to play and set this sub back to #03
-			da :rts 		; #000C		; returns immediately
-;070C: A3 0A 			; #0AA3		; sets sub # back to #03
+			da :rts 	; #000C		; returns immediately
+			da end_level	; #0A2C		; clears all sounds and runs intermissions when needed
+			da :rts 	; #000C		; returns immediately
+			da next_board   ; #0A7C		; clears sounds, increases level, increases difficulty if needed, resets pill maps
+			da ready_go     ; #0AA0		; get game ready to play and set this sub back to #03
+			da :rts 	; #000C		; returns immediately
+			da start_demo	; #0AA3		; sets sub # back to #03
 
 ;------------------------------------------------------------------------------
 ; arrive here from #000D
@@ -5249,16 +5249,23 @@ player_die mx %00
 ; arrive from #06C1
 ;0940
 gameover_check mx %00
-	; $$JGA TODO
 ;0940  3a704e    ld      a,(#4e70)	; load A with number of players
+	lda |no_players
 ;0943  a7        and     a		; == #00 ?
 ;0944  2806      jr      z,#094c         ; yes, skip ahead if 1 player
+	beq :zero
 ;0946  3a424e    ld      a,(#4e42)	; else load A with game state 
 ;0949  a7        and     a		; is a game being played ?
 ;094a  2015      jr      nz,#0961        ; yes, skip ahead and switch from player 1 to player 2 or vice versa
+	lda |backup_num_lives
+	bne :two_player_game
+
+:zero
 ;094c  3a144e    ld      a,(#4e14)	; else load A with number of lives left
 ;094f  a7        and     a		; are there any lives left ?
 ;0950  201a      jr      nz,#096c        ; yes, jump ahead
+	lda |num_lives
+	bne :lives_left
 
 	; change 0950 to 
 	; 0950  18 1a		jr	#096C 	; always jump ahead 
@@ -5266,25 +5273,37 @@ gameover_check mx %00
 
 
 ;0952  cda12b    call    #2ba1		; else draw # credits or free play on bottom of screen
+	jsr task_drawCredits
+
 ;0955  ef        rst     #28		; insert task #1C , parameter #05 .  Draws text on screen "GAME OVER"
 ;0956  1c 05				; task data
+	lda #$051C
+	jsr rst28
+
 ;0958  f7        rst     #30		; set timed task to increase main subroutine number (#4E04)
 ;0959  54 00 00    			; task timer=#54, task=0, param=0
+	lda #$0054
+	ldy #$00
+
 ;095c  21044e    ld      hl,#4e04	; Load HL with level state subroutine #
 ;095f  34        inc     (hl)		; increment
+	inc |levelstate
 ;0960  c9        ret     		; return
+	rts
 
 ; arrive here from #094a when there 2 players, when a player dies
-
+:two_player_game
 ;0961  cda60a    call    #0aa6		; transposes data from #4e0a through #4e37 into #4e38 through #4e66
 ;0964  3a094e    ld      a,(#4e09)	; load A with current player number:  0=P1, 1=P2
 ;0967  ee01      xor     #01		; flip bit 0
 ;0969  32094e    ld      (#4e09),a	; store result.  toggles between player 1 and 2
-
+:lives_left
 ;096c  3e09      ld      a,#09		; A := #09
 ;096e  32044e    ld      (#4e04),a	; store into level state subroutine #
+	lda #9
+	sta |levelstate
 ;0971  c9        ret     		; return
-		rts
+	rts
 
 ;------------------------------------------------------------------------------
 ; arrive from #06C1 when subroutine# (#4E04)= #08
@@ -5538,6 +5557,166 @@ after_flash mx %00
 ;0a2b  c9        ret     		; return
 		rts
 
+;------------------------------------------------------------------------------
+; arrive here at end of level
+; called from #06C1 when (#4E04 == #16)
+; clear sounds and run intermissions when needed
+;0A2C
+end_level mx %00
+;0A2C: AF            xor  a		; A := #00
+;0A2D: 32 AC 4E      ld   (#4EAC),a	; clear sound channel #2
+;0A30: 32 BC 4E      ld   (#4EBC),a	; clear sound channel #3
+	sep #$20
+	stz |CH2_E_NUM
+	stz |CH3_E_NUM
+;0A33: 18 06         jr   #0A3B		; skip next 2 steps
+
+; junk from pac-man
+;0A35: 32CC4E	ld	(#4ECC),a	
+;0A38: 32DC4E	ld	(#4EDC),a
+	rep #$30
+;0a3b  3a134e    ld      a,(#4e13)	; load A with current board level
+	lda |level
+;0a3e  fe14      cp      #14		; > #14 ?
+	cmp #$14
+;0a40  3802      jr      c,#0a44         ; no, skip next step
+	bcc :less
+;0a42  3e14      ld      a,#14		; else load A with #14
+	lda #$14
+:less
+;0a44  e7        rst     #20		; jump based on A
+	asl
+	tax
+	jmp (:table,x)
+
+	; jump table to control when cutscenes occur
+:table
+	da next_state ; #0A6F ; increment level state and stop sound
+	da cutscene1  ; #2108 ; cut scene 1
+	da next_state ; #0A6F ; increment level state and stop sound
+	da next_state ; #0A6F ; increment level state and stop sound
+	da cutscene2  ; #219E ; cut scene 2
+	da next_state ; #0A6F ; increment level state and stop sound
+	da next_state ; #0A6F ; increment level state and stop sound
+	da next_state ; #0A6F ; increment level state and stop sound
+	da cutscene3  ; #2297 ; cut scene 3
+	da next_state ; #0A6F ; increment level state and stop sound
+	da next_state ; #0A6F ; increment level state and stop sound
+	da next_state ; #0A6F ; increment level state and stop sound
+	da cutscene3  ; #2297 ; cut scene 3
+	da next_state ; #0A6F ; increment level state and stop sound
+	da next_state ; #0A6F ; increment level state and stop sound
+	da next_state ; #0A6F ; increment level state and stop sound
+	da cutscene3  ; #2297 ; cut scene 3
+	da next_state ; #0A6F ; increment level state and stop sound
+	da next_state ; #0A6F ; increment level state and stop sound
+	da next_state ; #0A6F ; increment level state and stop sound
+	da next_state ; #0A6F ; increment level state and stop sound
+
+	; increment level state and stop sound
+next_state
+;0a6f  21044e    ld      hl,#4e04	; load HL with level state subroutine #
+;0a72  34        inc     (hl)
+;0a73  34        inc     (hl)		; increase twice
+	inc |levelstate
+	inc |levelstate
+
+;0a74  af        xor     a		; A := #00
+;0a75  32cc4e    ld      (#4ecc),a	; clear sound
+;0a78  32dc4e    ld      (#4edc),a	; clear sound
+	sep #$20
+	stz |CH1_W_NUM
+	stz |CH2_W_NUM
+	rep #$30
+;0a7b  c9        ret     		; return
+	rts
+;------------------------------------------------------------------------------
+; we're about to start the next board, (it's about to be drawn)
+; called from #06C1 when (#4E04 == #18)
+;0A7C
+next_board mx %00
+;0a7c  af        xor     a		; A := #00
+;0a7d  32cc4e    ld      (#4ecc),a	; clear sound
+;0a80  32dc4e    ld      (#4edc),a	; clear sound
+	sep #$20
+	stz |CH1_W_NUM 
+	stz |CH2_W_NUM
+	rep #$30
+
+;0a83  0607      ld      b,#07		; B := #07
+;0a85  210c4e    ld      hl,#4e0c	; load HL with start address to clear
+;0a88  cf        rst     #8		; clear #4e0c through #4e0c+7.  these flags are reset at beginning of each level
+	stz |FIRSTF
+	stz |SECONDF
+	stz |dotseat
+	stz |all_home_counter
+	stz |blue_home_counter
+	stz |orange_home_counter
+	stz |pacman_dead
+	;stz |level
+
+;0a89  cdc924    call    #24c9		; set addresses #4E16 through #4E39 with #FF and #14 (pill map???)
+	jsr task_setPills
+
+;0a8c  21044e    ld      hl,#4e04	; load HL with subroutine #
+;0a8f  34        inc     (hl)		; increase
+	inc |levelstate
+
+
+	; level 255 pac fix ; BUGFIX01 (1 of 2)
+	; 0a90  c3800f	jp	#0f88      
+	; 0a93  00	nop
+	;
+
+
+	; level 141 mspac fix ; BUGFIX02 (1 of 2)
+	; 0a90  c3960f	jp	#0f96
+	; 0a93  00	nop
+ 	;
+
+
+;0a90  21134e    ld      hl,#4e13	; load HL with current board level
+;0a93  34        inc     (hl)		; increment board level
+	inc |level
+;0a94  2a0a4e    ld      hl,(#4e0a)	; load HL with pointer to current difficulty settings (#0068 for easy, #007D for hard)
+;0a97  7e        ld      a,(hl)		; load A with the result
+	lda |pDifficulty
+;0a98  fe14      cp      #14		; == #14 (is this already the highest difficulty?)
+	cmp #$14
+;0a9a  c8        ret     z		; yes, return
+	beq :rts
+
+;0a9b  23        inc     hl		; else increase difficulty
+;0a9c  220a4e    ld      (#4e0a),hl	; store result
+	inc
+	sta |pDifficulty
+:rts
+;0a9f  c9        ret     		; return
+	rts
+; called from #06C1 when (#4E04 == #20)
+
+;0aa0  c38809    jp      #0988		; 
+
+; ; called from #06C1 when (#4E04 == #22)
+
+;0aa3  c3d209    jp      #09d2		; 
+
+; called from #0961
+; transposes data from #4e0a through #4e37 into #4e38 through #4e66
+; used to copy data in and out for 2 player games
+
+;0aa6  062e      ld      b,#2e		; For B = 1 to #2E
+;0aa8  dd210a4e  ld      ix,#4e0a	; load IX with group 1 start address
+;0aac  fd21384e  ld      iy,#4e38	; load IY with group 2 start address
+
+;0ab0  dd5600    ld      d,(ix+#00)	; load D with data from group 1
+;0ab3  fd5e00    ld      e,(iy+#00)	; load E with data from group 2
+;0ab6  fd7200    ld      (iy+#00),d	; store D into group 2
+;0ab9  dd7300    ld      (ix+#00),e	; store E into group 1
+;0abc  dd23      inc     ix		; next address
+;0abe  fd23      inc     iy		; next address
+;0ac0  10ee      djnz    #0ab0           ; next B
+;0ac2  c9        ret     		; return
 
 ;------------------------------------------------------------------------------
 ; called from #08FD
@@ -11416,19 +11595,19 @@ FinishUpBlankTextDraw mx %10
 ;330f
 difficulty_data
 	hex 2A552A55555555552A552A554A5294A5
-    hex 252525252222222201010101
-    hex 0258070809600E10106817701914
+	hex 252525252222222201010101
+	hex 0258070809600E10106817701914
 ;3339
 	hex 4A5294A52AAA55552A552A554A5294A5
-    hex 249249252448912201010101
-    hex 0000000000000000000000000000
+	hex 249249252448912201010101
+	hex 0000000000000000000000000000
 ;3363
 	hex 2A552A55555555552AAA55552A552A55
-    hex 4A5294A52448912244210844
-    hex 0258083409D80FB4115816081734
+	hex 4A5294A52448912244210844
+	hex 0258083409D80FB4115816081734
 ;entry 3:
 	hex 555555556AD56AD56AAAD55555555555
-    hex 2AAA55552492249222222222
+	hex 2AAA55552492249222222222
 	hex	01A4065407F80CA80DD4128413B0
 ;entry 4:
 	hex 6AD56AD55AD6B5AD5AD6B5AD6AD56AD5
@@ -11444,6 +11623,98 @@ difficulty_data
 	hex 012C05DC07080BB80CE4FFFEFFFF
 
 
+;  the following resumes Ms Pac
+;  the whole section from 0x3435-0x36a2 differs from Pac roms.
+
+
+; arrive here from #2108 when 1st intermission begins
+cutscene1 mx %00
+;3435  3a004f    ld      a,(#4f00)	; load A with intermission indicator
+;3438  fe01      cp      #01		; is the intermission already running ?
+;343a  ca9c34    jp      z,#349c		; yes, skip ahead
+	lda |is_intermission
+	cmp #01
+	beq play_cutscene
+
+;343d  ef        rst     #28		; no, insert task to draw text "THEY MEET"
+;343e  1c 32				; 1c = draw text,  32 = string code
+	lda #$321C
+	jsr rst28
+
+;3440  3e01      ld      a,#01		; load A with code for "1"
+;3442  32ac42    ld      (#42ac),a	; write text "1" to screen
+	sep #$20
+	lda #$01
+	sta |tile_ram+$2AC
+
+;3445  3e16      ld      a,#16		; load A with code for color = white
+;3447  32ac46    ld      (#46ac),a	; paint the "1" white
+	lda #$16
+	sta |palette_ram+$2AC
+
+;344a  0e00      ld      c,#00		; C := #00
+;344c  c39c34    jp      #349c		; jump ahead
+	ldy #00
+	bra play_cutscene
+
+; arrive here from #21A1 when 2nd intermission begins
+cutscene2 mx %00
+;344f  3a004f    ld      a,(#4f00)	; load A with intermission indicator
+;3452  fe01      cp      #01		; is the intermission already running ?
+;3454  ca9c34    jp      z,#349c		; yes, skip ahead
+	lda |is_intermission
+	cmp #1
+	beq play_cutscene
+
+;3457  ef        rst     #28		; no, insert task to display text "THE CHASE"
+;3458  1c 17				; 1c = draw text,  17 = string code
+	lda #$171C
+	jsr rst28
+
+;345a  3e02      ld      a,#02		; load A with code for "2"
+;345c  32ac42    ld      (#42ac),a	; write text "2" to screen
+;345f  3e16      ld      a,#16		; load A with code for color = white
+;3461  32ac46    ld      (#46ac),a	; paint the "2" white
+	sep #$20
+	lda #$02
+	sta |tile_ram+$2AC
+	lda #$16
+	sta |palette_ram+$2AC
+	rep #$30
+;3464  0e0c      ld      c,#0c		; C := #0C.  This offset is added later to set up act 2
+	ldy #$0C
+;3466  c39c34    jp      #349c		; jump ahead
+	bra play_cutscene
+
+; arrive here from #229A when 3rd intermission begins
+cutscene3 mx %00
+;3469  3a004f    ld      a,(#4f00)	; load A with intermission indicator
+;346c  fe01      cp      #01		; is the intermission already running ?
+;346e  ca9c34    jp      z,#349c		; yes, skip ahead
+	lda |is_intermission
+	cmp #$01
+	beq play_cutscene
+
+;3471  ef        rst     #28		; insert task to display text "JUNIOR"
+;3472  1c 15				; 1c = draw text,  15 = string code
+	lda #$151C
+	jsr rst28
+
+	; print "ACT **3**"
+;3474  3e03      ld      a,#03		; load A with code for "3"
+;3476  32ac42    ld      (#42ac),a	; write text "3" to screen
+;3479  3e16      ld      a,#16		; load A with code for color = white
+;347b  32ac46    ld      (#46ac),a	; paint the "3" white
+	sep #$20
+	lda #$03
+	sta |tile_ram+$2AC
+	lda #$16
+	sta |palette_ram+$2AC
+	rep #$30
+;347e  0e18      ld      c,#18		; C := #18.  this offset is added later to set up act 3
+	ldy #$18
+;3480  c39c34    jp      #349c		; jump ahead
+	bra play_cutscene
 
 ;------------------------------------------------------------------------------
 ; arrive here from #3E67 after Blinky has been introduced
@@ -11495,14 +11766,6 @@ move_mspac_marquee mx %00
 ; Passing Y as the offset, instead of C
 ;349c
 play_cutscene mx %00
-			nop
-			nop
-			nop
-;]wait		bra ]wait  ; we know stuff crashes in here, or after here
-			nop
-			nop
-			nop
-
 
 cutscene_loop_counter  = temp0
 cutscene_loop_counter2 = temp0+2

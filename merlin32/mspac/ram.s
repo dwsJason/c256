@@ -593,8 +593,26 @@ powerpills ds 4
 
 
 ;	4e38-4e65 copy of level data (4e0a-4e37)
-
-
+;4e38-4e39
+backup_pDifficulty dw 0
+;4e3a
+backup_FIRSTF dw 0
+;4e3b
+backup_SECONDF dw 0
+;4e3c
+backup_dotseat dw 0
+;4e3d
+backup_all_home_counter dw 0
+;4e3e
+backup_blue_home_counter dw 0
+;4e3f
+backup_orange_home_counter dw 0
+;4e40
+backup_pacman_dead
+;4e41
+backup_level dw 0
+;4e42
+backup_num_lives dw 0
 
 ;
 ; coins, credits

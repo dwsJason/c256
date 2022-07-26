@@ -2816,7 +2816,7 @@ after_flash
 ; arrive here at end of level
 ; called from #06C1 when (#4E04 == #16)
 ; clear sounds and run intermissions when needed
-
+end_level
 0A2C: AF            xor  a		; A := #00
 0A2D: 32 AC 4E      ld   (#4EAC),a	; clear sound channel #2
 0A30: 32 BC 4E      ld   (#4EBC),a	; clear sound channel #3
@@ -2869,7 +2869,7 @@ after_flash
 
 	;; we're about to start the next board, (it's about to be drawn)
 	; called from #06C1 when (#4E04 == #18)
-
+next_board
 0a7c  af        xor     a		; A := #00
 0a7d  32cc4e    ld      (#4ecc),a	; clear sound
 0a80  32dc4e    ld      (#4edc),a	; clear sound
@@ -10080,7 +10080,7 @@ move_up
 
 
 ; arrive here from #2108 when 1st intermission begins
-
+cutscene1
 3435  3a004f    ld      a,(#4f00)	; load A with intermission indicator
 3438  fe01      cp      #01		; is the intermission already running ?
 343a  ca9c34    jp      z,#349c		; yes, skip ahead
@@ -10095,7 +10095,7 @@ move_up
 344c  c39c34    jp      #349c		; jump ahead
 
 ; arrive here from #21A1 when 2nd intermission begins
-
+cutscene2
 344f  3a004f    ld      a,(#4f00)	; load A with intermission indicator
 3452  fe01      cp      #01		; is the intermission already running ?
 3454  ca9c34    jp      z,#349c		; yes, skip ahead
@@ -10110,7 +10110,7 @@ move_up
 3466  c39c34    jp      #349c		; jump ahead
 
 ; arrive here from #229A when 3rd intermission begins
-
+cutscene3
 3469  3a004f    ld      a,(#4f00)	; load A with intermission indicator
 346c  fe01      cp      #01		; is the intermission already running ?
 346e  ca9c34    jp      z,#349c		; yes, skip ahead
