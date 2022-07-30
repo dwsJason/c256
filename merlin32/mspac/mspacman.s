@@ -4871,6 +4871,8 @@ BlitMap mx %00
 		ldx #VICKY_MAP0+{64*2}+4
 		jsr PrintHex
 
+		jsr DebugKeyboard
+
 		rts
 
 :BlitLine
@@ -4932,6 +4934,103 @@ PrintHex 	mx %00
 		plb
 
 		rts
+
+;------------------------------------------------------------------------------
+
+PrintHexSmall 	mx %00
+
+		phb
+		pea >{VRAM+VICKY_MAP0}
+		plb
+		plb
+
+		pha		; hex we're going to print
+
+		lda 1,s
+		and #$00F0      ; second from last
+		lsr
+		lsr
+		lsr
+		lsr
+		ora #TILE_Pal1
+		sta |0,x
+
+		pla
+		and #$000F	; last digit
+		ora #TILE_Pal1
+		sta |2,x
+
+		;$$JGA TEMP HACK, to work around color bug in Vicky
+		lda #TILE_Pal1+$40
+		sta |4,x
+
+		plb
+
+		rts
+
+
+;------------------------------------------------------------------------------
+
+DebugKeyboard mx %00
+;		php
+;		sei 
+
+HISTORY_SIZE = 32
+
+	; Collect Scancodes, but only when they change
+	; place into a history buffer
+	; print out the history buffer onto the screen
+	; for the world to see
+
+		jsl GETSCANCODE
+		and #$FF
+		beq :exit
+		cmp |:last_code
+		beq :exit       	; duplicate code, so ignore
+
+		sta |:last_code		; last code, for the duplicate check
+
+		ldx |:index     	; current index
+		sta |:history,x 	; save in history
+		dex
+		dex     		; next index
+		bpl :continue
+		ldx #{HISTORY_SIZE*2}-2 ; index wrap
+:continue
+		stx |:index     	; save index for next time
+
+	; print out the current history
+
+		txy
+
+		ldx #VICKY_MAP0+{64*6}+4
+]loop
+		iny
+		iny
+		cpy #HISTORY_SIZE*2
+		bcc :cont2
+		ldy #0
+:cont2
+		cpy |:index
+		beq :exit
+
+		lda |:history,y
+		jsr PrintHexSmall
+
+		txa
+		clc
+		adc #64*2
+		tax
+		bra ]loop
+:exit
+;		plp
+		rts
+
+
+:index		dw 0
+:last_code	dw 0
+
+:history	ds HISTORY_SIZE*2
 
 
 ;------------------------------------------------------------------------------
