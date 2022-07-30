@@ -5214,6 +5214,8 @@ player_die mx %00
 ;0925  3a424e    ld      a,(#4e42)	; else load A with game state
 ;0928  a7        and     a		; is this the demo mode ?
 ;0929  2813      jr      z,#093e         ; yes, skip ahead
+		lda |backup_num_lives
+		beq :keep_playing
 
 ;092b  3a094e    ld      a,(#4e09)	; else load A with current player number:  0=P1, 1=P2
 		lda |player_no
@@ -5237,6 +5239,7 @@ player_die mx %00
 		ldy #$00
 		jsr rst30
 ;093d  c9        ret     		; return
+		rts
 :one_player_game
 :keep_playing
 ;093e  34        inc     (hl)		; increase game state
@@ -5284,6 +5287,7 @@ gameover_check mx %00
 ;0959  54 00 00    			; task timer=#54, task=0, param=0
 	lda #$0054
 	ldy #$00
+	jsr rst30
 
 ;095c  21044e    ld      hl,#4e04	; Load HL with level state subroutine #
 ;095f  34        inc     (hl)		; increment
@@ -7405,6 +7409,7 @@ mspac_death_update mx %00
 :alive	    rts
 
 :dead_state_1
+
 	    jsr clear_ghosts		; hide the ghosts
 
 ; choose a different sprite for cocktail mode
@@ -7419,8 +7424,7 @@ mspac_death_update mx %00
 	    stx |pacmansprite		; sprite frame/tile #
 
 	    inc |pacman_dead_counter
-	    txa
-	    cmp |pacman_dead_counter
+	    cpy |pacman_dead_counter
 	    bne :rts
 
 	    inc |pacman_dead_state
@@ -8297,8 +8301,6 @@ ghost_collided = *
 ;1774  a7        and     a		; is this ghost blue (eatable) ?
 ;1775  c8        ret     z		; no, return
 	    beq :not_blue
-
-; else arrive here when eating a blue ghost
 
 ;1776  af        xor     a		; A := #00
 ;1777  32a54d    ld      (#4da5),a	; store into pacman dead animation state (0 if not dead)
