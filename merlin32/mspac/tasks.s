@@ -1113,7 +1113,9 @@ task_drawText mx %00
 ;95f6  c5        push    bc		; save BC
 ;95f7  e5        push    hl		; save HL
 ;95f8  cd4296    call    #9642		; draw the midway logo and copyright text for the 'press start' screen
+		phy
 		jsr	draw_logo_text 
+		ply
 ;95fb  e1        pop     hl		; restore HL
 ;95fc  c1        pop     bc		; resore BC
 
@@ -1124,9 +1126,11 @@ task_drawText mx %00
 ;9600  e630      and     #30		; mask bits
 		and #$30
 ;9602  fe30      cp      #30		; are bits 4 and 5 on ?   This happens when there is no bonus life awarded.
-		cmp #$30
-;9604  78        ld      a,b		; A := B
+	    tax
 		tya
+		cpx #$30
+;9604  78        ld      a,b		; A := B
+;		tya
 		bne :rts
 ;9605  c0        ret     nz		; no, return
 

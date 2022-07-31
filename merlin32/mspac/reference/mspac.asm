@@ -1511,7 +1511,7 @@ ttask6
 
 	;; debounce rack input / add credits (if 99 or over, return)
 	; called from #01A4
-
+coin_input
 0267  3a6e4e    ld      a,(#4e6e)	; load A with number of  current credits in BCD
 026a  fe99      cp      #99		; == #99 ? (99 is max number of credits avail)
 026c  17        rla     		; rotate left A
@@ -1551,7 +1551,7 @@ ttask6
 
 	;; debounce coin input / add credits
 	; called from #01A7
-
+coin_debounce
 02ad  3a694e    ld      a,(#4e69)	; load A with coin counter
 02b0  a7        and     a		; == #00 ?
 02b1  c8        ret     z		; yes, return
@@ -1586,7 +1586,7 @@ ttask6
 02de  c9        ret     		; return
 
 	;; coins -> credits routine
-
+coins_credits
 02df  3a6b4e    ld      a,(#4e6b)	; load A with #coins per #credits
 02e2  216c4e    ld      hl,#4e6c	; load HL with # of leftover coins
 02e5  34        inc     (hl)		; add 1

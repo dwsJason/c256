@@ -59,9 +59,44 @@ pixel_buffer = $100000	; need about 120k, put it in memory at 1.25MB mark
 			; try to leave room for kernel on a U
 
 
-; Kernel method
-;PUTS = $00101C         ; Print a string to the currently selected channel
+;
+; Key Codes
+;
+KEY_UP		equ $68
+KEY_DOWN	equ $6A
+KEY_LEFT	equ $69
+KEY_RIGHT	equ $6B
 
+KEY_F1		equ $3B
+KEY_F2		equ $3C
+
+; bit codes for the IN0
+
+;JOY_UP_BIT	equ %00000001
+;JOY_LEFT_BIT	equ %00000010
+;JOY_RIGHT_BIT	equ %00000100
+;JOY_DOWN_BIT	equ %00001000
+
+; bit codes for the IN1
+
+;COIN1_INSERT_BIT equ %00100000
+;COIN2_INSERT_BIT equ %01000000
+
+;P1_START_BIT equ %00100000
+;P2_START_BIT equ %01000000
+
+JOY_UP_BIT	equ $01
+JOY_LEFT_BIT	equ $02
+JOY_RIGHT_BIT	equ $04
+JOY_DOWN_BIT	equ $08
+
+; bit codes for the IN1
+
+COIN1_INSERT_BIT equ $20
+COIN2_INSERT_BIT equ $40
+
+P1_START_BIT equ $20
+P2_START_BIT equ $40
 
 
 VRAM = $B00000
@@ -951,7 +986,9 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 
 ;01a1  cd1f14    call    #141f		; when player 2 is played on cockatil mode, update all sprites
 ;01a4  cd6702    call    #0267		; debounce rack input / add credits
+			jsr coin_input
 ;01a7  cdad02    call    #02ad		; debounce coin input / add credits
+			jsr coin_debounce
 ;01aa  cdfd02    call    #02fd		; blink coin lights
 			jsr blink_coin_lights
 					; print player 1 and player two
@@ -1016,6 +1053,65 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 ;			jsr BlitColor		; Based on Color RAM, fix up Vicky CLUTs
 			jsr BlitMap			; Copy the map data from tile_ram, to the Vicky RAM
 
+;-----------------------------------------------------------------------------
+; Get something going with the input
+
+	sep #$30
+
+	; for latching
+	lda |IN0
+	sta |last_IN0
+	lda |IN1
+	sta |last_IN1
+
+
+    ; IN0
+
+	lda |IN0
+	ora #JOY_UP_BIT
+
+	ldx |keyboard+KEY_UP
+	beq :set_up
+	; clear_up
+	and #JOY_UP_BIT!$FF
+:set_up
+	ora #JOY_DOWN_BIT
+	ldx |keyboard+KEY_DOWN
+	beq :set_down
+	; clear down
+	and #JOY_DOWN_BIT!$FF
+:set_down
+	ora #JOY_LEFT_BIT
+	ldx |keyboard+KEY_LEFT
+	beq :set_left
+	; clear left
+	and #JOY_LEFT_BIT!$FF
+:set_left
+	ora #JOY_RIGHT_BIT
+	ldx |keyboard+KEY_RIGHT
+	beq :set_right
+	; clear right
+	and #JOY_RIGHT_BIT!$FF
+:set_right
+	ora #COIN1_INSERT_BIT
+	ldx |keyboard+KEY_F1
+	beq :setcoin1
+	and #COIN1_INSERT_BIT!$FF
+:setcoin1
+	sta |IN0
+
+    ; IN1
+
+	lda |IN1
+	ora #P1_START_BIT
+	ldx |keyboard+KEY_F2
+	beq :setstart1
+	and #P1_START_BIT!$FF
+:setstart1
+
+	sta |IN1
+
+	rep #$30
 
 ;
 ; Restore the temp variables, that might have been stomped on, that
@@ -1302,6 +1398,151 @@ ttask6 mx %00
 			jsr rst28
 ;0266  C9        ret     		; return
 			rts
+
+
+;------------------------------------------------------------------------------
+; debounce rack input / add credits (if 99 or over, return)
+; called from #01A4
+;0267
+coin_input mx %00
+;0267  3a6e4e    ld      a,(#4e6e)	; load A with number of  current credits in BCD
+;026a  fe99      cp      #99		; == #99 ? (99 is max number of credits avail)
+;026c  17        rla     		; rotate left A
+;026d  320650    ld      (#5006),a	; store into #5006 (coin lockout, not used ?)
+;0270  1f        rra     		; rotate right A
+;0271  d0        ret     nc		; return if 99 credits
+	    lda |no_credits
+	    cmp #$99
+	    bcc :lessthan99
+	    rts
+
+:lessthan99
+;0272  3a0050    ld      a,(#5000)	; load A with IN0 input (joystick, credits, service mode button)
+	    lda #COIN1_INSERT_BIT
+	    jsr :checkcoin
+	    lda #COIN2_INSERT_BIT
+
+:checkcoin
+	    bit |IN0
+	    bne :rts
+	    bit |last_IN0
+	    beq :rts
+
+	    inc |coin_counter
+:rts
+	    rts
+
+;0275  47        ld      b,a		; copy to B
+;0276  cb00      rlc     b		; rotate left
+;0278  3a664e    ld      a,(#4e66)	; load A with service mode indicator
+;027b  17        rla     		; rotate left with carry
+;027c  e60f      and     #0f		; and it with #0F
+;027e  32664e    ld      (#4e66),a	; put it back
+;0281  d60c      sub     #0c		; subtract #0C.  is the service mode being used to add a credit?
+;0283  ccdf02    call    z,#02df		; If yes, call #02df  ; add credit
+;0286  cb00      rlc     b		; rotate left B
+;0288  3a674e    ld      a,(#4e67)	; load A with coin input #1
+;028b  17        rla     		; rotate left
+;028c  e60f      and     #0f		; mask bits
+;028e  32674e    ld      (#4e67),a	; put back
+;0291  d60c      sub     #0c		; subtract C.  is a coin being inserted?
+;0293  c29a02    jp      nz,#029a	; no, skip ahead
+;0296  21694e    ld      hl,#4e69	; yes, load HL with coin counter
+;0299  34        inc     (hl)		; increase counter
+;029a  cb00      rlc     b		; rotaate left B
+;029c  3a684e    ld      a,(#4e68)	; load A with coint input #2
+;029f  17        rla     		; rotate left
+;02a0  e60f      and     #0f		; maks bits
+;02a2  32684e    ld      (#4e68),a	; put back
+;02a5  d60c      sub     #0c		; subtract #0C.  is a coin being inserted?
+;02a7  c0        ret     nz		; no, return
+
+;02a8  21694e    ld      hl,#4e69	; else load HL with coin counter
+;02ab  34        inc     (hl)		; increase
+;02ac  c9        ret     		; return
+
+
+;------------------------------------------------------------------------------
+; debounce coin input / add credits
+; called from #01A7
+;02ad
+coin_debounce mx %00
+
+	    jsr coins_credits
+
+	    rts
+
+;02ad  3a694e    ld      a,(#4e69)	; load A with coin counter
+;02b0  a7        and     a		; == #00 ?
+;02b1  c8        ret     z		; yes, return
+;02b2  47        ld      b,a		; else copy coin counter to B
+;02b3  3a6a4e    ld      a,(#4e6a)	; load A with coin counter timeout
+;02b6  5f        ld      e,a		; copy timeout to E
+;02b7  fe00      cp      #00		; is the timeout == #00?
+;02b9  c2c402    jp      nz,#02c4	; no, skip ahead
+;02bc  3e01      ld      a,#01		; else A := #01
+;02be  320750    ld      (#5007),a	; store into coin counter
+;02c1  cddf02    call    #02df		; call coins -> credits routine
+;02c4  7b        ld      a,e		; load A with timeout
+;02c5  fe08      cp      #08		; is the timeout == #08 ?
+;02c7  c2ce02    jp      nz,#02ce	; no, skip next 2 steps
+;02ca  af        xor     a		; A := #00
+;02cb  320750    ld      (#5007),a	; clear coin counter
+;02ce  1c        inc     e		; increment timeout
+;02cf  7b        ld      a,e		; copy to A
+;02d0  326a4e    ld      (#4e6a),a	; store into coin counter timeout
+;02d3  d610      sub     #10		; subtract #10.  did the timeout end?
+;02d5  c0        ret     nz		; no, return
+;02d6  326a4e    ld      (#4e6a),a	; else clear the counter timeout [A now has #00]
+;02d9  05        dec     b		; decrement B, this was a copy of the coin counter
+;02da  78        ld      a,b		; copy to A
+;02db  32694e    ld      (#4e69),a	; store into coin counter
+;02de  c9        ret     		; return
+
+;------------------------------------------------------------------------------
+; coins -> credits routine
+;02df
+coins_credits mx %00
+;02df  3a6b4e    ld      a,(#4e6b)	; load A with #coins per #credits
+;02e2  216c4e    ld      hl,#4e6c	; load HL with # of leftover coins
+;02e5  34        inc     (hl)		; add 1
+;02e6  96        sub     (hl)		; subract this value from A
+;02e7  c0        ret     nz		; if not zero, then not enough coins for credits.  return
+
+	    lda |coin_counter
+	    beq :not_enough
+
+	    cmp |no_coins_per_credit
+	    bcc :not_enough
+
+	    sbc |no_coins_per_credit
+	    sta |coin_counter
+
+;02e8  77        ld      (hl),a		; else store A into leftover coins
+;02e9  3a6d4e    ld      a,(#4e6d)	; load A with #credits per #coins
+;02ec  216e4e    ld      hl,#4e6e	; load HL with #credits
+;02ef  86        add     a,(hl)		; add # credits
+;02f0  27        daa     		; decimal adjust
+;02f1  d2f602    jp      nc,#02f6	; if no carry, skip ahead
+;02f4  3e99      ld      a,#99		; else load a with #99
+;02f6  77        ld      (hl),a		; store #credits, max #99
+	    lda |no_credits
+	    cmp #$99
+	    bcs :maxed_out
+
+	    sed
+	    adc #1
+	    cld
+	    sta |no_credits
+:maxed_out
+;02f7  219c4e    ld      hl,#4e9c	; load HL with sound register
+;02fa  cbce      set     1,(hl)		; play credit sound
+;02fc  c9        ret     		; return
+	    lda #2
+	    tsb |CH1_E_NUM
+:not_enough
+	    rts
+
 
 ;------------------------------------------------------------------------------
 ; blink coin lights, print player 1 and player 2, check for mode 3
@@ -1637,7 +1878,7 @@ oneortwo mx %00
 			da :drawinfo    ; #05F3		; inserts tasks to draw info on screen
 			da :disp12  	; #061B		; display 1/2 player and check start buttons
 			da :press_start	; #0674		; run when start button pressed, gets game ready to be played
-			da :rts		    ; #000C		; returns immediately
+			da :rts		; #000C		; returns immediately
 			da :drawlives	; #06A8		; draw remaining lives at bottom of screen and start game
 :rts
 			rts
@@ -1645,6 +1886,7 @@ oneortwo mx %00
 :drawinfo mx %00
 ;05F3: CD A1 2B	call	#2BA1		; write # of credits on screen
 			jsr task_drawCredits
+
 ;05F6: EF	rst	#28		; insert task to clear the maze
 ;05F7: 00 01				; task #00, parameter #01
 			lda #$0100
@@ -1704,61 +1946,98 @@ oneortwo mx %00
 ;061b
 :disp12 mx %00
 ;061b  cda12b    call    #2ba1		; write # of credits on screen
-			jsr task_drawCredits
+		jsr task_drawCredits
 
 ;061e  3a6e4e    ld      a,(#4e6e)	; load A with # of credits
-			lda |no_credits
+		lda |no_credits
 ;0621  fe01      cp      #01		; is it 1?
-			ldy #$09
+		ldy #$09
 ;0623  0609      ld      b,#09		; load B with message #9:  "1 OR 2 PLAYERS"
-			cmp #1
+		cmp #1
 ;0625  2002      jr      nz,#0629        ; if >= 2 credits, skip next step
-			bne :is1o2
+		bne :is1o2
 ;0627  0608      ld      b,#08		; load B with message #8:  "1 PLAYER ONLY"
-			dey
+		dey
 :is1o2
 ;0629  cd5e2c    call    #2c5e		; print message
-			jsr DrawText
+		jsr DrawText
 ;062c  3a6e4e    ld      a,(#4e6e)	; load A with # of credits
-			lda |no_credits
+		lda |no_credits
 ;062f  fe01      cp      #01		; 1 credit?
-			cmp #1
+		cmp #1
+		beq :only1p
 ;0631  3a4050    ld      a,(#5040)	; load A with IN1 (player start buttons)
+		lda |IN1
 ;0634  280c      jr      z,#0642         ; don't check p2 with 1 credit
 ;0636  cb77      bit     6,a		; check for player 2 start button
+		bit #P2_START_BIT
 ;0638  2008      jr      nz,#0642        ; if not, pressed, skip ahead to check for player 1 start
+		bne :only1p
 ;063a  3e01      ld      a,#01		; else set 2 players
 ;063c  32704e    ld      (#4e70),a	; store into # of players (0=1 player, 1=2 players)
+		lda #1
+		sta |no_players
 ;063f  c34906    jp      #0649		; jump ahead
+		bra :players_set 
+:only1p
+		lda |IN1
 ;0642  cb6f      bit     5,a		; player 1 start being pressed ?
 ;0644  c0        ret     nz		; no, return
+		bit #P1_START_BIT
+		bne :rts
 
 ;0645  af        xor     a		; A := #00
 ;0646  32704e    ld      (#4e70),a	; store into # of players (0=1 player, 1=2 players)
+		stz |no_players
+:players_set
 ;0649  3a6b4e    ld      a,(#4e6b)	; load A with number of coins per credit
 ;064c  a7        and     a		; Is free play activated?
+		lda |no_coins_per_credit
 ;064d  2815      jr      z,#0664         ; Yes, skip ahead
+		beq :skip_free
 ;064f  3a704e    ld      a,(#4e70)	; else load A with # of players
 ;0652  a7        and     a		; Is this a 1 player game?
+		lda |no_players
+		beq :num_players1
 ;0653  3a6e4e    ld      a,(#4e6e)	; load A with number of credits
 ;0656  2803      jr      z,#065b         ; If 1 player game, skip ahead and only subtract 1 credit
 ;0658  c699      add     a,#99		; else subtract 2 credits.  one here...
 ;065a  27        daa     		; decimal adjust
-
+		sec
+		sed
+		lda |no_credits
+		sbc #1
+		sta |no_credits
+		cld
+:num_players1
+		sec
+		sed
 ;065b  c699      add     a,#99		; subtract a credit
 ;065d  27        daa     		; decimal adjust
 ;065e  326e4e    ld      (#4e6e),a	; save result in credits counter
+		lda |no_credits
+		sbc #1
+		sta |no_credits
+		cld
 ;0661  cda12b    call    #2ba1		; write # of credits on screen
-
+		jsr task_drawCredits
+:skip_free
 ;0664  21034e    ld      hl,#4e03	; load HL with main routine 2, subroutine #
 ;0667  34        inc     (hl)		; increase
+		inc |mainroutine2
 ;0668  af        xor     a		; A := #00
 ;0669  32d64d    ld      (#4dd6),a	; store in LED state ( 1: game waits for 1P/2P start button press)
+		stz |led_state
 ;066c  3c        inc     a		; A := #01
 ;066d  32cc4e    ld      (#4ecc),a	; store in wave to play (begins intro music tune)
 ;0670  32dc4e    ld      (#4edc),a	; store in wave to play (beigns intro music tune)
+		sep #$20
+		stz |CH1_W_NUM
+		stz |CH2_W_NUM
+		rep #$30
+:rts
 ;0673  c9        ret     		; return (to #0195)
-			rts
+		rts
 	; arrive from #05E8 when start button has been pressed
 :press_start mx %00
 ;0674  ef        rst     #28		; set task #00, parameter #01 - clears the maze
@@ -4970,6 +5249,12 @@ PrintHexSmall 	mx %00
 
 
 ;------------------------------------------------------------------------------
+;
+; The status of up to 128 keys on the keyboard
+;
+keyboard ds 128
+
+;------------------------------------------------------------------------------
 
 DebugKeyboard mx %00
 ;		php
@@ -4989,6 +5274,23 @@ HISTORY_SIZE = 32
 		beq :exit       	; duplicate code, so ignore
 
 		sta |:last_code		; last code, for the duplicate check
+
+	; hack in the actual keyboard driver?
+
+		sep #$30
+		tay
+		and #$7F
+		tax
+		tya
+		bpl :keydown
+		lda #$00  		; key-up
+:keydown
+		sta |keyboard,x
+		
+		tya
+		rep #$30
+
+	; done with the hack
 
 		ldx |:index     	; current index
 		sta |:history,x 	; save in history
@@ -11262,6 +11564,13 @@ startuptest mx %00
 	; 233f  d300      out     (#00),a	; interrupt vector -> 0xfa #3ffa vector to #3000
 	; see also "INTERRUPT MODE 2" above...
 
+		lda #$ffff
+		sta |IN0
+		sta |last_IN0
+		sta |IN1
+		sta |last_IN1
+
+
 
 ;2341  af        xor     a		; A := #00
 ;2342  320750    ld      (#5007),a	; clear coin counter
@@ -11305,6 +11614,10 @@ startuptest mx %00
 		ldy #RAM_START+2
 		lda #{RAM_END-RAM_START}-3
 		mvn ^RAM_START,^RAM_START
+
+		lda #1
+		sta |no_coins_per_credit
+		sta |no_credits_coin
 
 	;; clear sound registers, color ram, screen, task list 
 

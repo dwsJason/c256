@@ -618,16 +618,25 @@ backup_num_lives dw 0
 ; coins, credits
 ;
 ;	4e66	last 4 SERVICE1 to detect transitions
+last_server1 dw 0
 ;	4e67	last 4 COIN2 to detect transitions
+last_coin2 dw $ffff
 ;	4e68	last 4 COIN1 to detect transitions
+last_coin1 dw $ffff
+
 ;
 ;	4e69	coin counter (coin->credts, this gets decremented)
+coin_counter dw 0
 ;	4e6a	coin counter timeout, used to write coin counters
+coin_counter_timeout dw 0
 ;
 ;		these are copied from the dipswitches
 ;	4e6b	number of coins per credit
+no_coins_per_credit dw 1
 ;	4e6c	number of coins inserted
+no_coins_inserted dw 0
 ;	4e6d	number of credits per coin
+no_credits_coin dw 1
 ;	4e6e	number of credits, 0xff for free play
 no_credits dw 0
 ;	4e6f	number of lives
@@ -808,4 +817,8 @@ IN1 dw $FFFF
 ;	5080	DSW 1	; controls free play/coins per credit, # of lives per game, 
 ;			; points needed for bonus, rack test, game freeze
 DSW1 dw 0
+
+; used for latching, move outside the RAM_END
+last_IN0 dw $ffff
+last_IN1 dw $ffff
 
