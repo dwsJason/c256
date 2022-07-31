@@ -2040,18 +2040,22 @@ oneortwo mx %00
 		rts
 	; arrive from #05E8 when start button has been pressed
 :press_start mx %00
+
 ;0674  ef        rst     #28		; set task #00, parameter #01 - clears the maze
 ;0675  00 01
 			lda #$0100
 			jsr rst28
+
 ;0677  ef        rst     #28		; set task #01, parameter #01 - colors the maze
 ;0678  01 01
 			lda #$0101
 			jsr rst28
+
 ;067a  ef        rst     #28		; set task #02, parameter #00 - draws the maze
 ;067b  02 00
-			lda #$0200
+			lda #$0002
 			jsr rst28
+
 ;067d  ef        rst     #28		; set task #12, parameter #00 - sets up coded pill and power pill memories
 ;067e  12 00
 			lda #$0012
@@ -2110,6 +2114,7 @@ ttask1 mx %00
 
 	;; draw lives displayed onto the screen
 :drawlives
+    ; $$JGA TODO
 ;06a8  21154e    ld      hl,#4e15	; load HL with lives displayed on screen loc
 ;06ab  35        dec     (hl)		; decrement
 ;06ac  cd6a2b    call    #2b6a		; draw remaining lives at bottom of screen 
@@ -3944,7 +3949,6 @@ vmemset0 mx %00
 ; 2419
 DrawMaze mx %00
 
-
 :pVRAM = temp0
 :pMap  = temp1
 :temp  = temp2
@@ -4235,8 +4239,8 @@ WallAddress mx %00
 
 MazeTable
 		da Maze1    ; 88c1
-		da Maze2	; 8bae
-		da Maze3	; 8ea8
+		da Maze2    ; 8bae
+		da Maze3    ; 8ea8
 		da Maze4    ; 9179
 
 

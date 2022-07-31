@@ -1231,14 +1231,6 @@ clear_intermission mx %00
 ; #2BA1	; A=1D	; write # of credits on screen
 task_drawCredits mx %00
 
-;		nop
-;		nop
-;		nop
-;]wait   bra ]wait
-;		nop
-;		nop
-;		nop
-
 ;2ba1  3a6e4e    ld      a,(#4e6e)	; load A with number of credits in ram
 ;2ba4  feff      cp      #ff		; set for free play?
 ;2ba6  2005      jr      nz,#2bad        ; no? then skip ahead
