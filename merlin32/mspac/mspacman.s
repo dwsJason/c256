@@ -62,10 +62,10 @@ pixel_buffer = $100000	; need about 120k, put it in memory at 1.25MB mark
 ;
 ; Key Codes
 ;
-KEY_UP		equ $68
-KEY_DOWN	equ $6A
-KEY_LEFT	equ $69
-KEY_RIGHT	equ $6B
+KEY_UP		equ $17 ;$48 ;$68
+KEY_DOWN	equ $25 ;$50 ;$6A
+KEY_LEFT	equ $24 ;$4B ;$69
+KEY_RIGHT	equ $26 ;$4D ;$6B
 
 KEY_F1		equ $3B
 KEY_F2		equ $3C
@@ -1050,8 +1050,9 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 ; C256 so that we can see what's happening
 ;
 
-;			jsr BlitColor		; Based on Color RAM, fix up Vicky CLUTs
-			jsr BlitMap			; Copy the map data from tile_ram, to the Vicky RAM
+			jsr BlitColorMap	; Based on Color RAM, fix up Vicky CLUTs
+			jsr BlitMap		; Copy the map data from tile_ram, to the Vicky RAM
+
 
 ;-----------------------------------------------------------------------------
 ; Get something going with the input
@@ -4950,6 +4951,102 @@ DecompressColors mx %00
 		bcc ]lp
 
 		rts
+
+;------------------------------------------------------------------------------
+; BlitColorMap
+;
+; The idea here, is to manage colors in the map based on the contents of the
+; palette_ram buffer
+;
+; The initial pass at this, all I care about is "make it work"
+;
+; Later both this, and the BlitMap will need to be changed to use a dirty
+; system, or allow writes to be mirrors from tile_ram, and palette_ram
+; in real-time, as they happen, so things like the power pills blinking
+; will actually work right, and also to keep the game going 60hz
+;
+BlitColorMap mx %00
+
+	; make sure all 8 palettes are available
+	jsr BGPaletteAllocatorReset
+
+	; reset fast hash table as uninitialized
+	jsr PaletteHashReset
+
+
+	rts
+
+;------------------------------------------------------------------------------
+
+PaletteHashReset mx %00
+
+	lda #$FFFF
+	sta |palette_hash
+	ldx #palette_hash+1
+	ldy #palette_hash+2
+	lda #64-3
+	mvn ^palette_hash,^palette_hash
+
+	rts
+
+;------------------------------------------------------------------------------
+;
+; Stack based palette allocator functions
+;
+NUM_ALLOCATABLE_BG_PALETTES equ 8
+
+BGPaletteAllocatorReset mx %00
+
+	lda #NUM_ALLOCATABLE_BG_PALETTES-1
+	sta |BGPalIndex
+	asl
+	tax
+]lp
+	sta |BGPalStack,x
+	dex
+	dex
+	bpl ]lp
+
+	rts
+
+BGPalIndex dw NUM_ALLOCATABLE_BG_PALETTES-1
+BGPalStack ds NUM_ALLOCATABLE_BG_PALETTES*2
+
+;------------------------------------------------------------------------------
+;
+; Return with a palette # in A
+;
+BGPaletteAlloc mx %00
+	lda |BGPalIndex
+	bmi :error
+
+	asl
+	tax
+	lsr
+	dec
+	sta |BGPalIndex
+
+	lda |BGPalStack,x
+:error
+	rts
+
+;------------------------------------------------------------------------------
+;
+; A = palette you want to free up
+;
+BGPaletteFree mx %00
+	tay
+	lda |BGPalIndex
+	inc
+	cmp #NUM_ALLOCATABLE_BG_PALETTES
+	bcs :error
+	asl
+	tax
+	tya
+	sta |BGPalStack,y
+:error
+	rts
+
 
 ;------------------------------------------------------------------------------
 ; BlitColor

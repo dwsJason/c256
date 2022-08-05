@@ -19,6 +19,12 @@ palette_ram ds 1024
 ; pacman colors converted into vicky colors
 color_table ds 1024
 
+;
+; Fast hash table, take a pacman clut number from $00-$3f
+; and convert it into a native Foenix BG clut number
+;
+palette_hash ds 64
+
 
 RAM_START ds 0
 
