@@ -4966,15 +4966,191 @@ DecompressColors mx %00
 ; will actually work right, and also to keep the game going 60hz
 ;
 BlitColorMap mx %00
-
 	; make sure all 8 palettes are available
 	jsr BGPaletteAllocatorReset
 
 	; reset fast hash table as uninitialized
 	jsr PaletteHashReset
 
+	; We want to loop through the palette_ram
+	; we check to see if the palette in palette ram is in the palette_hash
+	; if it is, we just take the result, and store it in the vicky
+	; BGRAM
+	; if it doesn't exist, we need to allocate a vicky palette
+	;   (once palette is allocated, we then load the vicky color memory
+	;    with the pacman colors)
+	; we need to update the palette_hash
+	; and then we finally store the result into the vicky VGRAM
+
+	; eventually we need a "fast" way to translate from a tile_ram/
+	; palette_ram address into a vicky address
+	; so this can approach some semblance of "real-time" speed
+
+	; let's rip off the code in the BlitMap, that iterates through
+	; addresses, then we can get cracking
+	
+
+; This does the main map area
+
+:row_offset = temp0
+:cursor	    = temp1
+:count      = temp2
+
+		lda #$3A0+palette_ram
+		sta <:row_offset
+
+		ldx #64*6+{{25-14}*2}+2
+]row_loop
+
+		sta <:cursor
+
+		lda #28
+		sta <:count
+
+]col_loop
+		lda (:cursor)		
+		and #$3F
+		sep #$20
+
+		tay
+		lda |palette_hash,y
+		bpl :good_value
+
+		lda |:ColorReduce,y
+		tay
+		lda |palette_hash,y
+		bpl :good_value
+
+		rep #$30
+		phx
+
+		jsr BGPaletteAlloc
+		bpl :ok
+		; error, out of palettes :-/
+		plx
+		bra :error
+:ok
+		sep #$20
+		pha
+		asl
+		asl
+		asl  			; shift it over for vicky
+		sta |palette_hash,y
+		pla
+		rep #$30
+
+		jsr :LoadPalette
+
+		plx
+		bra ]col_loop
+
+:good_value
+		sta >VRAM+VICKY_MAP0+1,x   ; it seems like DMA could work here?
+:error
+		rep #$30
+		inx
+		inx
+
+		; increment cursor
+		sec
+		lda <:cursor
+		sbc #$20
+		sta <:cursor
+
+		dec <:count
+		bne ]col_loop
+
+		; adjust destination in tile map
+		txa
+		; c=0
+		clc
+		adc #{64*2}-{28*2}
+		tax
+
+		lda <:row_offset
+		inc
+		sta <:row_offset
+		cmp #$3C0+palette_ram
+		bcc ]row_loop
+
+; Still need to do the horizontal lines at the top, and bottom
+
 
 	rts
+
+; A = target palette# on Vicky
+; Y = source palette# on ms pacman
+:LoadPalette mx %00
+
+	xba   ; x256
+	asl   ; x512
+	asl   ; x1024
+	tax
+
+	tya
+	asl
+	asl
+	asl
+	asl
+	tay
+
+	lda |color_table+4,y
+	sta >GRPH_LUT0_PTR+4,x
+	lda |color_table+6,y
+	sta >GRPH_LUT0_PTR+6,x
+	lda |color_table+8,y
+	sta >GRPH_LUT0_PTR+8,x
+	lda |color_table+10,y
+	sta >GRPH_LUT0_PTR+10,x
+	lda |color_table+12,y
+	sta >GRPH_LUT0_PTR+12,x
+	lda |color_table+14,y
+	sta >GRPH_LUT0_PTR+14,x
+
+	rts
+
+;
+; For each of the 64 palettes, this will have an index
+; to the lowest duplicate palette
+; 
+; This is to work around the map data using more than 8 palettes
+; many of the "different" palettes are not unique, so hoping to fix
+; this here
+; 
+:ColorReduce
+	db 0  ; 0->0
+	db 1  ; 1->1
+	db 0  ; 2->0
+	db 3  ; 3->3
+	db 0  ; 4->0
+	db 5  ; 5->5
+	db 0  ; 6->0
+	db 7  ; 7->7
+	db 0  ; 8->0
+	db 9  ; 9->9
+	db 0  ;10->0 
+	db 0  ;11->0 
+	db 0  ;12->0 
+	db 0  ;13->0 
+	db 14 ;14->14
+	db 15 ;15->15
+	db 16 ;16->16
+	db 17 ;17->17
+	db 18 ;18->18
+	db 0  ;19->0
+	db 20 ;20->20
+	db 21 ;21->21
+	db 22 ;22->22
+	db 23 ;23->23
+	db 24 ;24->24
+	db 25 ;25->25
+	db 16 ;26->16
+	db 16 ;27->16
+	db 0  ;28->0
+	db 29 ;29->29
+	db 30 ;30->30
+	db 31 ;31->31
+	ds 32 ; these all map to 0
 
 ;------------------------------------------------------------------------------
 
@@ -5001,8 +5177,10 @@ BGPaletteAllocatorReset mx %00
 	sta |BGPalIndex
 	asl
 	tax
+	lsr
 ]lp
 	sta |BGPalStack,x
+	dec
 	dex
 	dex
 	bpl ]lp
@@ -5168,12 +5346,10 @@ BlitMap mx %00
 :cursor	    = temp1
 :count      = temp2
 
-		lda #$3A0
+		lda #$3A0+tile_ram
 		sta <:row_offset
 
-		ldy #tile_ram
 		ldx #64*6+{{25-14}*2}+2
-
 ]row_loop
 
 		sta <:cursor
@@ -5182,16 +5358,16 @@ BlitMap mx %00
 		sta <:count
 
 ]col_loop
-
-		lda (:cursor),y 	 ; this is doing a load/store
-		and #$FF
+		sep #$21
+		lda (:cursor) 	 ; this is doing a load/store
 
 		sta >VRAM+VICKY_MAP0,x   ; it seems like DMA could work here?
+		rep #$30
 		inx
 		inx
 
 		; increment cursor
-		sec
+		; c=1
 		lda <:cursor
 		sbc #$20
 		sta <:cursor
@@ -5209,7 +5385,7 @@ BlitMap mx %00
 		lda <:row_offset
 		inc
 		sta <:row_offset
-		cmp #$3C0
+		cmp #$3C0+tile_ram
 		bcc ]row_loop
 
 ;------------------------------------------------------------------------------
