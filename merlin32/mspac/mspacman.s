@@ -4096,40 +4096,40 @@ DrawPills mx %00
 ; 246f
 DrawPowerPills mx %00
 
-		lda #PowerPelletTable		; Lookup Table Address
+		lda #PowerPelletTable	; Lookup Table Address
 		sta <temp0
 
 		jsr ChooseMaze
-		tay							; address of pelette table for this map
+		tay			; address of pelette table for this map
 
 ; Draw 4 Power Pills
 
 		lda |0,y
-		tax							; x = vram address
+		tax			; x = vram address
 		sep #$20
-		lda |powerpills				; first power pill
-		sta |0,x					; store to VRAM
+		lda |powerpills		; first power pill
+		sta |0,x		; store to VRAM
 		rep #$20
 
 		lda |2,y
-		tax							; x = vram address
+		tax			; x = vram address
 		sep #$20
-		lda |powerpills+1			; 2nd power pill
-		sta |0,x					; store to VRAM
+		lda |powerpills+1	; 2nd power pill
+		sta |0,x		; store to VRAM
 		rep #$20
 
 		lda |4,y
-		tax							; x = vram address
+		tax			; x = vram address
 		sep #$20
-		lda |powerpills+2			; 3rd power pill
-		sta |0,x					; store to VRAM
+		lda |powerpills+2	; 3rd power pill
+		sta |0,x		; store to VRAM
 		rep #$20
 
 		lda |6,y
-		tax							; x = vram address
+		tax			; x = vram address
 		sep #$20
-		lda |powerpills+3			; 4th power pill
-		sta |0,x					; store to VRAM
+		lda |powerpills+3	; 4th power pill
+		sta |0,x		; store to VRAM
 		rep #$20
 
 		rts

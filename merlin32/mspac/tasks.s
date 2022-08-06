@@ -949,6 +949,47 @@ task_updatePills mx %00
 ;9519  20f4      jr      nz,#950f        ; if not zero, loop again
 ;951b  c9        ret     		; return (to #0915)
 
+; Encode the power pills 
+		lda #PowerPelletTable	; Lookup Table Address
+		sta <temp0
+
+		jsr ChooseMaze
+		tay			; address of pelette table for this map
+
+; Draw 4 Power Pills
+
+		lda |0,y
+		tax					; x = vram address
+		sep #$20        	
+		lda |0,x			; load from VRAM
+		sta |powerpills		; first power pill
+		rep #$20
+
+		lda |2,y
+		tax					; x = vram address
+		sep #$20
+		lda |0,x			; from VRAM
+		sta |powerpills+1	; 2nd power pill
+		rep #$20
+
+		lda |4,y
+		tax					; x = vram address
+		sep #$20
+		lda |0,x			; from VRAM
+		sta |powerpills+2	; 3rd power pill
+		rep #$20
+
+		lda |6,y
+		tax					; x = vram address
+		sep #$20
+		lda |0,x			; from VRAM
+		sta |powerpills+3	; 4th power pill
+		rep #$20
+
+		rts
+
+
+
 		rts
 ;------------------------------------------------------------------------------
 ; #23E8 ; A=16	; increase main subroutine number (#4E04)
