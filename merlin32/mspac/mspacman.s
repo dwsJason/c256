@@ -4151,8 +4151,7 @@ ColorMaze mx %00
 		jsr GetLevelColor
 		; now A has the fill color
 
-;24e1
-		ldx #palette_ram+$40  ; location in palette ram
+		ldx #1022-128  ; length
 
 		; mirror color in low and high, for 16 bit stores
 		pha
@@ -4161,25 +4160,23 @@ ColorMaze mx %00
 		sta 1,s
 		pla
 
-		ldy #$100	; storing out 200 times, but 16 bit per store
 ]lp
-		sta |0,x
-		inx
-		inx
-		dey
-		bne ]lp
+		sta |palette_ram+$40,x
+		dex
+		dex
+		bpl ]lp
 ; 24eb
 
 		; color top bar white
-		ldx #palette_ram+$3C0
+		; color bottom bar white
+		ldx #64-2
 		lda #$0F0F		; white
-		ldy #20
 ]lp
-		sta |0,x
-		inx
-		inx
-		dey
-		bne ]lp
+		sta |palette_ram,x        ; bottom
+		sta |palette_ram+$3C0,x   ; top
+		dex
+		dex
+		bpl ]lp
 
 ;$$TODO, finish task business and mark SLOW Areas
 
@@ -12060,7 +12057,8 @@ pCOLOR  = temp4
 ;2c69  dd19      add     ix,de		; add offset to calculate start pos in CRAM
 ;2c6b  dde5      push    ix		; save to stack for use later (#2C93)
 
-			and #$7FFF			; We don't want any RAM mirroring
+			;and #$7FFF			; We don't want any RAM mirroring
+			and #$3FF
 			clc
 			adc #palette_ram
 			sta <pCOLOR
@@ -12125,7 +12123,7 @@ textRenderLoop0
 ;2c85  fe2f      cp      #2f		; == #2F ? (end of text code)
 			cmp #$2F
 ;2c87  2809      jr      z,#2c92         ; yes, done with VRAM, skip ahead to color
-			beq SingleOrMultiColorCHeck
+			beq SingleOrMultiColorCheck
 
 ;2c89  dd7700    ld      (ix+#00),a	; write character to screen
 			sta (pVRAM)
@@ -12142,7 +12140,7 @@ textRenderLoop0
 ;2c90  18f2      jr      #2c84           ; loop
 			bra ]loop
 
-SingleOrMultiColorCHeck mx %10
+SingleOrMultiColorCheck mx %10
 	; ix = startColorRamPos
 ;2c92  23        inc     hl		; next table entry
 ;2c93  dde1      pop     ix		; get CRAM start pos
@@ -12190,8 +12188,10 @@ TextSingleColorRender mx %10
 	; move ix to the next screen position( -=1 or -=0x20)
 	; b--; if b>0 then goto TextSingleColorRender
 	; return
+			tax
 ]loop
 ;2ca4  dd7700    ld      (ix+#00),a	; drop in CRAM
+			txa
 			sta (pCOLOR)
 ;2ca7  dd19      add     ix,de		; calc next CRAM pos
 			rep #$21
@@ -12219,7 +12219,7 @@ BlankTextDraw mx %00
 			sep #$20
 			lda |2,x
 ;2cad  fe2f      cp      #2f		; are we done ?
-		    cmp #$2F
+			cmp #$2F
 ;2caf  280a      jr      z,#2cbb         ; yes, done with vram
 			beq FinishUpBlankTextDraw
 
@@ -12246,7 +12246,7 @@ FinishUpBlankTextDraw mx %10
 ;2cbc  04        inc     b		; inc char count
 ;2cbd  edb1      cpir    		; loop until [hl] = 2f
 ;2cbf  18d2      jr      #2c93           ; do CRAM
-			bra SingleOrMultiColorCHeck
+			bra SingleOrMultiColorCheck
 
 	;; HACK12 - fixes the C000 top/bottom draw mirror issue
 	; 2c62  c300d0	jp	hack12

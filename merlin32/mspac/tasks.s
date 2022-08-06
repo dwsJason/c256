@@ -303,7 +303,7 @@ task_clearColor mx %00
 ;2415  0d        dec     c		; loop done ?
 ;2416  20fc      jr      nz,#2414        ; no, loop again
 ;2418  c9        ret    			; return
-		ldx #1024-3
+		ldx #1024-2
 ]lp
 		stz |palette_ram,x
 		dex
