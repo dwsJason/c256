@@ -1395,10 +1395,10 @@ check_timed_tasks mx %00
 ttask6 mx %00
 ;0263  EF        rst     #28		; insert task #1C, parameter 86 to clear the "READY!" message
 ;0264  1C 86				; task data
-			lda #$861C
-			jsr rst28
+	lda #$861C
+	jsr rst28
 ;0266  C9        ret     		; return
-			rts
+	rts
 
 
 ;------------------------------------------------------------------------------
