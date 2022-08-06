@@ -1280,114 +1280,114 @@ update_timers mx %00
 ;0221
 check_timed_tasks mx %00
 
+	    jsr DebugTimedTasks
+
 :pTask = temp0
 :counter_mask = temp1
 :loop_count = temp2
 ;0221: 21 90 4C	ld	hl,#4C90	; load HL with task list address
-			lda #irq_tasks
-			sta <:pTask
-
-			sep #$20
+	    lda #irq_tasks
+	    sta <:pTask
 
 ;0224: 3A 8A 4C	ld	a,(#4C8A)	; load A with number of counter limits changes in this frame
-			lda |counter_limits
-			sta <:counter_mask
+	    lda |counter_limits
+	    sta <:counter_mask
 ;0227: 4F	ld	c,a		; save to C for testing in line #0232
 ;0228: 06 10	ld	b,#10		; for B = 1 to #10
-			lda #16
-			sta <:loop_count
-			stz <:loop_count+1
+	    lda #16
+	    sta <:loop_count
 :task_loop
+	    sep #$20
 ;022A: 7E	ld	a,(hl)		; load A with task list first value (timer)
-			lda (:pTask)
+	    lda (:pTask)
 ;022B: A7	and	a		; == #00 ?  (is this task empty?)
 ;022C: 28 2F	jr	z,#025D		; Yes, jump ahead and loop for next task
-			beq :next_task
+	    beq :next_task
 
 ;022E: E6 C0	and	#C0		; else mask bits with binary 1100 0000 - the left 2 bits (6 and 7) are the time units
-			and #$C0
-			clc
+	    and #$C0
+	    clc
 ;0230: 07	rlca
-			rol		
+	    rol		
 ;0231: 07	rlca			; rotate twice left.  The time unit bits are now rightmost, in bits 0 and 1.  EG #02 for seconds
-			rol
-			rol
+	    rol
+	    rol
 ;0232: B9	cp	c		; compare to counter.  is it time to count down the timer?
-			cmp <:counter_mask
+	    cmp <:counter_mask
 ;0233: 30 28	jr	nc,#025D	; if no, jump ahead and loop for next task
-		    ;beq :dec_time
-			bcs :next_task
+	    ;beq :dec_time
+	    bcs :next_task
 :dec_time
 ;0235: 35	dec	(hl)		; else decrease the task timer
-			lda (:pTask)
-			dec
-			sta (:pTask)
+	    lda (:pTask)
+	    dec
+	    sta (:pTask)
 ;0236: 7E	ld	a,(hl)		; load A with new task timer
-			;lda (:pTask)
+	    ;lda (:pTask)
 ;0237: E6 3F	and	#3F		; mask bits with binary 0011 1111. This will erase the units in the left 2 bits. is the timer counted all the way down?
-			and #$3F
+	    and #$3F
 ;0239: 20 22	jr	nz,#025D	; no, jump ahead and loop for next task
-			bne :next_task
+	    bne :next_task
 
 ;023B: 77	ld	(hl),a		; yes, store A into task timer.  this should be zero and effectively clears the task
 ;   		sep #$20
-			sta (:pTask)
-			rep #$20
+	    sta (:pTask)
+	    rep #$20
 
 ;023C: C5	push	bc		; save BC
-			pei <:counter_mask
-			pei <:loop_count
+	    pei <:counter_mask
+	    pei <:loop_count
 ;023D: E5	push	hl		; save HL
-			pei <:pTask
+	    pei <:pTask
 ;023E: 2C	inc	l		; HL now has the coded task number address
-			inc <:pTask
+	    inc <:pTask
 ;023F: 7E	ld	a,(hl)		; load A with task number, used for jump table below
-			lda (<:pTask)
-			and #$FF
-			asl
-			tax
+	    lda (<:pTask)
+	    and #$FF
+	    asl
+	    tax
 ;0240: 2C	inc	l		; HL now has the coded task parameter address
-			inc <:pTask
+	    inc <:pTask
 ;0241: 46	ld	b,(hl)		; load B with task parameter
-			lda (<:pTask)
+	    lda (<:pTask)
 ;0242: 21 5B 02	ld	hl,#025B	; load HL with return address
-			pea :return_addy-1
+	    pea :return_addy-1
 ;0245: E5	push	hl		; push to stack so a RET call will return to #025B
 ;0246: E7	rst	#20		; jump based on A
-			jmp (:table,x)
+	    jmp (:table,x)
 :table
-			da ttask0 ; A==0, #0894 ; increases main subroutine number (#4E04) and returns 
-			da ttask1 ; A==1, #06A3	; increments main routine 2, subroutine # (#4E03)
-			da ttask2 ; A==2, #058E ; increases the main routine # (#4E02)
-			da ttask3 ; A==3, #1272 ; increases killed ghost animation state when a ghost is eaten
-			da clear_fruit ; A==4, #1000 ; clears the fruit sprite
-			da ttask5 ; A==5, #100B ; clears the fruit score sprite
-			da ttask6 ; A==6, #0263 ; clears the "READY!" message
-			da ttask7 ; A==7, #212B ; to increase state in 1st cutscene (#4E06) (pac-man only)
-			da ttask8 ; A==8, #21F0 ; to increase state in 2nd cutscene (#4E07) (pac-man only)
-			da ttask9 ; A==9, #22B9 ; to increase state in 3rd cutscene (#4E08) (pac-man only)
+	    da ttask0 ; A==0, #0894 ; increases main subroutine number (#4E04) and returns 
+	    da ttask1 ; A==1, #06A3	; increments main routine 2, subroutine # (#4E03)
+	    da ttask2 ; A==2, #058E ; increases the main routine # (#4E02)
+	    da ttask3 ; A==3, #1272 ; increases killed ghost animation state when a ghost is eaten
+	    da clear_fruit ; A==4, #1000 ; clears the fruit sprite
+	    da ttask5 ; A==5, #100B ; clears the fruit score sprite
+	    da ttask6 ; A==6, #0263 ; clears the "READY!" message
+	    da ttask7 ; A==7, #212B ; to increase state in 1st cutscene (#4E06) (pac-man only)
+	    da ttask8 ; A==8, #21F0 ; to increase state in 2nd cutscene (#4E07) (pac-man only)
+	    da ttask9 ; A==9, #22B9 ; to increase state in 3rd cutscene (#4E08) (pac-man only)
 :return_addy
 ;025B: E1            pop  hl		; restore HL
-			pla
-			sta <:pTask
+	    pla
+	    sta <:pTask
 ;025C: C1            pop  bc		; restore BC
-			pla
-			sta <:loop_count
-			pla
-			sta <:counter_mask
+	    pla
+	    sta <:loop_count
+	    pla
+	    sta <:counter_mask
 :next_task
 ;025D: 2C            inc  l
 ;025E: 2C            inc  l
 ;025F: 2C            inc  l		; next task
-			rep #$30
-			inc <:pTask
-			inc <:pTask
-			inc <:pTask
+	    rep #$30
+	    inc <:pTask
+	    inc <:pTask
+	    inc <:pTask
 ;0260: 10 C8         djnz #022A		; next B
-			dec <:loop_count
-			bne :task_loop
+	    dec <:loop_count
+	    bne :task_loop
 ;0262: C9            ret			; return    
-			rts
+	    rts
 
 ;------------------------------------------------------------------------------
 ; timed task #06 - clears ready message
@@ -5611,6 +5611,47 @@ HISTORY_SIZE = 32
 
 :history	ds HISTORY_SIZE*2
 
+;------------------------------------------------------------------------------
+;
+DebugTimedTasks mx %00
+:pTask = temp0
+:loop_count = temp1
+
+:vram_address = temp2
+
+	lda #VICKY_MAP0+{64*6}+{44*2}
+	sta <:vram_address
+
+	lda #16
+	sta <:loop_count
+
+	lda #irq_tasks
+	sta <:pTask
+
+]loop
+	ldx <:vram_address
+	lda (:pTask)
+	inc <:pTask
+	inc <:pTask
+	xba
+	jsr PrintHex
+	clc
+	txa
+	adc #{4*2}
+	tax
+	lda (:pTask)
+	inc <:pTask
+	jsr PrintHexSmall
+
+	clc
+	lda <:vram_address
+	adc #64*2
+	sta <:vram_address
+
+	dec <:loop_count
+	bne ]loop
+
+	rts
 
 ;------------------------------------------------------------------------------
 ;
@@ -5760,8 +5801,9 @@ game_setup mx %00
 ;08bb  f7        rst     #30		; set timed task to clear the "READY!" message
 ;08bc  54 06 00				; task timer=#54, task=6, param=0
 			lda #$0654
-			lda #$00
+			ldy #$00
 			jsr rst30
+
 
 ;08bf  3a724e    ld      a,(#4e72)	; load A with cocktail or upright
 ;08c2  47        ld      b,a		; copy to B
