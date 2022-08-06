@@ -4037,6 +4037,7 @@ DrawMaze mx %00
 ; 2448
 DrawPills mx %00
 
+:bitmask = temp 0
 :pVRAM = temp1
 :counter = temp2
 :bitcount = temp3
@@ -4044,45 +4045,47 @@ DrawPills mx %00
 		lda #tile_ram
 		sta <:pVRAM
 
-		lda #30 	 	; the output size of the pilldata, also loop counter
+		lda #30			; the output size of the pilldata, also loop counter
 		sta <:counter
 
-		lda #PelletTable ; lookup table address
+		lda #PelletTable	; lookup table address
 		sta <temp0
 
 		jsr ChooseMaze
-		tay 				; pointer to source pellet table
+		tay 			; pointer to source pellet table
 
 		ldx #pilldata		; pointer to output pill table data
 ]lp
-		lda #8				; 8 bits in the byte
+		lda |0,x		; load A with pill entry
+		sta <:bitmask
+
+		lda #8			; 8 bits in the byte
 		sta <:bitcount
 ]plp
-		lda |0,y 			; load the pellet table, adjust offset into vram
+		lda |0,y 		; load the pellet table, adjust offset into vram
 		and #$FF
 		clc
 		adc <:pVRAM
 		sta <:pVRAM
 
-		sep #$20			; a short
+		sep #$20		; a short
 
-		lda |0,x			; load A with pill entry
-		asl
+		lda <:bitmask   	; load A with pill entry 
+		cmp #$80
+		rol
+		sta <:bitmask
+
 		bcc :no_pill
 
-		pha
-
-		lda #16 	 		; tile # for a pelette
+		lda #16 	 	; tile # for a pelette
 		sta (:pVRAM)		; draw pill
-
-		pla
 :no_pill
-	    iny					; next table data
+		iny    			; next table data
 		dec <:bitcount
-		rep #$30			; a long again
+		rep #$30		; a long again
 		bne ]plp
 
-		inx					; next pill entry
+		inx			; next pill entry
 		dec <:counter
 		bne ]lp
 

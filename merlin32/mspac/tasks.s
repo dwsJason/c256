@@ -864,8 +864,91 @@ task_clearSprites mx %00
 task_copyDips mx %00
 		rts
 ;------------------------------------------------------------------------------
+; update the current screen pill config to video ram
+; called from #0912
+; called from #23A7 as task #15
 ; #2487 ; A=15	; update the current screen pill config to video ram
 task_updatePills mx %00
+
+; This is just like DrawPills, only it encodes the bit field, instead
+; of decodes it, required so that between lives the dots on the field
+; are preserved
+
+
+:bitmask = temp 0
+:pVRAM = temp1
+:counter = temp2
+:bitcount = temp3
+
+		lda #tile_ram
+		sta <:pVRAM
+
+		lda #30			; the output size of the pilldata, also loop counter
+		sta <:counter
+
+		lda #PelletTable	; lookup table address
+		sta <temp0
+
+		jsr ChooseMaze
+		tay 			; pointer to source pellet table
+
+		ldx #pilldata		; pointer to output pill table data
+]lp
+		lda #8			; 8 bits in the byte
+		sta <:bitcount
+]plp
+		lda |0,y 		; load the pellet table, adjust offset into vram
+		and #$FF
+		clc
+		adc <:pVRAM
+		sta <:pVRAM
+
+		sep #$20		; a short
+
+		lda (:pVRAM)
+		cmp #16
+		clc
+		bne :clc
+		sec
+:clc
+		rol <:bitmask
+:no_pill
+		iny    			; next table data
+		dec <:bitcount
+		rep #$30		; a long again
+		bne ]plp
+
+		lda <:bitmask ; record the mask into the table
+		sta |0,x
+
+		inx			; next pill entry
+		dec <:counter
+		bne ]lp
+
+
+	; ms pac man patch for pellet routine
+	; jumped from #24b4
+	; arrive here after ms. pac has died
+	; this sub is identical to subroutine above, except it saves the power pellets instead of drawing them
+
+;9504  211c95    ld      hl,#951c	; load HL with power pellet lookup table
+;9507  cdbd94    call    #94bd		; load BC with value based on level from the table
+;950a  11344e    ld      de,#4e34	; load DE with pellet graphic table data
+;950d  69        ld      l,c		; 
+;950e  60        ld      h,b		; HL now has BC = table start
+
+;950f  4e        ld      c,(hl)
+;9510  23        inc     hl
+;9511  46        ld      b,(hl)		; BC now has screen loaciton of power pellet
+;9512  23        inc     hl
+;9513  0a        ld      a,(bc)		; load A with power pellet from screen
+;9514  12        ld      (de),a		; save into DE
+;9515  13        inc     de		; next location
+;9516  3e03      ld      a,#03		; A := #03
+;9518  a3        and     e		; mask with E
+;9519  20f4      jr      nz,#950f        ; if not zero, loop again
+;951b  c9        ret     		; return (to #0915)
+
 		rts
 ;------------------------------------------------------------------------------
 ; #23E8 ; A=16	; increase main subroutine number (#4E04)
