@@ -1280,7 +1280,7 @@ update_timers mx %00
 ;0221
 check_timed_tasks mx %00
 
-	    jsr DebugTimedTasks
+;	    jsr DebugTimedTasks
 
 :pTask = temp0
 :counter_mask = temp1
@@ -7709,8 +7709,7 @@ pink_ghost_death_update mx %00
 ;111e  116480    ld      de,#8064	; load DE with Y,X position above ghost house 
 ;1121  a7        and     a		; clear carry flag
 ;1122  ed52      sbc     hl,de		; subtract. is the pink ghost eyes right above the ghost home?
-	    sec
-	    sbc #$8064
+	    cmp #$8064
 ;1124  c0        ret     nz		; no, return
 	    bne :rts
 
@@ -7867,7 +7866,7 @@ blue_ghost_death_update mx %00
 ;11bd  32a24d    ld      (#4da2),a	; set inky substate as at home
 	    stz |blue_substate
 ;11c0  32ae4d    ld      (#4dae),a	; set inky state as alive
-	    sta |blueghost_state
+	    stz |blueghost_state
 ;11c3  32a94d    ld      (#4da9),a	; set inky blue flag as not edible
 	    stz |blueghost_blue
 ;11c6  c30111    jp      #1101		; jump to check for clearing eyes sound
