@@ -8134,6 +8134,7 @@ task_clearSprites
 ; or arrive from #23A7 for a task
 ; B is loaded with code of scoring item
 update_score
+task_updateScore
 
 2a5a  3a004e    ld      a,(#4e00)	; load A with game mode
 2a5d  fe01      cp      #01		; is this the intro mode ?
@@ -8282,7 +8283,7 @@ task_resetScores
 
 	;; score table
 	;; (Spaeth)
-
+ScoreTable
 2b17  10 00              		; dot        	=   10	0
 2b19  50 00              		; power pellet	=   50	1
 2b1b  00 02              		; ghost 1    	=  200	2

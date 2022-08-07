@@ -1117,7 +1117,7 @@ DrawScore mx %00
 ;2ad2  0e00      ld      c,#00		; C := #00
 ;2ad4  1807      jr      #2add           ; skip ahead
 		stz <:C
-
+		bra :skip
 :is_zero
 ;2ad6  79        ld      a,c		; load A with C
 ;2ad7  a7        and     a		; == #00 ?
@@ -1183,8 +1183,11 @@ task_resetScores mx %00
 ;2b09  18b3      jr      #2abe           ; draw player 2 score and return
 		bra DrawScore
 
+;------------------------------------------------------------------------------
 ; called from #2A65, #2A9B
-
+; Return address in X
+;2b0b
+P12ScoreAddress mx %00
 ;2b0b  3a094e    ld      a,(#4e09)	; load A with current player number:  0=P1, 1=P2
 ;2b0e  21804e    ld      hl,#4e80	; load HL with player 1 score start address
 ;2b11  a7        and     a		; is this player 1 ?
@@ -1192,11 +1195,168 @@ task_resetScores mx %00
 
 ;2b13  21844e    ld      hl,#4e84	; else load HL with player 2 start address
 ;2b16  c9        ret     		; return
+		ldx #p1_score
+		lda |player_no
+		bne :p2
 		rts
+:p2
+		ldx #p2_score
+		rts
+
 ;------------------------------------------------------------------------------
+; score table
+; (Spaeth)
+;2b17
+ScoreTable
+		dw $0010 ; dot        	=   10	0
+		dw $0050 ; power pellet	=   50	1
+		dw $0200 ; ghost 1    	=  200	2
+		dw $0400 ; ghost 2    	=  400	3
+		dw $0800 ; ghost 3    	=  800  4
+		dw $1600 ; ghost 4    	= 1600	5
+		dw $0100 ; Cherry     	=  100	6
+		dw $0200 ; Strawberry 	=  200	7	; 300 in pac-man
+		dw $0500 ; Orange     	=  500	8
+		dw $0700 ; Pretzel    	=  700	9
+		dw $1000 ; Apple      	= 1000	a
+		dw $2000 ; Pear       	= 2000	b
+		dw $5000 ; Banana     	= 5000	c	; 3000 in pac-man
+		dw $5000 ; Junior!    	= 5000	d
+
+
+;------------------------------------------------------------------------------
+; arrive here from #1780 when a ghost is eaten. 
+; B contains the # of ghosts eaten +1 (2-5)
+;
+; or arrive from #23A7 for a task
+; B is loaded with code of scoring item
 ; #2A5A ; A=19	; update score.  B has code for items scored, draw score on screen, check for high score and extra lives
-task_updateScore
+;2a5a
+update_score mx %00
+task_updateScore mx %00
+		ldx |mainstate
+		cpx #1			; is this the intro mode ?
+		bne :continue
+		; in intro, so skip
 		rts
+
+:continue
+
+; if we probably don't need this yet
+	; this updates the score when something is eaten
+	; (from the table at 2b17)
+	; A is loaded with the code for item eaten
+;2a60  21172b    ld      hl,#2b17	; load HL with start of scoring table data
+;2a63  df        rst     #18		; load HL with score based on item eaten stored in A
+		asl
+		tay
+;2a64  eb        ex      de,hl		; copy to DE
+
+;2a65  cd0b2b    call    #2b0b		; load HL with score address for current player
+		jsr P12ScoreAddress
+
+;2a68  7b        ld      a,e		; load A with low byte of score to add
+;2a69  86        add     a,(hl)		; add player's score low byte to A
+;2a6a  27        daa     		; decimal adjust
+;2a6b  77        ld      (hl),a		; store result into score
+;2a6c  23        inc     hl		; next memory, for second byte of score
+;2a6d  7a        ld      a,d		; load A with high byte of score to add
+;2a6e  8e        adc     a,(hl)		; add with carry players's score second byte to A
+;2a6f  27        daa     		; decimal adjust
+;2a70  77        ld      (hl),a		; store result into score second byte
+;2a71  5f        ld      e,a		; load E with this value as well
+;2a72  23        inc     hl		; next memory for third byte of score
+;2a73  3e00      ld      a,#00		; A := #00
+;2a75  8e        adc     a,(hl)		; add with carry third byte of score into A.  This will only add a carry bit if needed
+;2a76  27        daa     		; decimal adjust
+;2a77  77        ld      (hl),a		; store result into third byte of score
+
+		sed
+		clc
+
+		lda |0,x           ; Player Score
+		adc |ScoreTable,y
+		sta |0,x
+		sep #$20
+		lda |2,x
+		adc #0
+		sta |2,x
+		rep #$30
+		cld
+
+;2a78  57        ld      d,a		; load D with A.  DE now has third and second bytes of score
+;2a79  eb        ex      de,hl		; exchange DE with HL
+		lda |1,x
+
+;2a7a  29        add     hl,hl		; double HL
+;2a7b  29        add     hl,hl		; double HL
+;2a7c  29        add     hl,hl		; double HL
+;2a7d  29        add     hl,hl		; HL now has 16 times what it had before
+		asl
+		asl
+		asl
+		asl
+
+		pha
+
+		txy
+		iny
+		iny
+
+;2a7e  3a714e    ld      a,(#4e71)	; load A with bonus life code
+;2a81  3d        dec     a		; decrement
+;2a82  bc        cp      h		; compare with H.  Is the players score higher than that needed for extra life?
+;2a83  dc332b    call    c,#2b33		; if yes, call sub to continue check for extra life
+;2a86  cdaf2a    call    #2aaf		; draw player score onscreen
+		jsr :DrawScore
+;2a89  13        inc     de		; 
+;2a8a  13        inc     de
+;2a8b  13        inc     de		; DE now has msb byte of player's score
+
+	; check for high score change
+		pla
+
+;2a8c  218a4e    ld      hl,#4e8a	; load HL with msb high score ram area
+;2a8f  0603      ld      b,#03		; For B = 1 to 3 digits to check
+
+;2a91  1a        ld      a,(de)		; load a with score digit
+;2a92  be        cp      (hl)		; compare to high score digit
+;2a93  d8        ret     c		; return if high score not beat
+
+;2a94  2005      jr      nz,#2a9b        ; if they are equal, continue, else update the high score
+;2a96  1b        dec     de		; next digit
+;2a97  2b        dec     hl		; next digit
+;2a98  10f7      djnz    #2a91           ; next B
+;2a9a  c9        ret     		; return
+		rts
+
+	; arrive when player score beats the current high score
+
+;2a9b  cd0b2b    call    #2b0b		; load HL with score address for current player
+;2a9e  11884e    ld      de,#4e88	; load DE with lsb high score memory
+;2aa1  010300    ld      bc,#0003	; counter  = 3 bytes
+;2aa4  edb0      ldir    		; copy score to high score
+;2aa6  1b        dec     de		; DE now has high score
+;2aa7  010403    ld      bc,#0304	; set up counters
+;2aaa  21f243    ld      hl,#43f2	; load HL with start of screen memory for high score
+;2aad  180f      jr      #2abe           ; draw high score to screen and return
+
+; called from #2A86
+:DrawScore
+;2aaf  3a094e    ld      a,(#4e09)	; load A with current player number:  0=P1, 1=P2 
+		ldx #tile_ram+$3fc
+		lda |player_no
+;2ab2  010403    ld      bc,#0304	; load counters
+;2ab5  21fc43    ld      hl,#43fc	; screen pos for player 1 score
+;2ab8  a7        and     a		; is this player 1 ?
+;2ab9  2803      jr      z,#2abe         ; yes, skip ahead
+		beq :skip
+;2abb  21e943    ld      hl,#43e9	; else load HL with screen pos for player 2 score
+		ldx #tile_ram+$3e9
+:skip
+		lda #$0304
+		jmp DrawScore
+
 ;------------------------------------------------------------------------------
 ; #2B6A ; A=1A	; draws remaining lives at bottom of screen
 task_drawLives
@@ -1642,26 +1802,6 @@ squareA mx %00
 		sta <SIGNED_MULT_A_LO
 		sta <SIGNED_MULT_B_LO
 		lda <SIGNED_MULT_AL_LO
-		rts
-
-;------------------------------------------------------------------------------
-; arrive here from #1780 when a ghost is eaten. 
-; B contains the # of ghosts eaten +1 (2-5)
-;
-; or arrive from #23A7 for a task
-; B is loaded with code of scoring item
-;2a5a
-update_score mx %00
-		lda |mainstate
-		cmp #1			; is this the intro mode ?
-		bne :continue
-		; in intro, so skip
-		rts
-
-:continue
-
-; if we probably don't need this yet
-
 		rts
 
 ;------------------------------------------------------------------------------
