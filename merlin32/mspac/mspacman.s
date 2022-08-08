@@ -12389,6 +12389,7 @@ cutscene1 mx %00
 
 ;344a  0e00      ld      c,#00		; C := #00
 ;344c  c39c34    jp      #349c		; jump ahead
+        rep #$30
 	ldy #00
 	bra play_cutscene
 
