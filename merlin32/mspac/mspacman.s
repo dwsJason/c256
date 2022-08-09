@@ -13960,7 +13960,7 @@ cutscenes_table
 ;8208  51 84	; #8451		; 3rd intermission
 ;820a  6d 84	; #846D
 ;820c  cf 84	; #84CF
-;820e  fd 84 ; #84FD
+;820e  fd 84 	; #84FD
 ;8210  89 84	; #8489
 ;8212  7c 85	; #857C
 
@@ -14444,7 +14444,8 @@ act2_part1
 			db SETPOS,$00,$94
 
 ;83B3:  F3 41 86			; SETN( 
-			db SETN,$41,$86
+			db SETCHAR
+			da left_anna
 
 ;83B6:  F2 68			; SETN(
 ;83B8:  F0 28 00 09		; LOOP( 28 00 09 )
