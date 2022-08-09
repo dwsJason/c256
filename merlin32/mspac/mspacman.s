@@ -14125,7 +14125,7 @@ act1_part1
 ;828A:  F2 04			; SETN		04
 ;828C:  F0 10 F0 09		; LOOP		10 F0 09
 			db SETN,$04,LOOP,$10,$F0,$09
-;8290:  F3 26 86			; SETCHAR	#8626
+;8290:  F3 26 86		; SETCHAR	#8626
 			db SETCHAR
 			da walk_up
 ;8293:  F2 30			; SETN		30
@@ -14217,15 +14217,13 @@ act1_part2
 
 ;82FC:  F1 00 00
 			db SETPOS,$00,$00
-
 ;82FF:  F3 73 86			; #8673
 			db SETCHAR
 			da heart
 
 ;8302:  F2 01
 ;8304:  F0 00 00 03
-			da SETN,$01,LOOP,$00,$00,$03
-
+			db SETN,$01,LOOP,$00,$00,$03
 ;8308:  F1 7F 3A
 			db SETPOS,$7F,$3A
 
@@ -14597,7 +14595,7 @@ act2_part2
 			db SETN,$20,LOOP,$70,$00,$09
 
 ;843E:  F1 FF B4
-		    db SETPOS,$FF,$B4
+			db SETPOS,$FF,$B4
 
 ;8441:  F3 38 86			; #8638
 			db SETCHAR
