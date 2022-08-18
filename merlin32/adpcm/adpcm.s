@@ -26,6 +26,7 @@ PUTS = $00101C         ; Print a string to the currently selected channel
 ; Some HW Addresses - Defines
 MASTER_CTRL_REG_L	    = $AF0000
 GRPH_LUT0_PTR		    = $AF2000
+GRPH_LUT1_PTR		    = $AF2400
 
 BM_Enable             = $01
 
@@ -99,6 +100,11 @@ temp7          = 54
 temp8          = 58
 temp9          = 62
 temp10         = 66
+; plot-unplot variable
+vis_column     = 128
+vis_scanline   = 132
+vis_jiffy      = 136
+
 
 
 
@@ -106,6 +112,8 @@ start   ent             ; make sure start is visible outside the file
         clc
         xce
         rep $31         ; long MX, and CLC
+
+		stz <vis_column
 
 ; Default Stack is on top of System DMA Registers
 ; So move the stack before proceeding
@@ -119,23 +127,34 @@ start   ent             ; make sure start is visible outside the file
 		lda #$014C  		  	; 800x600 + Gamma + Bitmap_en
 		sta >MASTER_CTRL_REG_L
 
+		sep #$30
 		lda #BM_Enable
-		sta >BM0_CONTROL_REG
+		sta >BM1_CONTROL_REG
 
 		lda	#VRAM
 		sta >BM0_START_ADDY_L
+		sta >BM1_START_ADDY_L
 		lda #0
 		;lda #>VRAM
 		sta >BM0_START_ADDY_M
+		sta >BM1_START_ADDY_M
 		;lda #^VRAM
 		lda #0
+		sta >BM1_START_ADDY_H
+		lda #8
 		sta >BM0_START_ADDY_H
+
 
 		lda #0
 		sta >BM0_X_OFFSET
 		sta >BM0_Y_OFFSET
-		sta >BM1_CONTROL_REG
+		sta >BM1_X_OFFSET
+		sta >BM1_Y_OFFSET
 
+		lda #BM_Enable+BM_LUT1
+		sta >BM0_CONTROL_REG
+
+		rep #$30
         ; no border
         lda     #0
         stal    $AF0004  ; border control
@@ -161,6 +180,30 @@ start   ent             ; make sure start is visible outside the file
 
 		jsl decompress_clut
 
+;------------------------------------------------------------------------------
+; poke in a bright green color
+		lda #$00
+		sta >GRPH_LUT1_PTR
+		sta >GRPH_LUT1_PTR+2
+		lda #$FF00
+		sta >GRPH_LUT1_PTR+4
+		sta >GRPH_LUT1_PTR+6
+
+;------------------------------------------------------------------------------
+; dim the pal_buffer
+
+		sep #$20
+		ldx #1024-1
+]dim	lda |pal_buffer,x
+		lsr
+		lsr
+		sta |pal_buffer,x
+		dex
+		bpl ]dim
+		rep #$30
+
+;------------------------------------------------------------------------------
+
         ; Copy over the LUT
         ldy     #GRPH_LUT0_PTR  ; dest
         ldx     #pal_buffer  	; src
@@ -184,6 +227,26 @@ start   ent             ; make sure start is visible outside the file
 		;lda #$FFFF
 		;sta >BACKGROUND_COLOR_B
 		;sta >BACKGROUND_COLOR_G
+
+;-------------------------------------------------
+		lda #0
+		tax
+		;lda #$01
+]clear
+		sta >VRAM+$80000,x
+		sta >VRAM+$90000,x
+		sta >VRAM+$A0000,x
+		sta >VRAM+$B0000,x
+		sta >VRAM+$C0000,x
+		sta >VRAM+$D0000,x
+		sta >VRAM+$E0000,x
+		sta >VRAM+$F0000,x
+		inx
+		inx
+		bne ]clear
+
+;-------------------------------------------------
+
 
 
 ;
@@ -287,10 +350,10 @@ StuffSample mx %
 		ror
 		cmp #$8000
 		ror
-		cmp #$8000
-		ror
 		sta |$AF1908  	; store 2x, because our wave is 24Khz
 		sta |$AF1908
+
+		jsr UnPlotPlot
 
 ]fifo_wait
 		lda |$AF1904	; we wait while the FIFO is almost full
@@ -1184,6 +1247,101 @@ c256ParseHeader mx %00
 ;
 pal_buffer
 		ds 1024
+
+;------------------------------------------------------------------------------
+
+; scanline table
+scanlines
+]addy = VRAM+$080000
+		lup 600
+		adrl ]addy
+]addy = ]addy+800
+		--^
+;------------------------------------------------------------------------------
+; Called with signed 16 bit sample data
+UnPlotPlot mx %00
+
+		asl
+		asl
+		asl
+;		asl
+
+		phb
+		phy
+		phx
+		pha
+
+		;inc <vis_jiffy
+		;lda <vis_jiffy
+		;and #1
+		;bne :skip
+
+		phk
+		plb
+
+		lda <vis_column
+		tay
+		asl
+		tax
+		lda |:history,x
+		sta <vis_scanline
+		lda |:history+2,x
+		sta <vis_scanline+2
+
+		; erase
+		lda #0
+		sta [vis_scanline],y
+
+		lda 1,s
+		xba
+		cmp #$8000
+		and #$FF
+		rol
+		cmp #$100
+		bcc :ok2
+		ora #$FF00
+:ok2
+		clc
+		adc #300
+
+		asl
+		asl
+		tax
+		lda |scanlines,x
+		sta <vis_scanline
+		lda |scanlines+2,x
+		sta <vis_scanline+2
+
+		lda #$0101
+		sta [vis_scanline],y
+
+		lda <vis_column
+		asl
+		tax
+		lda <vis_scanline
+		sta |:history,x
+		lda <vis_scanline+2
+		sta |:history+2,x
+
+		iny
+		iny
+		cpy #800
+		bcc :ok
+		ldy #0
+:ok
+		sty <vis_column
+
+:skip
+		pla
+		plx
+		ply
+		plb
+		rts
+
+:history
+		lup 400
+		adrl VRAM+$080000
+		--^
 
 ;------------------------------------------------------------------------------
 
