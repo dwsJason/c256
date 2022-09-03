@@ -12704,15 +12704,31 @@ process_effect mx %00
 :found_one
 ;2e29  ld      a,(ix+#02)        ; A = CUR_BIT
 ;2e2c  and     e
+	lda |$2,y
+	and <:cur_bit
 ;2e2d  jr      nz,#2e6e          ; if (CUR_BIT & E != 0) then goto 2e6e
+	bne :compute_effect
 ;2e2f  ld      (ix+#02),e        ; else save E in CUR_BIT
-
+	sep #$20
+	lda <:cur_bit
+	sta |$2,y
+	rep #$30
                                 ; locate the 8 bytes for this effect in the rom tables
 ;2e32  dec     b                 ; the address is at HL + (B-1) * 8
 ;2e33  ld      a,b
+	lda <:bit_count
+	dec
+	sta <:bit_count
+
 ;2e34  rlca
 ;2e35  rlca
 ;2e36  rlca
+	asl
+	asl
+	asl
+	adc <:effect_table
+	tax
+
 ;2e37  ld      c,a               ; C = (B-1)*8
 ;2e38  ld      b,#00             ; B = 0
 ;2e3a  push    hl                ; save HL (pointer to EFFECT_TABLE)
@@ -12725,6 +12741,15 @@ process_effect mx %00
 ;2e42  ld      bc,#0008
 ;2e45  ldir                      ; copy 8 bytes from rom
 ;2e47  pop     hl                ; restore HL (pointer to EFFECT_TABLE)
+	lda |0,x
+	sta |3,y
+	lda |2,x
+	sta |5,y
+	lda |4,x
+	sta |7,y
+	lda |6,x
+	sta |9,y
+
 
 ;2e48  ld      a,(ix+#06)
 ;2e4b  and     #7f
@@ -12748,7 +12773,7 @@ process_effect mx %00
 ;2e6a  ld      (ix+#0d),#00      ;       E_DIR = 0
 
         ;; compute effect
-
+:compute_effect
 ;2e6e  dec     (ix+#0c)          ; E_DURATION--
 ;2e71  jr      nz,#2ecd          ; if (E_DURATION == 0) then
 ;2e73  ld      a,(ix+#08)
