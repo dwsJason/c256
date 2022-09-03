@@ -726,11 +726,41 @@ CH1_E_BASE_FREQ ds 1    ;EQU     4eaa
 CH1_E_VOL       ds 1    ;EQU     4eab
 
 ; 4EAC repeats the above for channel 2
-CH2_E_NUM		ds 16
+CH2_E_NUM		ds 1
+CH2_E_1         ds 1
+CH2_E_CUR_BIT   ds 1
+CH2_E_TABLE0    ds 1
+CH2_E_TABLE1    ds 1
+CH2_E_TABLE2    ds 1
+CH2_E_TABLE3    ds 1
+CH2_E_TABLE4    ds 1
+CH2_E_TABLE5    ds 1
+CH2_E_TABLE6    ds 1
+CH2_E_TABLE7    ds 1
+CH2_E_TYPE      ds 1
+CH2_E_DURATION  ds 1
+CH2_E_DIR       ds 1
+CH2_E_BASE_FREQ ds 1
+CH2_E_VOL       ds 1
 
 ; 4EBC repeats the above for channel 3
 
-CH3_E_NUM		ds 16
+CH3_E_NUM		ds 1
+CH3_E_1         ds 1
+CH3_E_CUR_BIT   ds 1
+CH3_E_TABLE0    ds 1
+CH3_E_TABLE1    ds 1
+CH3_E_TABLE2    ds 1
+CH3_E_TABLE3    ds 1
+CH3_E_TABLE4    ds 1
+CH3_E_TABLE5    ds 1
+CH3_E_TABLE6    ds 1
+CH3_E_TABLE7    ds 1
+CH3_E_TYPE      ds 1
+CH3_E_DURATION  ds 1
+CH3_E_DIR       ds 1
+CH3_E_BASE_FREQ ds 1
+CH3_E_VOL       ds 1
 
 CH1_W_NUM       ds 1    ;EQU     4ecc    ; wave to play (bitmask)
 CH1_W_1         ds 1    ;EQU     4ecd    ; unused
@@ -751,11 +781,41 @@ CH1_W_VOL       ds 1    ;EQU     4edb
 ;
 ; 4EDC repeats the above for channel 2
 
-CH2_W_NUM 		ds 16
+CH2_W_NUM 		ds 1
+CH2_W_1         ds 1
+CH2_W_CUR_BIT   ds 1
+CH2_W_SEL       ds 1
+CH2_W_4         ds 1
+CH2_W_5         ds 1
+CH2_W_OFFSET1   ds 1
+CH2_W_OFFSET2   ds 1
+CH2_W_8         ds 1
+CH2_W_9         ds 1
+CH2_W_A         ds 1
+CH2_W_TYPE      ds 1
+CH2_W_DURATION  ds 1
+CH2_W_DIR       ds 1
+CH2_W_BASE_FREQ ds 1
+CH2_W_VOL       ds 1
 
 ; 4EEC repeats the above for channel 3
 
-CH3_W_NUM       ds 16
+CH3_W_NUM 		ds 1
+CH3_W_1         ds 1
+CH3_W_CUR_BIT   ds 1
+CH3_W_SEL       ds 1
+CH3_W_4         ds 1
+CH3_W_5         ds 1
+CH3_W_OFFSET1   ds 1
+CH3_W_OFFSET2   ds 1
+CH3_W_8         ds 1
+CH3_W_9         ds 1
+CH3_W_A         ds 1
+CH3_W_TYPE      ds 1
+CH3_W_DURATION  ds 1
+CH3_W_DIR       ds 1
+CH3_W_BASE_FREQ ds 1
+CH3_W_VOL       ds 1
 
 ;
 ; Runtime
@@ -819,6 +879,30 @@ IN0	dw $FFFF
 ;			; Player 2 start button clears bit 6	#BF
 ;			; Cocktail cabinet DIP clears bit 7	#7F
 IN1 dw $FFFF
+
+HW_WAVESELECT_0 ds 1 ; 5045
+HW_WAVESELECT_1 ds 1 ; 504A
+HW_WAVESELECT_2 ds 1 ; 504F
+
+; 5050 Hardware Audio Registers
+
+HW_V0_FREQ0       ds 1
+HW_V0_FREQ1       ds 1
+HW_V0_FREQ2       ds 1
+HW_V0_FREQ3       ds 1
+HW_V0_FREQ4       ds 1
+HW_V0_VOL         ds 1
+HW_V1_FREQ1       ds 1
+HW_V1_FREQ2       ds 1
+HW_V1_FREQ3       ds 1
+HW_V1_FREQ4       ds 1
+HW_V1_VOL         ds 1
+HW_V2_FREQ1       ds 1
+HW_V2_FREQ2       ds 1
+HW_V2_FREQ3       ds 1
+HW_V2_FREQ4       ds 1
+HW_V2_VOL         ds 1
+
 
 ;	5080	DSW 1	; controls free play/coins per credit, # of lives per game, 
 ;			; points needed for bonus, rack test, game freeze

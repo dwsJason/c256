@@ -809,13 +809,17 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
         ;;
         ;; load the sound into the hardware
 	;;
-
-	   ;$$JGA TODO - when emulating audio
-	   ;$$JGA TODO - copy the registers when emulating audio
 ;009d  ld      hl,#CH1_FREQ0             ; pointer to frequencies and volumes of the 3 voices
 ;00a0  ld      de,#5050                  ; hardware address
 ;00a3  ld      bc,#0010                  ; #10 (16 decimal) byte to copy
 ;00a6  ldir                              ; copy
+	    ldx #CH1_FREQ0
+	    ldy #HW_V0_FREQ0
+	    lda #15
+	    mvn ^CH1_FREQ0,^HW_V0_FREQ0  ; copy the shadow values into the "HW" registers
+
+
+	    sep #$30
 
         ;; voice 1 wave select
 
@@ -823,31 +827,43 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 ;00ab  and     a
 ;00ac  ld      a,(#CH1_W_SEL)            ; then WaveSelect = CH1_W_SEL
 ;00af  jr      nz,#00b4
-;
 ;00b1  ld      a,(#CH1_E_TABLE0)         ; else WaveSelect = CH1_E_TABLE0
-;
 ;00b4  ld      (#5045),a                 ; write WaveSelect to hardware
-;
-;        ;; voice 2 wave select
-;
+	    ldx |CH1_W_SEL
+	    lda |CH1_W_NUM
+	    bne :wsel
+	    ldx |CH1_E_TABLE0
+:wsel	    stx |HW_WAVESELECT_0
+
+
+        ;; voice 2 wave select
 ;00b7  ld      a,(#CH2_W_NUM)
 ;00ba  and     a
 ;00bb  ld      a,(#CH2_W_SEL)
 ;00be  jr      nz,#00c3
-;
 ;00c0  ld      a,(#CH2_E_TABLE0)
 ;00c3  ld      (#504a),a
-;
-;        ;; voice 3 wave select
-;
+	    ldx |CH2_W_SEL
+	    lda |CH2_W_NUM
+	    bne :wsel2
+	    ldx |CH2_E_TABLE0
+:wsel2      stx |HW_WAVESELECT_1
+
+        ;; voice 3 wave select
+
 ;00c6  ld      a,(#CH3_W_NUM)
 ;00c9  and     a
 ;00ca  ld      a,(#CH3_W_SEL)
 ;00cd  jr      nz,#00d2
-;
 ;00cf  ld      a,(#CH3_E_TABLE0)
 ;00d2  ld      (#504f),a
-;
+	    ldx |CH3_W_SEL
+	    lda |CH3_W_NUM
+	    bne :wsel3
+	    ldx |CH3_E_TABLE0
+:wsel3	    stx |HW_WAVESELECT_2
+
+	    rep #$31
 
 	;$$JGA TODO
 	; copy last frame calculated sprite data into sprite buffer
@@ -1111,6 +1127,10 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 :setstart1
 
 	sta |IN1
+
+	rep #$30
+
+	jsr DebugAudio
 
 	rep #$30
 
@@ -5427,6 +5447,18 @@ BlitMap mx %00
 		ldx #VICKY_MAP0+{64*2}+4
 		jsr PrintHex
 
+		lda |PATH
+		ldx #VICKY_MAP0+{64*2*33}+4
+		jsr PrintHex
+
+		lda |COUNT
+		ldx #VICKY_MAP0+{64*2*34}+4
+		jsr PrintHex
+
+		lda |BCNT
+		ldx #VICKY_MAP0+{64*2*35}+4
+		jsr PrintHex
+
 		jsr DebugKeyboard
 
 		rts
@@ -5447,9 +5479,7 @@ BlitMap mx %00
 
 PrintHex 	mx %00
 
-		phb
-		pea >{VRAM+VICKY_MAP0}
-		plb
+		phkb ^{VRAM+VICKY_MAP0}
 		plb
 
 		pha		; hex we're going to print
@@ -5495,9 +5525,7 @@ PrintHex 	mx %00
 
 PrintHexSmall 	mx %00
 
-		phb
-		pea >{VRAM+VICKY_MAP0}
-		plb
+		phkb ^{VRAM+VICKY_MAP0}
 		plb
 
 		pha		; hex we're going to print
@@ -5543,7 +5571,7 @@ HISTORY_SIZE = 32
 	; place into a history buffer
 	; print out the history buffer onto the screen
 	; for the world to see
-
+]key_loop
 		jsl GETSCANCODE
 		and #$FF
 		beq :exit
@@ -5563,6 +5591,26 @@ HISTORY_SIZE = 32
 		lda #$00  		; key-up
 :keydown
 		sta |keyboard,x
+
+; we sometimes miss key-up events, so lets "fix" that by
+; making sure conflicting keys are not pressed
+		cmp #KEY_UP
+		bne :not_up
+		stz |keyboard+KEY_DOWN ; press up, clear down
+:not_up
+		cmp #KEY_DOWN
+		bne :not_down
+		stz |keyboard+KEY_UP ; press down, clear up
+:not_down
+		cmp #KEY_LEFT
+		bne :not_left
+		stz |keyboard+KEY_RIGHT ; press left, clear right
+:not_left
+		cmp #KEY_RIGHT
+		bne :not_rt
+		stz |keyboard+KEY_LEFT ; when we press right, clear left
+:not_rt
+
 		
 		tya
 		rep #$30
@@ -5578,29 +5626,31 @@ HISTORY_SIZE = 32
 :continue
 		stx |:index     	; save index for next time
 
+		bra ]key_loop
+
 	; print out the current history
 
-		txy
+;		txy
 
-		ldx #VICKY_MAP0+{64*6}+4
-]loop
-		iny
-		iny
-		cpy #HISTORY_SIZE*2
-		bcc :cont2
-		ldy #0
-:cont2
-		cpy |:index
-		beq :exit
+;		ldx #VICKY_MAP0+{64*6}+4
+;]loop
+;		iny
+;		iny
+;		cpy #HISTORY_SIZE*2
+;		bcc :cont2
+;		ldy #0
+;:cont2
+;		cpy |:index
+;		beq :exit
 
-		lda |:history,y
-		jsr PrintHexSmall
+;		lda |:history,y
+;		jsr PrintHexSmall
 
-		txa
-		clc
-		adc #64*2
-		tax
-		bra ]loop
+;		txa
+;		clc
+;		adc #64*2
+;		tax
+;		bra ]loop
 :exit
 ;		plp
 		rts
@@ -5652,6 +5702,82 @@ DebugTimedTasks mx %00
 	bne ]loop
 
 	rts
+
+;------------------------------------------------------------------------------
+
+; Voice Structure Layout
+    dum 0
+vo_wave_no	ds 2   ; 0-7
+vo_volume	ds 2   ; 0-F
+vo_frequency	ds 4   ; 20 bits resolution
+vo_accumulator	ds 4   ; 20 bits accumulator
+vo_size ds 0
+    dend
+;------------------------------------------------------------------------------
+;
+DebugAudio mx %00
+
+; I don't know, try to scrap mspac audio registers, convert into
+; something that the cpu can more easily deal with?
+
+	sep #$30
+	lda |CH1_VOL
+	sta |{:v0+vo_volume}
+	lda |CH2_VOL
+	sta |{:v1+vo_volume}
+	lda |CH3_VOL
+	sta |{:v2+vo_volume}
+	rep #$30
+
+
+
+	ldx #VICKY_MAP0+{64*6}+{44*2}
+	ldy #0
+]loop	lda |:voices+vo_wave_no,y
+	jsr PrintHexSmall
+	jsr :next_line
+
+	lda |:voices+vo_volume,y
+	jsr PrintHexSmall
+	jsr :next_line
+
+	lda |:voices+vo_frequency+2,y
+	Jsr PrintHexSmall
+	lda |:voices+vo_frequency,y
+	inx
+	inx
+	inx
+	inx
+	jsr PrintHex
+	dex
+	dex
+	dex
+	dex
+	jsr :next_line
+
+	; next voice
+	tya
+	clc
+	adc #vo_size
+	tay
+	cpy #{vo_size*3}
+	bcc ]loop
+
+
+	rts
+
+:next_line
+	;next line
+	txa
+	clc
+	adc #{64*2}
+	tax
+	rts
+
+:voices
+:v0	ds vo_size
+:v1	ds vo_size
+:v2	ds vo_size
 
 ;------------------------------------------------------------------------------
 ;
@@ -15327,63 +15453,65 @@ DOFRUIT mx %00
 	    tsb |bnoise				; to preserve A
 
 ;8720  7e        ld      a,(hl)		; else load A with this value
-		lda |COUNT
+	    lda |COUNT
 ;8721  57        ld      d,a		; copy to D
 ;8722  cb3f      srl     a		; 
-		lsr
+	    lsr
 ;8724  cb3f      srl     a		; shift A right twice
-		lsr
+	    lsr
 
 ;872b  2a424c    ld      hl,(#4c42)	; load HL with address of the fruit path
-		adc |PATH
+	    clc
+	    adc |PATH
 ;872e  d7        rst     #10		; load A with table data
-		tax
-		lda |0,x
-		and #$FF
-		tax
-
+	    tax
+	    lda |0,x
+	    and #$FF
 ;872f  4f        ld      c,a		; copy to C
+	    tax
 ;8730  3e03      ld      a,#03		; A := #03
 ;8732  a2        and     d		; mask bits with the fruit position
-		lda #3
-		and |COUNT
+	    lda #3
+	    and |COUNT
 ;8733  2807      jr      z,#873c         ; if zero, skip next 4 steps
-		beq :fskip
+	    beq :fskip
 ;
-		tay
-		tya
+	    tay
+	    txa
 :loop
 ;8735  cb39      srl     c
-		lsr
+	    lsr
 ;8737  cb39      srl     c		; shift C right twice
-		lsr
+	    lsr
 ;8739  3d        dec     a		; A := A - 1.  is A == #00 ?
-		dey
+	    dey
 ;873a  20f9      jr      nz,#8735        ; no, loop again
-		bne :loop
+	    bne :loop
+	    tax
 :fskip
 ;873c  3e03      ld      a,#03		; A := #03
 ;873e  a1        and     c		; mask bits with C
-		and #3
+	    txa
+	    and #3
 ;873f  07        rlca
 ;8740  07        rlca
 ;8741  07        rlca
 ;8742  07        rlca			; rotate left 4 times
-		asl
-		asl
-		asl
-		asl
+	    asl
+	    asl
+	    asl
+	    asl
 ;8743  32414c    ld      (#4c41),a	; store result into fruit position counter
-		sta |BCNT
+	    sta |BCNT
 ;8746  c9        ret     		; return
 :rts
-		rts
+	    rts
 ;; arrive here from #86FE
 ;; to check to see if it is time for a new fruit to be released
 ;; only called when a fruit is not already onscreen
 :check_fruit_release
 ;8747: 3A 0E 4E	ld	a,(#4E0E)	; load number of dots eaten
-		lda |dotseat
+	    lda |dotseat
 ;874A: FE 40	cp	#40		; == #40 ? (64 decimal)
 		cmp #$40
 ;874C: CA 58 87	jp	z,#8758		; yes, skip ahead and use HL as 4E0C
