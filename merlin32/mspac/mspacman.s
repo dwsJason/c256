@@ -1019,12 +1019,15 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 			bne :not_demo
 ;01B3: 32 AC 4E	ld	(#4EAC),a	; yes, clear sound channel 2
 ;01B6: 32 BC 4E	ld	(#4EBC),a	; clear sound channel 3
+			sta |CH2_E_NUM
+			sta |CH3_E_NUM
 
         ;; VBLANK - 2 (SOUND)
         ;;
         ;; Process sound
 :not_demo
 ;01b9    call    #2d0c                   ; process effects
+			jsr process_effects
 ;01bc    call    #2cc1                   ; process waves
 			jsr intermission_sprite_blit ; 9797
 
@@ -5721,14 +5724,114 @@ DebugAudio mx %00
 ; something that the cpu can more easily deal with?
 
 	sep #$30
-	lda |CH1_VOL
+	lda |HW_V0_VOL
 	sta |{:v0+vo_volume}
-	lda |CH2_VOL
+	lda |HW_V1_VOL
 	sta |{:v1+vo_volume}
-	lda |CH3_VOL
+	lda |HW_V2_VOL
 	sta |{:v2+vo_volume}
+
+	lda |HW_WAVESELECT_0
+	sta |{:v0+vo_wave_no}
+	lda |HW_WAVESELECT_1
+	sta |{:v1+vo_wave_no}
+	lda |HW_WAVESELECT_1
+	sta |{:v1+vo_wave_no}
+
 	rep #$30
 
+;--- BEGIN V0
+	lda |HW_V0_FREQ3
+	and #$F
+	asl
+	asl
+	asl
+	asl
+	sta <temp0
+	lda |HW_V0_FREQ2
+	and #$F
+	ora <temp0
+	asl
+	asl
+	asl
+	asl
+	sta <temp0
+	lda |HW_V0_FREQ1
+	and #$F
+	ora <temp0
+	asl
+	asl
+	asl
+	asl
+	sta <temp0
+	lda |HW_V0_FREQ0
+	ora <temp0
+	sta |{:v0+vo_frequency}
+
+	lda |HW_V0_FREQ4
+	and #$F
+	sta |{:v0+vo_frequency}+2
+;--- END V0
+
+;--- BEGIN V1
+	lda |HW_V1_FREQ3
+	and #$F
+	asl
+	asl
+	asl
+	asl
+	sta <temp0
+	lda |HW_V1_FREQ2
+	and #$F
+	ora <temp0
+	asl
+	asl
+	asl
+	asl
+	sta <temp0
+	lda |HW_V1_FREQ1
+	and #$F
+	ora <temp0
+	asl
+	asl
+	asl
+	asl
+	sta |{:v1+vo_frequency}
+
+	lda |HW_V1_FREQ4
+	and #$F
+	sta |{:v1+vo_frequency}+2
+;--- END V1
+
+;--- BEGIN V2
+	lda |HW_V2_FREQ3
+	and #$F
+	asl
+	asl
+	asl
+	asl
+	sta <temp0
+	lda |HW_V2_FREQ2
+	and #$F
+	ora <temp0
+	asl
+	asl
+	asl
+	asl
+	sta <temp0
+	lda |HW_V2_FREQ1
+	and #$F
+	ora <temp0
+	asl
+	asl
+	asl
+	asl
+	sta |{:v2+vo_frequency}
+
+	lda |HW_V2_FREQ4
+	and #$F
+	sta |{:v2+vo_frequency}+2
+;--- END V2
 
 
 	ldx #VICKY_MAP0+{64*6}+{44*2}
@@ -12443,6 +12546,432 @@ FinishUpBlankTextDraw mx %10
 ;#else
 ;2cc1  ld      hl,#SONG_TABLE_1
 ;#endif
+;------------------------------------------------------------------------------
+;;
+;; PROCESS EFFECT (all voices)
+;2d0c
+process_effects mx %00
+:effect_table = temp0
+:freq        = temp1
+
+;2d0c  ld      hl,#EFFECT_TABLE_1        ; pointer to sound table
+	    lda #EFFECT_TABLE_1
+	    sta <:effect_table
+
+;2d0f  ld      ix,#CH1_E_NUM             ; effect number (voice 1)
+	    ldy #CH1_E_NUM
+
+;2d13  ld      iy,#CH1_FREQ0
+	    lda #CH1_FREQ0
+	    sta <:freq
+
+;2d17  call    #2dee                     ; call process effect, returns volume in A
+	    jsr process_effect
+;2d1a  ld      (#CH1_VOL),a              ; store volume
+	    sep #$20
+	    sta |CH1_VOL
+	    rep #$30
+
+;2d1d  ld      hl,#EFFECT_TABLE_2        ; same for voice 2
+	    lda #EFFECT_TABLE_2
+	    sta <:effect_table
+
+;2d20  ld      ix,#CH2_E_NUM
+	    ldy #CH2_E_NUM
+
+;2d24  ld      iy,#CH2_FREQ1
+	    lda #CH2_FREQ1
+	    sta <:freq
+;2d28  call    #2dee
+	    jsr process_effect
+;2d2b  ld      (#CH2_VOL),a
+	    sep #$20
+	    sta |CH2_VOL
+	    rep #$30
+
+;2d2e  ld      hl,#EFFECT_TABLE_3        ; same for voice 3
+	    lda #EFFECT_TABLE_3
+	    sta <:effect_table
+
+;2d31  ld      ix,#CH3_E_NUM
+	    ldy #CH3_E_NUM
+
+;2d35  ld      iy,#CH3_FREQ1
+	    lda #CH3_FREQ1
+	    sta <:freq
+
+;2d39  call    #2dee
+	    jsr process_effect
+;2d3c  ld      (#CH3_VOL),a
+
+;2d3f  xor     a                         ; A = 0
+;2d40  ld      (#CH1_FREQ4),a            ; freq 4 channel 1 = 0
+;2d43  ret
+	    rts
+;------------------------------------------------------------------------------
+;
+; Process effect (one voice)
+;
+; Y = offset to the Effect struct
+; Y = ix
+; return A = volume
+;
+;2dee
+process_effect mx %00
+:effect_table = temp0
+:freq         = temp1
+:enum         = temp2
+:cur_bit      = temp3
+:bit_count    = temp3+2
+
+;2dee    ld      a,(ix+#00)      ; if (E_NUM != 0)
+;2df1    and     a               ;
+	lda |0,y  ; E_NUM
+	and #$FF
+
+;2df2    jr      nz,#2e1b        ; then goto find effect
+	bne :find_effect
+
+        ;;
+        ;; Init Param
+        ;;
+
+;2df4    ld      a,(ix+#02)      ; if (CUR_BIT == 0)
+;2df7    and     a
+	lda |2,y  ; CUR_BIT
+	and #$FF
+;2df8    ret     z               ; then return
+	beq :rts
+
+	sep #$20
+	tyx
+
+;2df9    ld      (ix+#02),#00    ; CUR_BIT = 0
+;2dfd    ld      (ix+#0d),#00    ; DIR = 0
+;2e01    ld      (ix+#0e),#00    ; BASE_FREQ = 0
+;2e05    ld      (ix+#0f),#00    ; VOL = 0
+	stz |$2,x ; CUR_BIT
+	stz |$D,x ; DIR
+	rep #$30
+	stz |$E,x ; BASE_FREQ+VOL
+;	stz |$F,x ; VOL
+	ldx <:freq
+	stz |0,x
+	stz |2,x
+;2e09    ld      (iy+#00),#00    ; FREQ0 or 1   (5 freq for channel 1)
+;2e0d    ld      (iy+#01),#00    ; FREQ1 or 2
+;2e11    ld      (iy+#02),#00    ; FREQ2 or 3
+;2e15    ld      (iy+#03),#00    ; FREQ3 or 4
+
+;2e19    xor     a               ;
+	lda #0
+;2e1a    ret                     ; return 0
+:rts	rts
+
+;;
+;; find effect. Effect num is not zero, find which bits are set
+;;
+:find_effect
+;2e1b  ld      c,a               ; c = E_NUM
+	sta <:enum
+
+;2e1c  ld      b,#08             ; b = 0x08
+	lda #8
+	sta <:bit_count
+
+;2e1e  ld      e,#80             ; e = 0x80
+	lda #$80
+	sta <:cur_bit
+]loop
+;2e20  ld      a,e               ; find which bit is set in E_NUM
+	lda <:cur_bit
+;2e21  and     c
+	and <:enum
+
+;2e22  jr      nz,#2e29          ; found one, goto proces effect bis
+	bne :found_one
+
+;2e24  srl     e
+	lsr <:cur_bit
+;2e26  djnz    #2e20
+	dec <:bit_count
+	bne ]loop
+;2e28  ret
+	rts
+;;
+;; Process effect bis : process one effect, represented by 1 bit (in E)
+;;
+:found_one
+;2e29  ld      a,(ix+#02)        ; A = CUR_BIT
+;2e2c  and     e
+;2e2d  jr      nz,#2e6e          ; if (CUR_BIT & E != 0) then goto 2e6e
+;2e2f  ld      (ix+#02),e        ; else save E in CUR_BIT
+
+                                ; locate the 8 bytes for this effect in the rom tables
+;2e32  dec     b                 ; the address is at HL + (B-1) * 8
+;2e33  ld      a,b
+;2e34  rlca
+;2e35  rlca
+;2e36  rlca
+;2e37  ld      c,a               ; C = (B-1)*8
+;2e38  ld      b,#00             ; B = 0
+;2e3a  push    hl                ; save HL (pointer to EFFECT_TABLE)
+;2e3b  add     hl,bc             ; HL = HL + (B-1)*8
+;2e3c  push    ix
+;2e3e  pop     de                ; DE = E_NUM
+;2e3f  inc     de
+;2e40  inc     de
+;2e41  inc     de                ; DE = E_TABLE0
+;2e42  ld      bc,#0008
+;2e45  ldir                      ; copy 8 bytes from rom
+;2e47  pop     hl                ; restore HL (pointer to EFFECT_TABLE)
+
+;2e48  ld      a,(ix+#06)
+;2e4b  and     #7f
+;2e4d  ld      (ix+#0c),a        ; E_DURATION = E_TABLE3 & 0x7F
+
+;2e50  ld      a,(ix+#04)
+;2e53  ld      (ix+#0e),a        ; E_BASE_FREQ = E_TABLE1
+
+;2e56  ld      a,(ix+#09)
+;2e59  ld      b,a               ; B = E_TABLE6
+;2e5a  rrca
+;2e5b  rrca
+;2e5c  rrca
+;2e5d  rrca
+;2e5e  and     #0f
+;2e60  ld      (ix+#0b),a        ; E_TYPE = (E_TABLE6 >> 4) & 0xF
+
+;2e63  and     #08
+;2e65  jr      nz,#2e6e          ; if (E_TYPE & 0x8 == 0) then
+;2e67  ld      (ix+#0f),b        ;       E_VOL = E_TABLE6
+;2e6a  ld      (ix+#0d),#00      ;       E_DIR = 0
+
+        ;; compute effect
+
+;2e6e  dec     (ix+#0c)          ; E_DURATION--
+;2e71  jr      nz,#2ecd          ; if (E_DURATION == 0) then
+;2e73  ld      a,(ix+#08)
+;2e76  and     a
+;2e77  jr      z,#2e89           ;       if (E_TABLE5 != 0) then
+;2e79  dec     (ix+#08)          ;               E_TABLE5--
+;2e7c  jr      nz,#2e89          ;               if (E_TABLE5 == 0) then
+;2e7e  ld      a,e
+;2e7f  cpl
+;2e80  and     (ix+#00)
+;2e83  ld      (ix+#00),a        ;                       E_NUM &= ~E_CUR_BIT
+;2e86  jp      #2dee             ;                       goto process effect (one voice)
+;2e89  ld      a,(ix+#06)
+;2e8c  and     #7f
+;2e8e  ld      (ix+#0c),a        ;       E_DURATION = E_TABLE3 & 0x7F
+;2e91  bit     7,(ix+#06)
+;2e95  jr      z,#2ead           ;       if (E_TABLE3 & 0x80 != 0) then
+;2e97  ld      a,(ix+#05)
+;2e9a  neg
+;2e9c  ld      (ix+#05),a        ;               E_TABLE2 = - E_TABLE2
+;2e9f  bit     0,(ix+#0d)        ;               if (E_DIR & 0x1 == 0) then
+;2ea3  set     0,(ix+#0d)        ;                       E_DIR |= 0x1
+;2ea7  jr      z,#2ecd           ;                       goto update_freq
+;2ea9  res     0,(ix+#0d)        ;               E_DIR &= ~0x1
+;2ead  ld      a,(ix+#04)
+;2eb0  add     a,(ix+#07)
+;2eb3  ld      (ix+#04),a        ;       E_TABLE1 += E_TABLE4
+;2eb6  ld      (ix+#0e),a        ;       E_BASE_FREQ = E_TABLE1
+;2eb9  ld      a,(ix+#09)
+;2ebc  add     a,(ix+#0a)
+;2ebf  ld      (ix+#09),a        ;       E_TABLE6 += E_TABLE7
+;2ec2  ld      b,a
+;2ec3  ld      a,(ix+#0b)
+;2ec6  and     #08
+;2ec8  jr      nz,#2ecd          ;       if (E_TYPE & 0x8 == 0) then
+;2eca  ld      (ix+#0f),b        ;               E_VOL = E_TABLE6
+
+
+        ;; update freq
+
+;2ecd  ld      a,(ix+#0e)
+;2ed0  add     a,(ix+#05)
+;2ed3  ld      (ix+#0e),a        ; E_BASE_FREQ += E_TABLE2
+
+;2ed6  ld      l,a
+;2ed7  ld      h,#00             ; HL = E_BASE_FREQ (on 16 bits)
+
+;2ed9  ld      a,(ix+#03)        ; compute new frequency
+;2edc  and     #70               ; FREQ = E_BASE_FREQ * ((1 << E_TABLE0 & 0x70) >> 4)
+;2ede  jr      z,#2ee8
+;2ee0  rrca
+;2ee1  rrca
+;2ee2  rrca
+;2ee3  rrca
+
+        ;; compute new frequency
+
+;2ee4  ld      b,a               ; B = counter
+;2ee5  add     hl,hl             ; HL = 2 * HL
+;2ee6  djnz    #2ee5
+                                ; HL = HL * 2**B
+                                ; now extract the nibbles from HL
+
+;2ee8  ld      (iy+#00),l        ; 1st nibble
+;2eeb  ld      a,l
+;2eec  rrca
+;2eed  rrca
+;2eee  rrca
+;2eef  rrca
+;2ef0  ld      (iy+#01),a        ; 2nd nibble
+;2ef3  ld      (iy+#02),h        ; 3rd nibble
+;2ef6  ld      a,h
+;2ef7  rrca
+;2ef8  rrca
+;2ef9  rrca
+;2efa  rrca
+;2efb  ld      (iy+#03),a        ; 4th nibble
+
+;2efe  ld      a,(ix+#0b)        ; A = W_TYPE
+;2f01  rst     #20               ; jump table to volume adjust routine
+
+        ; jump table to adjust volume
+
+;2f02  22 2f 			; #2F22
+;2F04  26 2f			; #2F26
+;2F06  2b 2f			; #2F2B
+;2F08  3c 2f			; #2F3C
+;2F0A  43 2f			; #2F43
+;2F0C  4a 2f			; #2F4A
+;2F0E  4b 2f			; #2F4B
+;2F10  4c 2f			; #2F4C
+;2F12  4d 2f			; #2F4D
+;2F14  4e 2f			; #2F4E
+;2F16  4f 2f			; #2F4F
+;2F18  50 2f			; #2F50
+;2F1A  51 2f			; #2F51
+;2F1C  52 2f			; #2F52
+;2F1E  53 2f			; #2F53
+;2F20  54 2f			; #2F54
+
+        ;; type 0
+
+;2f22  ld      a,(ix+#0f)        ; constant volume
+;2f25  ret
+
+        ;; type 1
+
+;2f26  ld      a,(ix+#0f)        ; decreasing volume
+;2f29  jr      #2f34
+
+        ;; type 2
+
+;2f2b  ld      a,(#4c84)         ; decreasing volume (1/2 rate)
+;2f2e  and     #01
+;2f30  ld      a,(ix+#0f)        ; (skip decrease if sound_counter (4c84) is odd)
+;2f33  ret     nz
+
+;2f34  and     #0f               ; decrease routine
+;2f36  ret     z
+;2f37  dec     a
+;2f38  ld      (ix+#0f),a
+;2f3b  ret
+
+        ;; type 3
+
+;2f3c  ld      a,(#4c84)         ; decreasing volume (1/4 rate)
+;2f3f  and     #03
+;2f41  jr      #2f30
+
+        ;; type 4
+
+;2f43  ld      a,(#4c84)         ; decreasing volume (1/8 rate)
+;2f46  and     #07
+;2f48  jr      #2f30
+
+        ;; type 5-15
+
+;2f4a  c9        ret     
+;2f4b  c9        ret     
+;2f4c  c9        ret     
+;2f4d  c9        ret     
+;2f4e  c9        ret     
+;2f4f  c9        ret     
+;2f50  c9        ret     
+;2f51  c9        ret     
+;2f52  c9        ret     
+;2f53  c9        ret     
+;2f54  c9        ret     
+
+        ;;
+        ;; Special byte F0 : this is followed by 2 bytes, the new offset (to allow loops)
+        ;;
+
+;2f55  ld      l,(ix+#06)
+;2f58  ld      h,(ix+#07)        ; HL = (W_OFFSET)
+;2f5b  ld      a,(hl)
+;2f5c  ld      (ix+#06),a
+;2f5f  inc     hl
+;2f60  ld      a,(hl)
+;2f61  ld      (ix+#07),a        ; HL = (HL)
+;2f64  ret
+
+        ;;
+        ;; Special byte F1 : followed by one byte (wave select)
+        ;;
+
+;2f65  ld      l,(ix+#06)
+;2f68  ld      h,(ix+#07)
+;2f6b  ld      a,(hl)            ; A = (++HL)
+;2f6c  inc     hl
+;2f6d  ld      (ix+#06),l
+;2f70  ld      (ix+#07),h
+;2f73  ld      (ix+#03),a        ; save A in W_WAVE_SEL
+;2f76  ret
+
+        ;;
+        ;; Special byte F2 : followed by one byte (Frequency increment)
+        ;;
+
+;2f77  ld      l,(ix+#06)
+;2f7a  ld      h,(ix+#07)
+;2f7d  ld      a,(hl)            ; A = (++HL)
+;2f7e  inc     hl
+;2f7f  ld      (ix+#06),l
+;2f82  ld      (ix+#07),h
+;2f85  ld      (ix+#04),a        ; save A in W_A
+;2f88  ret
+
+        ;;
+        ;; Special byte F3 : followed by one byte (Volume)
+        ;;
+
+;2f89  ld      l,(ix+#06)
+;2f8c  ld      h,(ix+#07)
+;2f8f  ld      a,(hl)            ; A = (++HL)
+;2f90  inc     hl
+;2f91  ld      (ix+#06),l
+;2f94  ld      (ix+#07),h
+;2f97  ld      (ix+#09),a        ; save A in W_VOL
+;2f9a  ret
+
+        ;;
+        ;; Special byte F4 : followed by one byte (Type)
+	;;
+
+;2f9b  ld      l,(ix+#06)
+;2f9e  ld      h,(ix+#07)
+;2fa1  ld      a,(hl)            ; A = (++HL)
+;2fa2  inc     hl
+;2fa3  ld      (ix+#06),l
+;2fa6  ld      (ix+#07),h
+;2fa9  ld      (ix+#0b),a        ; save A in W_TYPE
+;2fac  ret
+
+        ;;
+        ;; Special byte FF : mark the end of the song
+        ;;
+
+;2fad  ld      a,(ix+#02)
+;2fb0  cpl
+;2fb1  and     (ix+#00)
+;2fb4  ld      (ix+#00),a        ; W_NUM &= ~W_CUR_BIT
+;2fb7  jp      #2df4
 
 ;------------------------------------------------------------------------------
 ; data - table for difficulty
@@ -13575,7 +14104,7 @@ pms mac
 ;; 2 effects for channel 1
 ;3b30
 EFFECT_TABLE_1
-	db $73,$20,$00,$0c,$00,$0a,$1f,$00  ; extra life sound
+	db $73,$20,$00,$0c,$00,$0a,$1f,$00  	; extra life sound
 ;3b38
 	db $72,$20,$fb,$87,$00,$02,$0f,$00	; credit sound
 
@@ -16079,6 +16608,89 @@ draw_logo_text mx %00
 			rep #$30
 ;967c  c9        ret     		; return
 			rts
+
+
+;------------------------------------------------------------------------------
+
+; act 2 song
+act2_song1
+    db  $F1,$02,$F2,$03,$F3,$0F,$F4,$01,$82,$70,$69,$82,$70,$69,$83,$70
+    db  $6A,$83,$70,$6A,$82,$70,$69,$82,$70,$69,$89,$8B,$8D,$8E,$FF
+
+
+; act 2 song
+act2_song2
+    db $F1,$00,$F2,$02,$F3,$0F,$F4,$00,$42,$50,$4E,$50,$49,$50,$46,$50
+    db $4E,$49,$70,$66,$70,$43,$50,$4F,$50,$4A,$50,$47,$50,$4F,$4A,$70
+    db $67,$70,$42,$50,$4E,$50,$49,$50,$46,$50,$4E,$49,$70,$66,$70,$45
+    db $46,$47,$50,$47,$48,$49,$50,$49,$4A,$4B,$50,$6E,$FF
+
+
+;------------------------------------------------------------------------------
+        ;; channel 2 : jump table to song data
+SONG_TABLE_2
+    da startup_song2 ; #9695	; startup song
+    da act1_song2    ; #96D6	; act 1 song
+    da act2_song2    ; #3C58	; act 2 song
+    da act3_song2    ; #974F	; act 3 song
+
+        ;; channel 1 : jump table to song data
+SONG_TABLE_1
+    da startup_song1 ; #96B6	; startup song
+    da act1_song1    ; #9719	; act 1 song
+    da act2_song1    ; #3BD4	; act 2 song
+    da act3_song1    ; #9772	; act 3 song
+
+        ;; channel 3 : jump table to song data (nothing here, 9796 = 0xff)
+SONG_TABLE_3
+    da empty_song
+    da empty_song
+    da empty_song
+    da empty_song
+
+;!    TITLE!    "SONATA FOR UNACCOMPANIED VIDEO GAME"
+startup_song2
+    db $f1,$00,$f2,$02,$f3,$0a,$f4,$00,$41,$43,$45,$86,$8a,$88,$8b,$6a
+    db $6b,$71,$6a,$88,$8b,$6a,$6b,$71,$6a,$6b,$71,$73,$75,$96,$95,$96
+    db $ff
+
+; startup song
+startup_song1
+    db $f1,$02,$f2,$03,$f3,$0a,$f4,$02,$50,$70,$86,$90,$81,$90,$86,$90
+    db $68,$6a,$6b,$68,$6a,$68,$66,$6a,$68,$66,$65,$68,$86,$81,$86
+    db $ff
+
+; act 1 song
+act1_song2
+    db $f1,$00,$f2,$02,$f3,$0a,$f4,$00,$69,$6b,$69,$86,$61,$64,$65,$86
+    db $86,$64,$66,$64,$61,$69,$6b,$69,$86,$61,$64,$64,$a1,$70,$71,$74
+    db $75,$35,$76,$30,$50,$35,$76,$30,$50,$54,$56,$54,$51,$6b,$69,$6b
+    db $69,$6b,$91,$6b,$69,$66,$f2,$01,$74,$76,$74,$71,$74,$71,$6b,$69
+    db $a6,$a6,$ff
+
+; act 1,$song
+act1_song1
+    db $f1,$03,$f2,$03,$f3,$0a,$f4,$02,$70,$66,$70,$46,$50,$86,$90,$70
+    db $66,$70,$46,$50,$86,$90,$70,$66,$70,$46,$50,$86,$90,$70,$61,$70
+    db $41,$50,$81,$90,$f4,$00,$a6,$a4,$a2,$a1,$f4,$01,$86,$89,$8b,$81
+    db $74,$71,$6b,$69,$a6,$ff
+
+; act 3 song
+
+act3_song2
+    db $f1,$00,$f2,$02,$f3,$0a,$f4,$00,$65,$64,$65,$88,$67,$88,$61,$63
+    db $64,$85,$64,$85,$6a,$69,$6a,$8c,$75,$93,$90,$91,$90,$91,$70,$8a
+    db $68,$71,$ff
+
+; act 3,$song
+act3_song1
+    db $f1,$02,$f2,$03,$f3,$0a,$f4,$02,$65,$90,$68,$70,$68,$67,$66,$65
+    db $90,$61,$70,$61,$65,$68,$66,$90,$63,$90,$86,$90,$85,$90,$85,$70
+    db $86,$68,$65,$ff
+
+empty_song db $ff
+
+
 ;------------------------------------------------------------------------------
 ; This is needed to get cutscene sprite frames copied into the hardware
 ; 9797

@@ -8789,7 +8789,7 @@ FinishUpBlankTextDraw:
         ;;
         ;; PROCESS EFFECT (all voices)
         ;;
-
+process_effects
 2d0c  ld      hl,#EFFECT_TABLE_1        ; pointer to sound table
 2d0f  ld      ix,#CH1_E_NUM             ; effect number (voice 1)
 2d13  ld      iy,#CH1_FREQ0
@@ -8934,7 +8934,7 @@ FinishUpBlankTextDraw:
         ;;
         ;; Process effect (one voice)
         ;;
-
+process_effect
 2dee    ld      a,(ix+#00)      ; if (E_NUM != 0)
 2df1    and     a               ;
 2df2    jr      nz,#2e1b        ; then goto find effect
@@ -13491,21 +13491,21 @@ draw_logo_text
         ;;
 
         ;; channel 2 : jump table to song data
-
+SONG_TABLE_2
 967D  95 96				; #9695	; startup song
 967F  d6 96				; #96D6	; act 1 song
 9681  58 3c				; #3C58	; act 2 song
 9683  4f 97				; #974F	; act 3 song
 
         ;; channel 1 : jump table to song data
-
+SONG_TABLE_1
 9685  B6 96				; #96B6	; startup song
 9687  19 97				; #9719	; act 1 song
 9689  d4 3b				; #3BD4	; act 2 song
 968B  72 97				; #9772	; act 3 song
 
         ;; channel 3 : jump table to song data (nothing here, 9796 = 0xff)
-
+SONG_TABLE_3
 968d  96 97 96 97 96 97 96 97
 
         ;; songs data
