@@ -1029,7 +1029,8 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 ;01b9    call    #2d0c                   ; process effects
 			jsr process_effects
 ;01bc    call    #2cc1                   ; process waves
-			jsr intermission_sprite_blit ; 9797
+			jsr intermission_sprite_blit ; 9797 (because ms pac)
+			jsr process_waves ; decided to call from here, instead of chaining from the intermession_sprite_blit
 
 ; restore registers.  they were saved at #0096
 
@@ -12546,6 +12547,50 @@ FinishUpBlankTextDraw mx %10
 ;#else
 ;2cc1  ld      hl,#SONG_TABLE_1
 ;#endif
+
+;------------------------------------------------------------------------------
+;2cc4
+process_waves mx %00
+;2cc1  ld      hl,#SONG_TABLE_1
+        ;; channel 1 song
+;2cc4  ld      ix,#CH1_W_NUM             ; ix = Pointer to Song number
+;2cc8  ld      iy,#CH1_FREQ0             ; iy = Pointer to Freq/Vol parameters
+;2ccc  call    #2d44                     ; call process_wave
+;2ccf  ld      b,a                       ; A is the returned volume (save it in B)
+;2cd0  ld      a,(#CH1_W_NUM)            ; if we are playing a song
+;2cd3  and     a
+;2cd4  jr      z,#2cda
+;2cd6  ld      a,b                       ; then
+;2cd7  ld      (#CH1_VOL),a              ; save volume
+
+        ;; channel 2 song
+
+;2cda  ld      hl,#SONG_TABLE_2
+;2cdd  ld      ix,#CH2_W_NUM
+;2ce1  ld      iy,#CH2_FREQ1
+;2ce5  call    #2d44
+;2ce8  ld      b,a
+;2ce9  ld      a,(#CH2_W_NUM)
+;2cec  and     a
+;2ced  jr      z,#2cf3
+;2cef  ld      a,b
+;2cf0  ld      (#CH2_VOL),a
+
+        ;; channel 3 song
+
+;2cf3  ld      hl,#SONG_TABLE_3
+;2cf6  ld      ix,#CH3_W_NUM
+;2cfa  ld      iy,#CH3_FREQ1
+;2cfe  call    #2d44
+;2d01  ld      b,a
+;2d02  ld      a,(#CH3_W_NUM)
+;2d05  and     a
+;2d06  ret     z
+;2d07  ld      a,b
+;2d08  ld      (#CH3_VOL),a
+;2d0b  ret
+	    rts
+
 ;------------------------------------------------------------------------------
 ;;
 ;; PROCESS EFFECT (all voices)
@@ -16759,6 +16804,7 @@ intermission_sprite_blit mx %00
 ;97b9  3eff      ld      a,#ff		; yes, A := #FF
 ;97bb  320a4c    ld      (#4c0a),a	; store into mspac sprite number
 ;
+		; this actually jumps to the process_waves function
 ;97be  218596    ld      hl,#9685	; HL := #9685
 ;97c1  c3c42c    jp      #2cc4		; jump back to program
 			rts

@@ -8747,7 +8747,7 @@ FinishUpBlankTextDraw:
 #endif
 
         ;; channel 1 song
-
+process_waves
 2cc4  ld      ix,#CH1_W_NUM             ; ix = Pointer to Song number
 2cc8  ld      iy,#CH1_FREQ0             ; iy = Pointer to Freq/Vol parameters
 2ccc  call    #2d44                     ; call process_wave
