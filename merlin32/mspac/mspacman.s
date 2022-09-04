@@ -12695,6 +12695,8 @@ process_wave mx %00
 :bit_count = temp0+2
 :bit_mask  = temp1
 :freq      = temp1+2
+:b         = temp2
+:c         = temp2+2
 
 ;2d44  ld      a,(ix+#00)        ; if (W_NUM == 0)
 ;2d47  and     a
@@ -12757,7 +12759,7 @@ process_wave mx %00
 	sep #$20
 	dec |$0C,x
 	rep #$30
-	bne :do_freq
+	bnel :do_freq
 :loop
 ;2d6c  ld      l,(ix+#06)        ; then HL = pointer store in W_OFFSET
 ;2d6f  ld      h,(ix+#07)
@@ -12811,55 +12813,106 @@ process_wave mx %00
 	da :rts    ; #000C ; returns immediately ; byte is FD
 	da :rts    ; #000C ; returns immediately ; byte is FE
 	da audioFF ; #2FAD ; byte is FF
+
 :rts
+	rts
 ;
 ; process regular byte (A=byte to process, it's not a special byte)
 ;
 :regular
 ;2da5  ld      b,a               ; copy A into B
-
+	sta <:b
 ;2da6  and     #1f
 ;2da8  jr      z,#2dad           ; if (A & 0x1f == 0)
+	and #$1F
+	beq :n
 ;2daa  ld      (ix+#0d),b        ; then W_DIR = B
+	sep #$20
+	lda <:b
+	sta |$0D,x
+	rep #$30
+:n
+	sep #$20
 ;2dad  ld      c,(ix+#09)        ; C = W_9
+	lda |$09,x
+	sta <:c
 ;2db0  ld      a,(ix+#0b)
+	lda |$0B,x
 ;2db3  and     #08
+	and #$08
 ;2db5  jr      z,#2db9           ; if (W_8 & 0x8 == 0)
+	beq :n2
 ;2db7  ld      c,#00             ; then VOL = 0
+	stz <:c
+:n2
 ;2db9  ld      (ix+#0f),c        ; else VOL = W_9
-
+	lda <:c
+	sta |$0F,x
+	rep #$30
 ;2dbc  ld      a,b               ; restore A
 ;2dbd  rlca
 ;2dbe  rlca
 ;2dbf  rlca
+	lda <:b
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
 ;2dc0  and     #07               ; A = (A & 0xE0) >> 5
+	and #$07
 ;2dc2  ld      hl,#3bb0
 ;2dc5  rst     #10               ; A = ROM[0x3bb0 + A]
                                 ; Note: this is just A = 2**A
-
+	tay
+	sep #$20
+	lda |pow_table,y
 ;2dc6  ld      (ix+#0c),a        ; W_DURATION = A
-
+	sta |$0C,x
+	rep #$30
 ;2dc9  ld      a,b               ; restore A
 ;2dca  and     #1f
+	lda <:b
+	and #$1F
 ;2dcc  jr      z,#2dd7           ; if (A & 0x1f == 0) then goto compute_wave_freq
+	beq :do_freq
 ;2dce  and     #0f               ; A = A & 0x0F
 ;2dd0  ld      hl,#3bb8          ; lookup table, contains a table a frequencies
 ;2dd3  rst     #10
 ;2dd4  ld      (ix+#0e),a        ; W_BASE_FREQ = ROM[3bb8 + A]
+	sep #$20
+	and #$0f
+	tay
+	lda |freq_table,y
+	sta |$0E,x
+	rep #$30
 
         ;; compute wave frequency
 :do_freq
 ;2dd7  ld      l,(ix+#0e)
 ;2dda  ld      h,#00             ; HL = W_BASE_FREQ (on 16 bits)
+	lda |$0E,x
+	and #$FF
+	tay
 
 ;2ddc  ld      a,(ix+#0d)        ; A = W_DIR
+	lda |$0D,x
 ;2ddf  and     #10
+	and #$10
 ;2de1  jr      z,#2de5           ; if (W_DIR & 0x10 != 0) then
+	beq :dir0
 ;2de3  ld      a,#01             ;       A = 1
+	lda #$01
+:dir0
 ;2de5  add     a,(ix+#04)        ; A += W_4
-
+	sep #$20
+	clc
+	adc |$04,x
+	rep #$30
 ;2de8  jp      z,#2ee8           ; compute new frequency  FREQ = BASE_FREQ * (1 << A)
+	beq new_freq2
 ;2deb  jp      #2ee4
+	jmp new_freq
 
 ;------------------------------------------------------------------------------
 ;
@@ -13088,13 +13141,13 @@ find_effect mx %00
 ;2ee3  rrca
 
         ;; compute new frequency
-
+new_freq
 ;2ee4  ld      b,a               ; B = counter
 ;2ee5  add     hl,hl             ; HL = 2 * HL
 ;2ee6  djnz    #2ee5
                                 ; HL = HL * 2**B
                                 ; now extract the nibbles from HL
-
+new_freq2
 ;2ee8  ld      (iy+#00),l        ; 1st nibble
 ;2eeb  ld      a,l
 ;2eec  rrca
@@ -14485,6 +14538,15 @@ EFFECT_TABLE_3
 	db $36,$38,$fe,$12,$f8,$04,$0f,$fc ; ghosts bumping during act 1 sound
 ;3BA8
 	db $22,$01,$01,$06,$00,$01,$07,$00 ; fruit bouncing sound
+
+pow_table
+;3BB0
+	db $01,$02,$04,$08,$10,$20,$40,$80
+
+freq_table
+;3BB8
+	db $00,$57,$5C,$61,$67,$6D,$74,$7B
+	db $82,$8A,$92,$9A,$A3,$AD,$B8,$C3
 
 
 	;; text strings 2  (copyright, ghost names, intermission)

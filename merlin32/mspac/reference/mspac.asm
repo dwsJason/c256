@@ -10907,8 +10907,10 @@ EFFECT_TABLE_3
         
         ;; lookup tables
 
+pow_table
 3BB0  01 02 04 08 10 20 40 80
 
+freq_table
 3BB8  00 57 5C 61 67 6D 74 7B  82 8A 92 9A A3 AD B8 C3
         
         ;; channel 1 : jump table to song data
