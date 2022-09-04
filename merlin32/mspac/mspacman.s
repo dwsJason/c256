@@ -12551,43 +12551,82 @@ FinishUpBlankTextDraw mx %10
 ;------------------------------------------------------------------------------
 ;2cc4
 process_waves mx %00
-;2cc1  ld      hl,#SONG_TABLE_1
         ;; channel 1 song
+;2cc1  ld      hl,#SONG_TABLE_1
 ;2cc4  ld      ix,#CH1_W_NUM             ; ix = Pointer to Song number
 ;2cc8  ld      iy,#CH1_FREQ0             ; iy = Pointer to Freq/Vol parameters
 ;2ccc  call    #2d44                     ; call process_wave
+	lda #SONG_TABLE_1
+	ldx #CH1_W_NUM
+	ldy #CH1_FREQ0
+	jsr process_wave
 ;2ccf  ld      b,a                       ; A is the returned volume (save it in B)
+	tax
 ;2cd0  ld      a,(#CH1_W_NUM)            ; if we are playing a song
 ;2cd3  and     a
 ;2cd4  jr      z,#2cda
+	lda |CH1_W_NUM
+	and #$FF
+	beq :nextch0
 ;2cd6  ld      a,b                       ; then
 ;2cd7  ld      (#CH1_VOL),a              ; save volume
+	sep #$10
+	stx |CH1_VOL
+	rep #$30
 
         ;; channel 2 song
 
+:nextch0
 ;2cda  ld      hl,#SONG_TABLE_2
 ;2cdd  ld      ix,#CH2_W_NUM
 ;2ce1  ld      iy,#CH2_FREQ1
 ;2ce5  call    #2d44
+	lda #SONG_TABLE_2
+	ldx #CH2_W_NUM
+	ldy #CH2_FREQ1
+	jsr process_wave
+
 ;2ce8  ld      b,a
+	tax
+
 ;2ce9  ld      a,(#CH2_W_NUM)
 ;2cec  and     a
 ;2ced  jr      z,#2cf3
+	lda |CH2_W_NUM
+	and #$FF
+	bne :nextch1
 ;2cef  ld      a,b
 ;2cf0  ld      (#CH2_VOL),a
+	sep #$10
+	stx |CH2_VOL
+	rep #$30
 
         ;; channel 3 song
-
+:nextch1
 ;2cf3  ld      hl,#SONG_TABLE_3
 ;2cf6  ld      ix,#CH3_W_NUM
 ;2cfa  ld      iy,#CH3_FREQ1
 ;2cfe  call    #2d44
+	lda #SONG_TABLE_3
+	ldx #CH3_W_NUM
+	ldy #CH2_FREQ1
+	jsr process_wave
+
 ;2d01  ld      b,a
+	tax
+
 ;2d02  ld      a,(#CH3_W_NUM)
 ;2d05  and     a
+	lda |CH3_W_NUM
+	and #$FF
 ;2d06  ret     z
+	beq :rts
 ;2d07  ld      a,b
 ;2d08  ld      (#CH3_VOL),a
+	sep #$10
+	stx |CH3_VOL
+	rep #$30
+:rts
 ;2d0b  ret
 	    rts
 
@@ -12596,21 +12635,13 @@ process_waves mx %00
 ;; PROCESS EFFECT (all voices)
 ;2d0c
 process_effects mx %00
-:effect_table = temp0
-:freq        = temp1
-
 ;2d0c  ld      hl,#EFFECT_TABLE_1        ; pointer to sound table
-	    lda #EFFECT_TABLE_1
-	    sta <:effect_table
-
 ;2d0f  ld      ix,#CH1_E_NUM             ; effect number (voice 1)
-	    ldy #CH1_E_NUM
-
 ;2d13  ld      iy,#CH1_FREQ0
-	    lda #CH1_FREQ0
-	    sta <:freq
-
 ;2d17  call    #2dee                     ; call process effect, returns volume in A
+	    lda #EFFECT_TABLE_1
+	    ldx #CH1_E_NUM
+	    ldy #CH1_FREQ0
 	    jsr process_effect
 ;2d1a  ld      (#CH1_VOL),a              ; store volume
 	    sep #$20
@@ -12618,16 +12649,12 @@ process_effects mx %00
 	    rep #$30
 
 ;2d1d  ld      hl,#EFFECT_TABLE_2        ; same for voice 2
-	    lda #EFFECT_TABLE_2
-	    sta <:effect_table
-
 ;2d20  ld      ix,#CH2_E_NUM
-	    ldy #CH2_E_NUM
-
 ;2d24  ld      iy,#CH2_FREQ1
-	    lda #CH2_FREQ1
-	    sta <:freq
 ;2d28  call    #2dee
+	    lda #EFFECT_TABLE_2
+	    ldx #CH2_E_NUM
+	    ldy #CH2_FREQ1
 	    jsr process_effect
 ;2d2b  ld      (#CH2_VOL),a
 	    sep #$20
@@ -12635,51 +12662,232 @@ process_effects mx %00
 	    rep #$30
 
 ;2d2e  ld      hl,#EFFECT_TABLE_3        ; same for voice 3
-	    lda #EFFECT_TABLE_3
-	    sta <:effect_table
-
 ;2d31  ld      ix,#CH3_E_NUM
-	    ldy #CH3_E_NUM
-
 ;2d35  ld      iy,#CH3_FREQ1
-	    lda #CH3_FREQ1
-	    sta <:freq
-
 ;2d39  call    #2dee
+	    lda #EFFECT_TABLE_3
+	    ldx #CH3_E_NUM
+	    ldy #CH3_FREQ1
 	    jsr process_effect
 ;2d3c  ld      (#CH3_VOL),a
-
+	    sep #$20
+	    sta |CH3_VOL
 ;2d3f  xor     a                         ; A = 0
 ;2d40  ld      (#CH1_FREQ4),a            ; freq 4 channel 1 = 0
+	    stz |CH1_FREQ4
+	    rep #$30
 ;2d43  ret
 	    rts
+
+;------------------------------------------------------------------------------
+;
+; Process wave (one voice)
+;
+; In:  A = pSongTable
+;      X = CH?_W_NUM
+;      Y = CH?_FREQ0
+;
+; Return A = Volume
+;
+;2d44
+process_wave mx %00
+:w_num     = temp0
+:bit_count = temp0+2
+:bit_mask  = temp1
+:freq      = temp1+2
+
+;2d44  ld      a,(ix+#00)        ; if (W_NUM == 0)
+;2d47  and     a
+;2d48  jp      z,#2df4           ; then goto init_param
+	lda |0,x		; W_NUM
+	and #$FF
+	beql init_param
+
+;2d4b  ld      c,a               ; c = W_NUM
+	sta <:w_num
+
+;2d4c  ld      b,#08             ; b = 0x08
+;2d4e  ld      e,#80             ; e = 0x80
+	lda #$08
+	sta <:bit_count
+	lda #$80
+	sta <:bit_mask
+
+]loop
+;2d50  ld      a,e               ; find which bit is set in W_NUM
+	lda <:bit_mask
+;2d51  and     c
+	and <:w_num
+;2d52  jr      nz,#2d59          ; found one, goto process wave bis
+	bne :process_wave
+;2d54  srl     e
+	lsr <:bit_mask
+;2d56  djnz    #2d50
+	dec <:bit_count
+	bne ]loop
+;2d58  ret                       ; return
+	rts
+
+;
+; Process wave bis : process one wave, represented by 1 bit (in E)
+;
+:process_wave
+	sty <:freq
+
+;2d59  ld      a,(ix+#02)        ; A = CUR_BIT
+;2d5c  and     e
+;2d5d  jr      nz,#2d66          ; if (CUR_BIT & E != 0) then goto #2d66
+	lda |$02,x
+	and <:bit_mask
+	bne :cur_bit_set
+
+;2d5f  ld      (ix+#02),e        ; else save E in CUR_BIT
+	sep #$20
+	lda <:bit_mask
+	sta |$02,x
+	rep #$30
+;2d62  jp      #364e             ; jump to new ms. pac man routine.  returns to #2D72
+	jsr select_song
+;2d65  inc     c                 ; junk from pac-man
+	bra :process
+
+:cur_bit_set
+;2d66  dec     (ix+#0c)          ; decrement W_DURATION
+;2d69  jp      nz,#2dd7          ; if W_DURATION == 0
+	sep #$20
+	dec |$0C,x
+	rep #$30
+	bne :do_freq
+:loop
+;2d6c  ld      l,(ix+#06)        ; then HL = pointer store in W_OFFSET
+;2d6f  ld      h,(ix+#07)
+
+	ldy |$06,x
+
+        ;; process byte
+:process
+;2d72  ld      a,(hl)            ; A = (HL)
+;2d73  inc     hl
+	lda |0,y
+	iny
+;2d74  ld      (ix+#06),l        ; W_OFFSET = ++HL
+;2d77  ld      (ix+#07),h
+	tya
+	sta |$06,x
+
+;2d7a  cp      #f0               ; if (A < #F0)
+;2d7c  jr      c,#2da5           ; then process A  (regular byte)
+	and #$FF
+	cmp #$F0
+	bcc :regular
+
+;2d7e  ld      hl,#2d6c          ; else process special byte using a jump table.  load HL with return address
+;2d81  push    hl                ; push return address to stack
+	pea :loop-1
+
+;2d82  and     #0f               ; mask bits; takes lowest nibble of special byte
+;2d84  rst     #20               ; and jump based on A (return in HL = 2d6c)
+	and #$0f
+	asl
+	tax
+	txy
+	jmp (|:table,x)
+
+        ;; jump table
+:table
+	da audioF0 ; #2F55 ; byte is F0
+	da audioF1 ; #2F65 ; byte is F1
+	da audioF2 ; #2F77 ; byte is F2
+	da audioF3 ; #2F89 ; byte is F3
+	da audioF4 ; #2F9B ; byte is F4
+	da :rts    ; #000C ; returns immediately ; byte is F5
+	da :rts    ; #000C ; returns immediately ; byte is F6
+	da :rts    ; #000C ; returns immediately ; byte is F7
+	da :rts    ; #000C ; returns immediately ; byte is F8
+	da :rts    ; #000C ; returns immediately ; byte is F9
+	da :rts    ; #000C ; returns immediately ; byte is FA
+	da :rts    ; #000C ; returns immediately ; byte is FB
+	da :rts    ; #000C ; returns immediately ; byte is FC
+	da :rts    ; #000C ; returns immediately ; byte is FD
+	da :rts    ; #000C ; returns immediately ; byte is FE
+	da audioFF ; #2FAD ; byte is FF
+:rts
+;
+; process regular byte (A=byte to process, it's not a special byte)
+;
+:regular
+;2da5  ld      b,a               ; copy A into B
+
+;2da6  and     #1f
+;2da8  jr      z,#2dad           ; if (A & 0x1f == 0)
+;2daa  ld      (ix+#0d),b        ; then W_DIR = B
+;2dad  ld      c,(ix+#09)        ; C = W_9
+;2db0  ld      a,(ix+#0b)
+;2db3  and     #08
+;2db5  jr      z,#2db9           ; if (W_8 & 0x8 == 0)
+;2db7  ld      c,#00             ; then VOL = 0
+;2db9  ld      (ix+#0f),c        ; else VOL = W_9
+
+;2dbc  ld      a,b               ; restore A
+;2dbd  rlca
+;2dbe  rlca
+;2dbf  rlca
+;2dc0  and     #07               ; A = (A & 0xE0) >> 5
+;2dc2  ld      hl,#3bb0
+;2dc5  rst     #10               ; A = ROM[0x3bb0 + A]
+                                ; Note: this is just A = 2**A
+
+;2dc6  ld      (ix+#0c),a        ; W_DURATION = A
+
+;2dc9  ld      a,b               ; restore A
+;2dca  and     #1f
+;2dcc  jr      z,#2dd7           ; if (A & 0x1f == 0) then goto compute_wave_freq
+;2dce  and     #0f               ; A = A & 0x0F
+;2dd0  ld      hl,#3bb8          ; lookup table, contains a table a frequencies
+;2dd3  rst     #10
+;2dd4  ld      (ix+#0e),a        ; W_BASE_FREQ = ROM[3bb8 + A]
+
+        ;; compute wave frequency
+:do_freq
+;2dd7  ld      l,(ix+#0e)
+;2dda  ld      h,#00             ; HL = W_BASE_FREQ (on 16 bits)
+
+;2ddc  ld      a,(ix+#0d)        ; A = W_DIR
+;2ddf  and     #10
+;2de1  jr      z,#2de5           ; if (W_DIR & 0x10 != 0) then
+;2de3  ld      a,#01             ;       A = 1
+;2de5  add     a,(ix+#04)        ; A += W_4
+
+;2de8  jp      z,#2ee8           ; compute new frequency  FREQ = BASE_FREQ * (1 << A)
+;2deb  jp      #2ee4
+
 ;------------------------------------------------------------------------------
 ;
 ; Process effect (one voice)
 ;
-; Y = offset to the Effect struct
-; Y = ix
-; return A = volume
+; A = pEffectTable
+; X = pCH?_E_NUM
+; Y = pCH?_FREQ
+
+; return: A = volume
 ;
 ;2dee
 process_effect mx %00
-:effect_table = temp0
-:freq         = temp1
-:enum         = temp2
-:cur_bit      = temp3
-:bit_count    = temp3+2
-
 ;2dee    ld      a,(ix+#00)      ; if (E_NUM != 0)
 ;2df1    and     a               ;
-	lda |0,y  ; E_NUM
+	lda |0,x  ; E_NUM
 	and #$FF
 
 ;2df2    jr      nz,#2e1b        ; then goto find effect
-	bne :find_effect
+	bne find_effect
 
-        ;;
-        ;; Init Param
-        ;;
+;$$JGA TODO - retranslate this, since inputs are not wrong
+;
+; Init Param
+;
+init_param mx %00
+
+:freq      = temp1+2
 
 ;2df4    ld      a,(ix+#02)      ; if (CUR_BIT == 0)
 ;2df7    and     a
@@ -12716,7 +12924,12 @@ process_effect mx %00
 ;;
 ;; find effect. Effect num is not zero, find which bits are set
 ;;
-:find_effect
+find_effect mx %00
+:enum      = temp0
+:bit_count = temp0+2
+:cur_bit   = temp1
+:freq      = temp1+2
+
 ;2e1b  ld      c,a               ; c = E_NUM
 	sta <:enum
 
@@ -12771,7 +12984,7 @@ process_effect mx %00
 	asl
 	asl
 	asl
-	adc <:effect_table
+;;	adc <:effect_table
 	tax
 
 ;2e37  ld      c,a               ; C = (B-1)*8
@@ -12968,10 +13181,12 @@ process_effect mx %00
 ;2f53  c9        ret     
 ;2f54  c9        ret     
 
-        ;;
-        ;; Special byte F0 : this is followed by 2 bytes, the new offset (to allow loops)
-        ;;
-
+;------------------------------------------------------------------------------
+;
+; Special byte F0 : this is followed by 2 bytes, the new offset (to allow loops)
+;
+audioF0 mx %00
+	tyx
 ;2f55  ld      l,(ix+#06)
 ;2f58  ld      h,(ix+#07)        ; HL = (W_OFFSET)
 ;2f5b  ld      a,(hl)
@@ -12980,68 +13195,123 @@ process_effect mx %00
 ;2f60  ld      a,(hl)
 ;2f61  ld      (ix+#07),a        ; HL = (HL)
 ;2f64  ret
+	rts
 
-        ;;
-        ;; Special byte F1 : followed by one byte (wave select)
-        ;;
-
+;------------------------------------------------------------------------------
+;
+; Special byte F1 : followed by one byte (wave select)
+;
+audioF1 mx %00
+	tyx
 ;2f65  ld      l,(ix+#06)
 ;2f68  ld      h,(ix+#07)
+	ldy |$06,x
 ;2f6b  ld      a,(hl)            ; A = (++HL)
-;2f6c  inc     hl
+	lda |0,y
+;;2f6c  inc     hl
+	iny
+;2f73  ld      (ix+#03),a        ; save A in W_WAVE_SEL
+	sep #$20
+	sta |$03,x
+	rep #$30
+
 ;2f6d  ld      (ix+#06),l
 ;2f70  ld      (ix+#07),h
-;2f73  ld      (ix+#03),a        ; save A in W_WAVE_SEL
+	tya
+	sta |$06,x
 ;2f76  ret
+	rts
 
-        ;;
-        ;; Special byte F2 : followed by one byte (Frequency increment)
-        ;;
-
+;------------------------------------------------------------------------------
+;
+; Special byte F2 : followed by one byte (Frequency increment)
+;
+audioF2 mx %00
+	tyx
 ;2f77  ld      l,(ix+#06)
 ;2f7a  ld      h,(ix+#07)
+	ldy |$06,x
 ;2f7d  ld      a,(hl)            ; A = (++HL)
+	lda |$0,y
 ;2f7e  inc     hl
+	iny
+;2f85  ld      (ix+#04),a        ; save A in W_A
+	sep #$20
+	sta |$04,x
+	rep #$30
 ;2f7f  ld      (ix+#06),l
 ;2f82  ld      (ix+#07),h
-;2f85  ld      (ix+#04),a        ; save A in W_A
+	tya
+	sta |$06,x
 ;2f88  ret
+	rts
 
-        ;;
-        ;; Special byte F3 : followed by one byte (Volume)
-        ;;
-
+;------------------------------------------------------------------------------
+;
+; Special byte F3 : followed by one byte (Volume)
+;
+audioF3 mx %00
+	tyx
 ;2f89  ld      l,(ix+#06)
 ;2f8c  ld      h,(ix+#07)
+	ldy |$06,x
 ;2f8f  ld      a,(hl)            ; A = (++HL)
+	lda |0,y
 ;2f90  inc     hl
+	iny
+;2f97  ld      (ix+#09),a        ; save A in W_VOL
+	sep #$20
+	sta |$09,x
+	rep #$30
 ;2f91  ld      (ix+#06),l
 ;2f94  ld      (ix+#07),h
-;2f97  ld      (ix+#09),a        ; save A in W_VOL
+	tya
+	sta |$06,x
 ;2f9a  ret
+	rts
 
-        ;;
-        ;; Special byte F4 : followed by one byte (Type)
-	;;
-
+;------------------------------------------------------------------------------
+;
+; Special byte F4 : followed by one byte (Type)
+;
+audioF4 mx %00
+	tyx
 ;2f9b  ld      l,(ix+#06)
 ;2f9e  ld      h,(ix+#07)
+	ldy |$06,x
 ;2fa1  ld      a,(hl)            ; A = (++HL)
+	lda |$0,y
 ;2fa2  inc     hl
+	iny
+;2fa9  ld      (ix+#0b),a        ; save A in W_TYPE
+	sep #$20
+	sta |$0B,x
+	rep #$30
 ;2fa3  ld      (ix+#06),l
 ;2fa6  ld      (ix+#07),h
-;2fa9  ld      (ix+#0b),a        ; save A in W_TYPE
+	tya
+	sta |$06,x
 ;2fac  ret
+	rts
 
-        ;;
-        ;; Special byte FF : mark the end of the song
-        ;;
-
+;------------------------------------------------------------------------------
+;
+; Special byte FF : mark the end of the song
+;
+audioFF mx %00
+	tyx
 ;2fad  ld      a,(ix+#02)
 ;2fb0  cpl
 ;2fb1  and     (ix+#00)
 ;2fb4  ld      (ix+#00),a        ; W_NUM &= ~W_CUR_BIT
+	sep #$20
+	lda |$02,x
+	eor #$FF
+	and |$00,x
+	sta |$00,x
+	rep #$30
 ;2fb7  jp      #2df4
+	jmp init_param
 
 ;------------------------------------------------------------------------------
 ; data - table for difficulty
@@ -13958,10 +14228,10 @@ get_intermission_xy mx %00
 			lda #cutscene_positions-2
 ;364d  c9        ret
 			rts
-
-        ; select song
-	; arrive here from #2D62
-
+;------------------------------------------------------------------------------
+; select song
+; arrive here from #2D62
+select_song mx %00
 ;364E: 05	dec	b		; B = current bit of song being played (from loop in #2d50)
 					; adapt B to the current level to find out the song number
 ;364F: C5	push	bc		; save BC	
@@ -13982,7 +14252,10 @@ get_intermission_xy mx %00
 
 ;366A: DF	rst	#18		; HL = (HL+2B)  [read from table in HL, i.e. SONG_TABLE_x]
 ;366B: C1	pop	bc		; restore BC
+
+; it's better for my local label scope, to call this as function
 ;366C: C3 72 2D	jp	#2D72		; jump back to main program to "process byte" routine
+	    rts
 
 ; arrive here from #2060 
 ; A is loaded with the color of the tile the ghost is on

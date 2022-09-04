@@ -8942,7 +8942,7 @@ process_effect
         ;;
         ;; Init Param
         ;;
-
+init_param
 2df4    ld      a,(ix+#02)      ; if (CUR_BIT == 0)
 2df7    and     a
 2df8    ret     z               ; then return
@@ -8962,7 +8962,7 @@ process_effect
         ;;
         ;; find effect. Effect num is not zero, find which bits are set
         ;;
-
+find_effect
 2e1b  ld      c,a               ; c = E_NUM
 2e1c  ld      b,#08             ; b = 0x08
 2e1e  ld      e,#80             ; e = 0x80
@@ -10499,7 +10499,7 @@ get_intermission_xy
 
         ; select song
 	; arrive here from #2D62
-
+select_song
 364E: 05	dec	b		; B = current bit of song being played (from loop in #2d50)
 					; adapt B to the current level to find out the song number
 364F: C5	push	bc		; save BC	
