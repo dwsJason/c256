@@ -1191,7 +1191,7 @@ update_timers mx %00
 ;01e0  23        inc     hl		; load HL with 2nd sound counter address
 ;01e1  35        dec     (hl)		; decrement
 			sep #$20
-    		inc |SOUND_COUNTER
+			inc |SOUND_COUNTER
 			dec |SOUND_COUNTER+1
 			;rep #$20
 ;01e2  23        inc     hl		; next address.  HL now has #4C86
@@ -12912,6 +12912,7 @@ process_wave mx %00
 ;2de8  jp      z,#2ee8           ; compute new frequency  FREQ = BASE_FREQ * (1 << A)
 	beql new_freq2
 ;2deb  jp      #2ee4
+	sta <:b
 	jmp new_freq
 
 ;------------------------------------------------------------------------------
@@ -12940,7 +12941,6 @@ process_effect2
 ;2df2    jr      nz,#2e1b        ; then goto find effect
 	bne find_effect
 
-;$$JGA TODO - retranslate this, since inputs are not wrong
 ;
 ; Init Param
 ;
@@ -13210,23 +13210,45 @@ find_effect mx %00
 ;2ed7  ld      h,#00             ; HL = E_BASE_FREQ (on 16 bits)
 	and #$FF
 
+	tay
 
 ;2ed9  ld      a,(ix+#03)        ; compute new frequency
 ;2edc  and     #70               ; FREQ = E_BASE_FREQ * ((1 << E_TABLE0 & 0x70) >> 4)
 ;2ede  jr      z,#2ee8
+	lda |$03,x
+	and #$70
+	beq new_freq2
+
 ;2ee0  rrca
 ;2ee1  rrca
 ;2ee2  rrca
 ;2ee3  rrca
 
+	lsr
+	lsr
+	lsr
+	lsr
+	sta <:b
+	tya
+
         ;; compute new frequency
 new_freq
+:b         = temp2
+:c         = temp2+2
+
 ;2ee4  ld      b,a               ; B = counter
 ;2ee5  add     hl,hl             ; HL = 2 * HL
+	asl
 ;2ee6  djnz    #2ee5
+	dec <:b
+	bne new_freq
                                 ; HL = HL * 2**B
                                 ; now extract the nibbles from HL
 new_freq2
+:freq      = temp1+2
+
+	ldy <:freq
+	sep #$20
 ;2ee8  ld      (iy+#00),l        ; 1st nibble
 ;2eeb  ld      a,l
 ;2eec  rrca
@@ -13242,65 +13264,135 @@ new_freq2
 ;2efa  rrca
 ;2efb  ld      (iy+#03),a        ; 4th nibble
 
+	sta |0,y
+	lsr
+	lsr
+	lsr
+	lsr
+	sta |1,y
+	xba
+	sta |2,y
+	lsr
+	lsr
+	lsr
+	lsr
+	sta |3,y
+	rep #$30
+
+	txy
+
 ;2efe  ld      a,(ix+#0b)        ; A = W_TYPE
 ;2f01  rst     #20               ; jump table to volume adjust routine
 
+	lda |$0b,x
+	and #$0F
+	asl
+	tax
+	jmp (:table,x)
+
         ; jump table to adjust volume
+:table
+	da :type0 ; #2F22
+	da :type1 ; #2F26
+	da :type2 ; #2F2B
+	da :type3 ; #2F3C
+	da :type4 ; #2F43
+	da :type5 ; #2F4A
+	da :type6 ; #2F4B
+	da :type7 ; #2F4C
+	da :type8 ; #2F4D
+	da :type9 ; #2F4E
+	da :typeA ; #2F4F
+	da :typeB ; #2F50
+	da :typeC ; #2F51
+	da :typeD ; #2F52
+	da :typeE ; #2F53
+	da :typeF ; #2F54
 
-;2f02  22 2f 			; #2F22
-;2F04  26 2f			; #2F26
-;2F06  2b 2f			; #2F2B
-;2F08  3c 2f			; #2F3C
-;2F0A  43 2f			; #2F43
-;2F0C  4a 2f			; #2F4A
-;2F0E  4b 2f			; #2F4B
-;2F10  4c 2f			; #2F4C
-;2F12  4d 2f			; #2F4D
-;2F14  4e 2f			; #2F4E
-;2F16  4f 2f			; #2F4F
-;2F18  50 2f			; #2F50
-;2F1A  51 2f			; #2F51
-;2F1C  52 2f			; #2F52
-;2F1E  53 2f			; #2F53
-;2F20  54 2f			; #2F54
-
-        ;; type 0
-
+;; type 0
+:type0 
 ;2f22  ld      a,(ix+#0f)        ; constant volume
+	tyx
+	lda |$0f,x
+	and #$FF
 ;2f25  ret
+	rts
 
-        ;; type 1
-
+;; type 1
+:type1
 ;2f26  ld      a,(ix+#0f)        ; decreasing volume
 ;2f29  jr      #2f34
-
-        ;; type 2
-
+	tyx
+	lda |$0f,x
+	bra :dec_vol
+;; type 2
+:type2
+	tyx
 ;2f2b  ld      a,(#4c84)         ; decreasing volume (1/2 rate)
 ;2f2e  and     #01
+	lda |SOUND_COUNTER
+	and #$01
+	tay
+:dec_vol2
 ;2f30  ld      a,(ix+#0f)        ; (skip decrease if sound_counter (4c84) is odd)
+	lda |$0F,x
+	and #$0F
+	cpy #0
 ;2f33  ret     nz
-
+	beq :dec_vol
+:rts
+	rts
+:dec_vol
 ;2f34  and     #0f               ; decrease routine
+	and #$0f
 ;2f36  ret     z
+	beq :rts
 ;2f37  dec     a
 ;2f38  ld      (ix+#0f),a
+	dec
+	sep #$20
+	sta |$0F,x
+	rep #$30
 ;2f3b  ret
+	rts
 
-        ;; type 3
-
+;; type 3
+:type3
+	tyx
 ;2f3c  ld      a,(#4c84)         ; decreasing volume (1/4 rate)
 ;2f3f  and     #03
 ;2f41  jr      #2f30
+	lda |SOUND_COUNTER
+	and #$03
+	tay
+	bra :dec_vol2
 
         ;; type 4
-
+:type4
+	tyx
 ;2f43  ld      a,(#4c84)         ; decreasing volume (1/8 rate)
 ;2f46  and     #07
 ;2f48  jr      #2f30
+	lda |SOUND_COUNTER
+	and #$07
+	tay
+	bra :dec_vol2
 
         ;; type 5-15
-
+:type5
+:type6
+:type7
+:type8
+:type9
+:typeA
+:typeB
+:typeC
+:typeD
+:typeE
+:typeF
+	tyx
+	lda #0
+	rts
 ;2f4a  c9        ret     
 ;2f4b  c9        ret     
 ;2f4c  c9        ret     
@@ -13321,11 +13413,14 @@ audioF0 mx %00
 	tyx
 ;2f55  ld      l,(ix+#06)
 ;2f58  ld      h,(ix+#07)        ; HL = (W_OFFSET)
+	ldy |$06,x
 ;2f5b  ld      a,(hl)
+	lda |0,y
 ;2f5c  ld      (ix+#06),a
 ;2f5f  inc     hl
 ;2f60  ld      a,(hl)
 ;2f61  ld      (ix+#07),a        ; HL = (HL)
+	sta |$06,x
 ;2f64  ret
 	rts
 
