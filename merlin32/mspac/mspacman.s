@@ -12910,7 +12910,7 @@ process_wave mx %00
 	adc |$04,x
 	rep #$30
 ;2de8  jp      z,#2ee8           ; compute new frequency  FREQ = BASE_FREQ * (1 << A)
-	beq new_freq2
+	beql new_freq2
 ;2deb  jp      #2ee4
 	jmp new_freq
 
@@ -12930,6 +12930,8 @@ process_effect mx %00
 :effect_table = temp3
 
 	sta <:effect_table
+
+process_effect2
 ;2dee    ld      a,(ix+#00)      ; if (E_NUM != 0)
 ;2df1    and     a               ;
 	lda |0,x  ; E_NUM
@@ -13070,75 +13072,144 @@ find_effect mx %00
 	sta |9,x
 
 
+	sep #$20
 ;2e48  ld      a,(ix+#06)
 ;2e4b  and     #7f
 ;2e4d  ld      (ix+#0c),a        ; E_DURATION = E_TABLE3 & 0x7F
+	lda |$06,x
+	and #$7F
+	sta |$0C,x
 
 ;2e50  ld      a,(ix+#04)
 ;2e53  ld      (ix+#0e),a        ; E_BASE_FREQ = E_TABLE1
+	lda |$04,x
+	sta |$0E,x
 
 ;2e56  ld      a,(ix+#09)
 ;2e59  ld      b,a               ; B = E_TABLE6
+	lda |$09,x
+	sta <:b
 ;2e5a  rrca
 ;2e5b  rrca
 ;2e5c  rrca
 ;2e5d  rrca
 ;2e5e  and     #0f
+	lsr
+	lsr
+	lsr
+	lsr
 ;2e60  ld      (ix+#0b),a        ; E_TYPE = (E_TABLE6 >> 4) & 0xF
-
+	sta |$0B,x
 ;2e63  and     #08
 ;2e65  jr      nz,#2e6e          ; if (E_TYPE & 0x8 == 0) then
+	and #$08
+	bne :compute_effect
 ;2e67  ld      (ix+#0f),b        ;       E_VOL = E_TABLE6
+	lda <:b
+	sta |$0f,x
 ;2e6a  ld      (ix+#0d),#00      ;       E_DIR = 0
-
+	stz |$0d,x
         ;; compute effect
 :compute_effect
+	sep #$20
 ;2e6e  dec     (ix+#0c)          ; E_DURATION--
 ;2e71  jr      nz,#2ecd          ; if (E_DURATION == 0) then
+	dec |$0C,x
+	bne :update_freq
 ;2e73  ld      a,(ix+#08)
 ;2e76  and     a
 ;2e77  jr      z,#2e89           ;       if (E_TABLE5 != 0) then
+	lda |$08,x
+	beq :t5zero
 ;2e79  dec     (ix+#08)          ;               E_TABLE5--
 ;2e7c  jr      nz,#2e89          ;               if (E_TABLE5 == 0) then
+	dec |$08,x
+	bne :t5zero
 ;2e7e  ld      a,e
 ;2e7f  cpl
 ;2e80  and     (ix+#00)
 ;2e83  ld      (ix+#00),a        ;                       E_NUM &= ~E_CUR_BIT
+	lda <:cur_bit
+	eor #$FF
+	and |$00,x
+	sta |$00,x
 ;2e86  jp      #2dee             ;                       goto process effect (one voice)
+	rep #$30
+	jmp process_effect2
+:t5zero mx %10
 ;2e89  ld      a,(ix+#06)
 ;2e8c  and     #7f
 ;2e8e  ld      (ix+#0c),a        ;       E_DURATION = E_TABLE3 & 0x7F
+	lda |$06,x
+	and #$7F
+	sta |$0C,x
+
 ;2e91  bit     7,(ix+#06)
 ;2e95  jr      z,#2ead           ;       if (E_TABLE3 & 0x80 != 0) then
+	lda |$06,x
+	bpl :t3pos
 ;2e97  ld      a,(ix+#05)
 ;2e9a  neg
 ;2e9c  ld      (ix+#05),a        ;               E_TABLE2 = - E_TABLE2
+	lda |$05,x
+	eor #$FF
+	inc
+	sta |$05,x
 ;2e9f  bit     0,(ix+#0d)        ;               if (E_DIR & 0x1 == 0) then
 ;2ea3  set     0,(ix+#0d)        ;                       E_DIR |= 0x1
 ;2ea7  jr      z,#2ecd           ;                       goto update_freq
 ;2ea9  res     0,(ix+#0d)        ;               E_DIR &= ~0x1
+	lda |$0d,x
+	eor #1
+	sta |$0d,x
+:t3pos
 ;2ead  ld      a,(ix+#04)
 ;2eb0  add     a,(ix+#07)
 ;2eb3  ld      (ix+#04),a        ;       E_TABLE1 += E_TABLE4
 ;2eb6  ld      (ix+#0e),a        ;       E_BASE_FREQ = E_TABLE1
+
+	lda |$04,x
+	clc
+	adc |$07,x
+	sta |$04,x
+	sta |$0e,x
+
 ;2eb9  ld      a,(ix+#09)
 ;2ebc  add     a,(ix+#0a)
 ;2ebf  ld      (ix+#09),a        ;       E_TABLE6 += E_TABLE7
+	lda |$09,x
+	clc
+	adc |$0A,x
+	sta |$09,x
+
 ;2ec2  ld      b,a
+	sta <:b
+
 ;2ec3  ld      a,(ix+#0b)
 ;2ec6  and     #08
 ;2ec8  jr      nz,#2ecd          ;       if (E_TYPE & 0x8 == 0) then
+	lda |$0B,x
+	and #$08
+	bne :update_freq
 ;2eca  ld      (ix+#0f),b        ;               E_VOL = E_TABLE6
+	lda <:b
+	sta |$0f,x
 
-
-        ;; update freq
-
+; update freq
+:update_freq
 ;2ecd  ld      a,(ix+#0e)
 ;2ed0  add     a,(ix+#05)
 ;2ed3  ld      (ix+#0e),a        ; E_BASE_FREQ += E_TABLE2
+	lda |$0E,x
+	clc
+	adc |$05,x
+	sta |$0E,x
 
+	rep #$30
 ;2ed6  ld      l,a
 ;2ed7  ld      h,#00             ; HL = E_BASE_FREQ (on 16 bits)
+	and #$FF
+
 
 ;2ed9  ld      a,(ix+#03)        ; compute new frequency
 ;2edc  and     #70               ; FREQ = E_BASE_FREQ * ((1 << E_TABLE0 & 0x70) >> 4)
