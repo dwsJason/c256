@@ -12926,6 +12926,10 @@ process_wave mx %00
 ;
 ;2dee
 process_effect mx %00
+
+:effect_table = temp3
+
+	sta <:effect_table
 ;2dee    ld      a,(ix+#00)      ; if (E_NUM != 0)
 ;2df1    and     a               ;
 	lda |0,x  ; E_NUM
@@ -12940,17 +12944,17 @@ process_effect mx %00
 ;
 init_param mx %00
 
-:freq      = temp1+2
+:freq      = temp1+2 ;$$MATCH process_wave
 
 ;2df4    ld      a,(ix+#02)      ; if (CUR_BIT == 0)
 ;2df7    and     a
-	lda |2,y  ; CUR_BIT
+	lda |2,x  ; CUR_BIT
 	and #$FF
 ;2df8    ret     z               ; then return
 	beq :rts
 
 	sep #$20
-	tyx
+	sty <:freq
 
 ;2df9    ld      (ix+#02),#00    ; CUR_BIT = 0
 ;2dfd    ld      (ix+#0d),#00    ; DIR = 0
@@ -12978,11 +12982,15 @@ init_param mx %00
 ;; find effect. Effect num is not zero, find which bits are set
 ;;
 find_effect mx %00
-:enum      = temp0
+:enum      = temp0	; $$MATCH process_wave
 :bit_count = temp0+2
 :cur_bit   = temp1
 :freq      = temp1+2
+:b         = temp2
+:c         = temp2+2
+:effect_table = temp3
 
+	sty <:freq
 ;2e1b  ld      c,a               ; c = E_NUM
 	sta <:enum
 
@@ -13015,14 +13023,14 @@ find_effect mx %00
 :found_one
 ;2e29  ld      a,(ix+#02)        ; A = CUR_BIT
 ;2e2c  and     e
-	lda |$2,y
+	lda |$02,x
 	and <:cur_bit
 ;2e2d  jr      nz,#2e6e          ; if (CUR_BIT & E != 0) then goto 2e6e
 	bne :compute_effect
 ;2e2f  ld      (ix+#02),e        ; else save E in CUR_BIT
 	sep #$20
 	lda <:cur_bit
-	sta |$2,y
+	sta |$02,x
 	rep #$30
                                 ; locate the 8 bytes for this effect in the rom tables
 ;2e32  dec     b                 ; the address is at HL + (B-1) * 8
@@ -13037,8 +13045,8 @@ find_effect mx %00
 	asl
 	asl
 	asl
-;;	adc <:effect_table
-	tax
+	adc <:effect_table
+	tay
 
 ;2e37  ld      c,a               ; C = (B-1)*8
 ;2e38  ld      b,#00             ; B = 0
@@ -13052,14 +13060,14 @@ find_effect mx %00
 ;2e42  ld      bc,#0008
 ;2e45  ldir                      ; copy 8 bytes from rom
 ;2e47  pop     hl                ; restore HL (pointer to EFFECT_TABLE)
-	lda |0,x
-	sta |3,y
-	lda |2,x
-	sta |5,y
-	lda |4,x
-	sta |7,y
-	lda |6,x
-	sta |9,y
+	lda |0,y
+	sta |3,x
+	lda |2,y
+	sta |5,x
+	lda |4,y
+	sta |7,x
+	lda |6,y
+	sta |9,x
 
 
 ;2e48  ld      a,(ix+#06)
