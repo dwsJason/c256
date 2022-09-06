@@ -486,8 +486,7 @@ VBL_Handler mx %00
 ; convert from MsPac HW to C256
 ;
 SP_SIZE equ 8
-		pea >SP00_CONTROL_REG
-		plb
+		phkb ^SP00_CONTROL_REG
 		plb
 		phd
 		lda #allsprite
@@ -772,7 +771,6 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 		sta |SP00_Y_POS_L+{SP_SIZE*5}
 
 		pld
-		phk
 		plb
 ;
 ; Then code to refresh the character map
@@ -1860,6 +1858,7 @@ start_mspac2_demo mx %00
 draw_text mx %00
 ;0585  061c      ld      b,#1c		; load B with task code for text display
 			xba
+			and #$FF00
 			ora #$001C
 ;0587  cd4200    call    #0042		; insert task to display text, parameter = variable text
 			jsr task_add
@@ -2602,10 +2601,10 @@ InstallJiffy mx %00
 		phb 				   ; 3
 		phk 				   ; 3
 		plb 				   ; 4
-		rep #$30			   ; 3
+		rep #$38			   ; 3
 		inc |{MyDP+dpJiffy}    ; 6
 
-jsr38	nop
+jsr38		nop
 		nop
 		nop
 
@@ -6436,6 +6435,7 @@ flash_screen mx %00
 		lda #$200
 flash_screen2 mx %00
 ;09ea  0601      ld      b,#01		; B := #01
+		and #$FF00
 		ora #$0001
 ;09ec  cd4200    call    #0042		; set task #01 with parameter #02, or task #01 with parameter #00
 		jsr task_add
@@ -9987,6 +9987,7 @@ movement_check equ *
 ;19B2: 06 19	ld	b,#19		; else a fruit is eaten.  load B with task #19
 ;19B4: 4F	ld	c,a		; load C with task from A register
 	    xba
+	    and #$FF00
 	    ora #$0019
 ;19B5: CD 42 00	call	#0042		; set task #19 with parameter variable A.  updates score.  B has code for items scored, draw score on screen, check for high score and extra lives
 	    jsr task_add
@@ -10071,6 +10072,7 @@ movement_check equ *
 	    tay
 	    lsr
 	    xba
+	    and #$FF00
 	    ora #$0019
 
 ;19F3: CD 42 00	call	#0042		; set task #19 with variable parameter
