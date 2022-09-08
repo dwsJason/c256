@@ -8348,7 +8348,7 @@ ScoreTable
 2b68  18f7      jr      #2b61           ; loop again
 
 ; draw remaining lives at bottom of screen
-
+task_drawLives
 2b6a  3a004e    ld      a,(#4e00)	; load A with game mode
 2b6d  fe01      cp      #01		; == 1 ?  Are we in demo mode?
 2b6f  c8        ret     z		; If yes, return
@@ -8431,7 +8431,7 @@ task_drawCredits
 ; this subroutine takes 5 bytes after the call and uses them to copy the 3rd byte into several memories
 ; first 2 bytes are the initial address to copy into 
 ; called from #2B70 to color the bottom area yellow where extra lives are drawn
-
+ColorStuff
 2bcd  e1        pop     hl		; load HL with address of next data byte in code
 2bce  5e        ld      e,(hl)		; load E with first byte.  MSB of address to use
 2bcf  23        inc     hl		; next adddress

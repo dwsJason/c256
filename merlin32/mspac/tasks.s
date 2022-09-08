@@ -1359,8 +1359,103 @@ task_updateScore mx %00
 
 ;------------------------------------------------------------------------------
 ; #2B6A ; A=1A	; draws remaining lives at bottom of screen
-task_drawLives
+task_drawLives mx %00
+;2b6a  3a004e    ld      a,(#4e00)	; load A with game mode
+;2b6d  fe01      cp      #01		; == 1 ?  Are we in demo mode?
+;2b6f  c8        ret     z		; If yes, return
+		lda |mainstate
+		cmp #1
+		bne :continue
 		rts
+:continue
+
+;2b70  cdcd2b    call    #2bcd		; colors the bottom two rows of 10 the color 9 (yellow)
+;2b73  12 44				; #4412 is starting location for above subroutine
+;2B75  09 0A 02				; data used in above subroutine call.  9 is the color, #0A is the length, #02 is the number of rows
+		jsr ColorStuff
+		da palette_ram+$12
+		db $09,$0A,$02
+
+;2b78  21154e    ld      hl,#4e15	; load HL with address of number of lives to display
+;2b7b  46        ld      b,(hl)		; load B with number of lives to display
+;2b7c  18cc      jr      #2b4a           ; draw extra lives on screen and return
+
+		rts
+
+;------------------------------------------------------------------------------
+
+; this subroutine takes 5 bytes after the call and uses them to copy the 3rd byte into several memories
+; first 2 bytes are the initial address to copy into 
+; called from #2B70 to color the bottom area yellow where extra lives are drawn
+ColorStuff mx %00
+:fill_value   = temp0
+:length_value = temp0+2
+:row_count    = temp1
+;2bcd  e1        pop     hl		; load HL with address of next data byte in code
+		plx
+;2bce  5e        ld      e,(hl)		; load E with first byte.  MSB of address to use
+;2bcf  23        inc     hl		; next adddress
+;2bd0  56        ld      d,(hl)		; load D with second byte.  LSB of address to use
+;2bd1  23        inc     hl		; next address
+		ldy |1,x		 	; Target Address in Y
+;2bd2  4e        ld      c,(hl)		; load C with third byte.  used for data to put into these memories
+;2bd3  23        inc     hl		; next address
+		lda |3,x
+		and #$00FF
+		sta <:fill_value
+
+;2bd4  46        ld      b,(hl)		; load B with fourth byte ... used for loop counter
+;2bd5  23        inc     hl		; next address
+		lda |4,x
+		and #$00FF
+		sta <:length_value
+
+;2bd6  7e        ld      a,(hl)		; load A with fifth byte.  used for secondary loop counter
+;2bd7  23        inc     hl		; next address
+		lda |5,x
+		and #$00FF
+		sta <:row_count
+		clc
+		txa
+		adc #5
+;2bd8  e5        push    hl		; push to stack for return address when done
+		pha
+
+;2bd9  eb        ex      de,hl		; move DE into HL
+;2bda  112000    ld      de,#0020	; load DE with offset value of #20
+
+;2bdd  e5        push    hl		; save HL
+;2bde  c5        push    bc		; save BC
+
+;2bdf  71        ld      (hl),c		; store data into memory
+;2be0  23        inc     hl		; next address
+;2be1  10fc      djnz    #2bdf           ; Next B
+
+;2be3  c1        pop     bc		; restore BC
+;2be4  e1        pop     hl		; restore HL
+;2be5  19        add     hl,de		; add offset (#20)
+;2be6  3d        dec     a		; decrease counter.  are we done ?
+;2be7  20f4      jr      nz,#2bdd        ; No, loop again
+]outloop
+		sep #$20
+		ldx <:length_value
+		lda <:fill_value
+		phy
+]inloop
+		sta |0,y
+		dex
+		bne ]inloop
+
+		rep #$31
+		pla
+		adc #$20
+		tay
+		dec <:row_count
+		bne ]outloop
+
+;2be9  c9        ret     		; return
+		rts
+
 ;------------------------------------------------------------------------------
 ; #2BEA ; A=1B	; draws fruit at bottom right of screen
 task_drawFruit
