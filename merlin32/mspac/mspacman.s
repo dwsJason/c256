@@ -20,6 +20,7 @@
 ; External Addresses
 
 		ext title_pic
+		ext panel_pic
 		ext decompress_lzsa
 
 		ext tile_rom
@@ -107,6 +108,7 @@ VICKY_BITMAP0 = $000000
 ; Ms Pacman Memory Defines
 
 ]VIDEO_MODE = Mstr_Ctrl_Graph_Mode_En
+]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_Bitmap_En
 ]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_TileMap_En
 ]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_Sprite_En
 ]VIDEO_MODE = ]VIDEO_MODE+Mstr_Ctrl_GAMMA_En
@@ -123,6 +125,9 @@ VICKY_MAP0          = VICKY_SPRITE_TILES3+$010000  ; MAP Data for tile map 0
 VICKY_MAP1          = VICKY_MAP0+{64*64*2}	  ; MAP Data for tile map 1
 VICKY_MAP2          = VICKY_MAP1+{64*64*2}	  ; MAP Data for tile map 2
 VICKY_MAP3          = VICKY_MAP2+{64*64*2}	  ; MAP Data for tile map 3
+
+; 800x600 bitmap, 480000 bytes, I think it should fit ok on the U
+VICK_BITMAP         = VICKY_MAP3+{64*64*2}	  ; pixel data for the panel
 
 TILE_CLEAR_SIZE = $010000
 MAP_CLEAR_SIZE = 64*64*2
@@ -328,7 +333,11 @@ start   ent             ; make sure start is visible outside the file
 		bpl ]clear
 
 ;------------------------------------------------------------------------------
-
+	    do 0
+; Display the panel_pic
+	    fin
+;------------------------------------------------------------------------------
+;
 		; This is the Test Loop for showing off the levels
 ;		jmp JasonTestStuff
 
@@ -2694,6 +2703,7 @@ InitMsPacVideo mx %00
 		; Initialize the border
 
 		ldx #Border_Ctrl_Enable
+		;ldx #0 ; disable border
 		stx |BORDER_CTRL_REG			; Enable the Border
 
 		stz |BORDER_COLOR_B				; Black
@@ -2706,6 +2716,14 @@ InitMsPacVideo mx %00
 		stx |BORDER_X_SIZE
 		ldy #12
 		sty |BORDER_Y_SIZE
+
+;---------------------------------------------------------
+; Initalize Bitmaps
+		ldx #BM_Enable
+		ldx #0  ; need to get SPRITE_DEPTH set
+		stx |BM0_CONTROL_REG
+		ldx #0
+		stx |BM1_CONTROL_REG
 
 ;---------------------------------------------------------
 
