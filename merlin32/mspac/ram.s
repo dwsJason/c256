@@ -912,3 +912,27 @@ DSW1 dw 0
 last_IN0 dw $ffff
 last_IN1 dw $ffff
 
+
+; DIP SWITCH NOTES - this works
+;   Sw #1			Sw #2   	 
+;    Off		On		1 Coin, 1 Play
+;    On			Off		1 Coin, 2 Play
+;    Off		Off		2 Coins, 1 Play
+;    On			On		Free Play
+ 	 	 
+;   Sw #3			Sw #4	 
+;    On			On		1 Life
+;    Off		On		2 Lives
+;    On			Off		3 Lives
+;    Off		Off		5 Lives
+ 	 	 
+;   Sw #5			Sw #6	 
+;    On			On		Bonus Life at 10,000 points
+;    Off		On		Bonus Life at 15,000 points
+;    On			Off		Bonus Life at 20,000 points
+;    Off		Off		NoBonus
+ 	 	 
+;   Sw #7			Sw #8	 
+;    Off		Off		Normal Play
+;    On			Off		Rack Test - Steps through all scenes
+;    Off		On		Freeze Picture
