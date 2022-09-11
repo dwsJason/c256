@@ -11,6 +11,9 @@
 ;
 ;  400-16-224 = 160 (leaving 80 bitmap pixels on the left, and on the right)
 ;
+
+DEBUG equ 1
+
         rel     ; relocatable
         lnk     Main.l
 
@@ -56,7 +59,7 @@
 ;
 ; Decompress to this address
 ;
-pixel_buffer = $100000	; need about 120k, put it in memory at 1.25MB mark
+pixel_buffer = $100000	; need about 480k, put it in memory at 1.0MB mark
 			; try to leave room for kernel on a U
 
 
@@ -103,8 +106,6 @@ P2_START_BIT equ $40
 VRAM = $B00000
 ONEMB = $100000
 
-VICKY_BITMAP0 = $000000
-
 ; Ms Pacman Memory Defines
 
 ]VIDEO_MODE = Mstr_Ctrl_Graph_Mode_En
@@ -121,13 +122,13 @@ VICKY_SPRITE_TILES2 = VICKY_SPRITE_TILES+$010000  ; V-Flip Sprites
 VICKY_SPRITE_TILES3 = VICKY_SPRITE_TILES2+$010000 ; H-Flip Sprites
 VICKY_SPRITE_TILES4 = VICKY_SPRITE_TILES3+$010000 ; HV-Flip Sprites
 
-VICKY_MAP0          = VICKY_SPRITE_TILES3+$010000  ; MAP Data for tile map 0
+VICKY_MAP0          = VICKY_SPRITE_TILES4+$010000  ; MAP Data for tile map 0
 VICKY_MAP1          = VICKY_MAP0+{64*64*2}	  ; MAP Data for tile map 1
 VICKY_MAP2          = VICKY_MAP1+{64*64*2}	  ; MAP Data for tile map 2
 VICKY_MAP3          = VICKY_MAP2+{64*64*2}	  ; MAP Data for tile map 3
 
 ; 800x600 bitmap, 480000 bytes, I think it should fit ok on the U
-VICK_BITMAP         = VICKY_MAP3+{64*64*2}	  ; pixel data for the panel
+VICKY_BITMAP0       = VICKY_MAP0+$010000 	 ; pixel data for the panel
 
 TILE_CLEAR_SIZE = $010000
 MAP_CLEAR_SIZE = 64*64*2
@@ -239,6 +240,9 @@ start   ent             ; make sure start is visible outside the file
 
 		; Decompress the Color ROM into Vicky Format
 		jsr DecompressColors
+
+		; Panel Decompress, and copy into VRAM
+		jsr DecompressPanel
 
 		; There are now 64 Sprites, that are 32x32 (1024 bytes each)
 		; at VICKY_SPRITE_TILES
@@ -2702,8 +2706,11 @@ InitMsPacVideo mx %00
 ;---------------------------------------------------------
 		; Initialize the border
 
+		do DEBUG
 		ldx #Border_Ctrl_Enable
-		;ldx #0 ; disable border
+		else
+		ldx #0 ; disable border
+		fin
 		stx |BORDER_CTRL_REG			; Enable the Border
 
 		stz |BORDER_COLOR_B				; Black
@@ -2719,11 +2726,26 @@ InitMsPacVideo mx %00
 
 ;---------------------------------------------------------
 ; Initalize Bitmaps
-		ldx #BM_Enable
+		do DEBUG
 		ldx #0  ; need to get SPRITE_DEPTH set
+		else
+		ldx #BM_Enable
+		fin
 		stx |BM0_CONTROL_REG
 		ldx #0
 		stx |BM1_CONTROL_REG
+
+		lda #VICKY_BITMAP0
+		sta |BM0_START_ADDY_L
+		sta |BM1_START_ADDY_L
+		ldx #^VICKY_BITMAP0
+		stx |BM0_START_ADDY_H
+		stx |BM1_START_ADDY_H
+
+		stz |BM0_X_OFFSET   ; + BM0_Y_OFFSET
+		stz |BM0_RESERVED_6 ; + 7
+		stz |BM1_X_OFFSET   ; + BM0_Y_OFFSET
+		stz |BM1_RESERVED_6 ; + 7
 
 ;---------------------------------------------------------
 

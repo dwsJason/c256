@@ -4,6 +4,82 @@
 ; All the helper functions to support .256 file format
 ;
 
+
+;------------------------------------------------------------------------------
+; DecompressPanel
+DecompressPanel mx %00
+
+; Decompress CLUT
+
+		; source
+		pea ^panel_pic
+		pea panel_pic
+
+		; dest
+		pea ^pal_buffer
+		pea pal_buffer
+
+		jsl decompress_clut
+
+        ; Copy over the LUT
+        ;ldy     #GRPH_LUT0_PTR  ; dest
+        ;ldx     #pal_buffer  	; src
+        ;lda     #1024-1			; length
+        ;mvn     ^pal_buffer,^GRPH_LUT0_PTR    ; src,dest
+
+		phk
+		plb
+
+        ; Set Background Color
+		;sep #$30
+        ;lda	|pal_buffer
+        ;sta >BACKGROUND_COLOR_B ; back
+        ;lda |pal_buffer+1
+        ;sta  >BACKGROUND_COLOR_G ; back
+        ;lda |pal_buffer+2
+        ;sta  >BACKGROUND_COLOR_R ; back
+		;rep #$30
+
+; Decompress Pixels
+
+		; source picture
+		pea ^panel_pic
+		pea panel_pic
+
+		; destination address
+		pea ^pixel_buffer
+		pea pixel_buffer
+
+		jsl decompress_pixels
+
+		phk
+		plb
+
+		jsr CopyPixelsToBitmap
+
+		rts
+
+;------------------------------------------------------------------------------
+;
+CopyPixelsToBitmap mx %00
+
+]offset = 0
+]size   = 60000
+
+		ldx #]size
+]lp
+		lup 8
+		lda >pixel_buffer+]offset-2,x
+		sta >VICKY_BITMAP0+VRAM+]offset-2,x
+]offset = ]offset+]size
+		--^
+		dex
+		dex
+		bne ]lp
+
+		rts
+
+
 ;------------------------------------------------------------------------------
 ;
 ; Put DP back at zero while calling out to PUTS
