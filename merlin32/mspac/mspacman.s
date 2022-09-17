@@ -337,8 +337,13 @@ start   ent             ; make sure start is visible outside the file
 		bpl ]clear
 
 ;------------------------------------------------------------------------------
-	    do 0
+	    do DEBUG
+	    else
 ; Display the panel_pic
+	    sep #$20
+	    lda #BM_Enable
+	    sta >BM0_CONTROL_REG
+	    rep #$30
 	    fin
 ;------------------------------------------------------------------------------
 ;
@@ -2726,7 +2731,7 @@ InitMsPacVideo mx %00
 
 ;---------------------------------------------------------
 ; Initalize Bitmaps
-		do DEBUG
+		do 1 ;;DEBUG
 		ldx #0  ; need to get SPRITE_DEPTH set
 		else
 		ldx #BM_Enable
