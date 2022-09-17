@@ -251,10 +251,10 @@ start   ent             ; make sure start is visible outside the file
 		; need to convert them to H-Flip, at address VICKY_SPRITE_TILES3
 
 		; Wait 1 second
-		lda #60
-]lp 	jsr WaitVBL
-		dec
-		bpl ]lp
+;		lda #60
+;]lp 	jsr WaitVBL
+;		dec
+;		bpl ]lp
 
 ; The fastest way to convert them is DMA, and DMA can run very fast
 ; as long as video is disabled.
