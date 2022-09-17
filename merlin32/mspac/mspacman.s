@@ -1151,6 +1151,7 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 	rep #$30
 
 	jsr DebugAudio
+	jsr DebugMouse
 
 	rep #$30
 
@@ -5926,6 +5927,36 @@ DebugAudio mx %00
 :v0	ds vo_size
 :v1	ds vo_size
 :v2	ds vo_size
+
+;------------------------------------------------------------------------------
+;
+; Look at Mouse Stuff
+;
+DebugMouse mx %00
+
+	lda >MOUSE_PTR_CTRL_REG_L
+	ldx #VICKY_MAP0+{64*6}+{2*2}
+	jsr PrintHex
+
+	lda >MOUSE_PTR_X_POS_L
+	ldx #VICKY_MAP0+{64*8}+{2*2}
+	jsr PrintHex
+
+	lda >MOUSE_PTR_Y_POS_L
+	ldx #VICKY_MAP0+{64*10}+{2*2}
+	jsr PrintHex
+
+	lda >MOUSE_PTR_BYTE0
+	ldx #VICKY_MAP0+{64*12}+{2*2}
+	jsr PrintHex
+
+	lda >MOUSE_PTR_BYTE2
+	ldx #VICKY_MAP0+{64*14}+{2*2}
+	jsr PrintHex
+
+
+
+	rts
 
 ;------------------------------------------------------------------------------
 ;
