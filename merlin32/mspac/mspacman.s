@@ -12,7 +12,7 @@
 ;  400-16-224 = 160 (leaving 80 bitmap pixels on the left, and on the right)
 ;
 
-DEBUG equ 1
+DEBUG equ 0
 
         rel     ; relocatable
         lnk     Main.l
