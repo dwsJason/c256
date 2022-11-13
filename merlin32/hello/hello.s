@@ -22,7 +22,8 @@ start ent       ; make sure start is visible outside the file
 ]lp
         bra ]lp
 
-HelloText asc 'Hello from Merlin!'
+; Latest Kernel doesn't have lowercase?
+HelloText asc 'HELLO FROM MERLIN!'
         db 13,0
 
 
