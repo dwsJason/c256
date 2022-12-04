@@ -41,6 +41,25 @@
         lna     jmixer.S16      ; Load Name ('Hello.S16') 
         sna     font            ; Segment Name ('font')
 
+; Segment 4
+
+		asm		axelf.s			; sourcefile
+        ds      0               ; extra 0's to add to the segment
+        knd     $1100           ; Type and Attr ($11=Static+Bank Relative,$00=Code)
+        ali     none            ; Boundary Alignment
+        lna     jmixer.S16      ; Load Name ('Hello.S16') 
+        sna     axelf           ; Segment Name ('axelf')
+
+; Segment 5
+
+		asm		insts.s			; sourcefile
+        ds      0               ; extra 0's to add to the segment
+        knd     $1100           ; Type and Attr ($11=Static+Bank Relative,$00=Code)
+        ali     none            ; Boundary Alignment
+        lna     jmixer.S16      ; Load Name ('Hello.S16') 
+        sna     insts           ; Segment Name ('axelf')
+
+		
  
 
 
