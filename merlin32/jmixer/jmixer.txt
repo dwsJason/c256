@@ -1,0 +1,46 @@
+Jason's Mixer
+
+MIXstartup
+MIXshutdown
+MIXplaysample
+MIXsetvolume
+
+MIX Oscillator - 256 bytes per Oscillator - why 256 bytes?
+
+256 bytes, and page aligned, the oscillator can live in the direct page
+Oscillator code, can be optimized to use DP variables, and we can run the next
+Oscillator by moving to another page
+
+The plan is to support different Oscillator types, at least for version 1, I
+plan on having support for 3 types of Oscillators
+
+8  bit PCM
+16 bit PCM
+16 bit ADPCM
+
+Future Oscillators might support ADSR (Attack Decay Sustain Release)
+Or they might support SNES BRR format
+Or they could support Apple IIgs format PCM audio
+Someone might tackle ORBIS encoding
+
+Having plenty of scratch space seems like a good idea, 256 bytes is a lot,
+but also if the decoder is complex, it might not be challenge to fit it all
+in there.
+
+- I think some parts of the OSCillator needs to be common to all OSC types
+
+        ds 2  ; Version/Type - what type of OSC is this (which decoder is called)
+        ds 2  ; state, stopped or playing
+        ds 4  ; pWave Data - Pointer to the Wave data
+        ds 4  ; pWave Data Loop Point
+        ds 4  ; pWave End  - Pointer to the end of the wave data
+        ds 2  ; Playback frequency
+        ds 2  ; Channel Volume
+        ds 2  ; Pan (left/right pan value)
+
+
+
+
+
+
+
