@@ -21,9 +21,11 @@
 		; Fixed Point Math
 		use phx/Math_def.asm
 
-
 		; Interrupts
 		use phx/interrupt_def.asm
+
+		; Timers
+		use phx/timer_def.asm
 
         mx %00
 
@@ -66,6 +68,7 @@ temp6		   = 50
 temp7          = 54
 
 dpJiffy       = 128
+dpAudioJiffy  = dpJiffy+2
 ;------------------------------------------------------------------------------
 ; Video Stuff
 XRES = 800
@@ -82,7 +85,7 @@ VIDEO_MODE = $014F
 start ent       ; make sure start is visible outside the file
         clc
         xce
-
+		sei
         rep $31 ; long MX, and CLC
 
 
@@ -101,7 +104,10 @@ start ent       ; make sure start is visible outside the file
 ; Setup a Jiffy Timer, using Kernel Jump Table
 ; Trying to be friendly, in case we can friendly exit
 ;
-		jsr InstallJiffy
+		jsr InstallJiffy	   ; 60hz SOF Timer
+
+		jsr InstallAudioJiffy  ; 50hz timer
+
 		jsr	WaitVBL
 
 ;------------------------------------------------------------------------------
@@ -141,22 +147,18 @@ start ent       ; make sure start is visible outside the file
 		sta >BM1_CONTROL_REG
 ;------------------------------------------------------------------------------
 
-
-        ldx #HelloText
-        jsl PUTS
-
 		phk
 		plb
 		lda #0
 		ldx #0
-]clear  sta >$AF8000,x
+]clear  sta >$AF8000,x		; clear font
 		inx
 		inx
 		cpx #$1000
 		bcc ]clear
 
 		ldx #0
-]copy   ;lda >nicefont,x
+]copy   ;lda >nicefont,x    ; copy up new glyphs
 		lda >shaston,x
 		sta >$AF8100,x
 		inx
@@ -164,12 +166,48 @@ start ent       ; make sure start is visible outside the file
 		cpx #768
 		bcc ]copy
 
+;------------------------------------------------------------------------------
+
+main_loop mx %00
+
+		rep #$30
+
+		stz <dpJiffy
+		stz <dpAudioJiffy
+
+		jsr myPRINTCR
+		lda #$0123
+		jsr myPRINTAH
+		jsr myPRINTCR
+		lda #$1234
+		jsr myPRINTAH
+		jsr myPRINTCR
+		lda #$5678
+		jsr myPRINTAH
+		jsr myPRINTCR
+
+		;lda #45123
+		;jsr myPRINTAI
+		;jsr myPRINTCR
+
 ]lp
-        bra ]lp
+		jsr WaitVBL
+		
+		ldx #96
+		ldy #0
+		jsl LOCATE	    ; cursor to top left of the screen
 
-HelloText asc "Hello from J-Mixer!"
-        db 13,0
+		lda <dpJiffy
+		jsr myPRINTAH
 
+		ldx #96
+		ldy #1
+		jsl LOCATE
+
+		lda <dpAudioJiffy
+		jsr myPRINTAH
+
+		bra ]lp
 
 
 ;------------------------------------------------------------------------------
@@ -178,9 +216,9 @@ HelloText asc "Hello from J-Mixer!"
 ;
 WaitVBL
 		pha
-		stz <dpJiffy
-]lp
 		lda <dpJiffy
+]lp
+		cmp <dpJiffy
 		beq ]lp
 		pla
 		rts
@@ -219,7 +257,7 @@ InitTextMode mx %00
 		pld
 		rts
 
-:Text   asc 'Jason''s Mixer'
+:Text   asc 'Jason',27,'s Mixer $1234'
 		db 13
 		asc 'Memory Location:'
 		db 0
@@ -254,9 +292,180 @@ InstallJiffy mx %00
 		phb
 		phk
 		plb
+		php
+		rep #$30
 		inc |{MyDP+dpJiffy}
+		plp
 		plb
 		rtl
+
+;------------------------------------------------------------------------------
+;
+; Audio Jiffy Timer Installer, Enabler
+; Depends on the Kernel Interrupt Handler
+;
+; Currently hijack timer 0, but could work on timer 1
+;
+;C pseudo code for counting up
+;TIMER1_CHARGE_L = 0x00;
+;TIMER1_CHARGE_M = 0x00;
+;TIMER1_CHARGE_H = 0x00;
+;TIMER1_CMP_L = clockValue & 0xFF;
+;TIMER1_CMP_M = (clockValue >> 8) & 0xFF;
+;TIMER1_CMP_H = (clockValue >> 16) & 0xFF;
+;
+;TIMER1_CMP_REG = TMR_CMP_RECLR;
+;TIMER1_CTRL_REG = TMR_EN | TMR_UPDWN | TMR_SCLR;
+;
+;C pseudo code for counting down
+;TIMER1_CHARGE_L = (clockValue >> 0) & 0xFF;
+;TIMER1_CHARGE_M = (clockValue >> 8) & 0xFF;
+;TIMER1_CHARGE_H = (clockValue >> 16) & 0xFF;
+;TIMER1_CMP_L = 0x00;
+;TIMER1_CMP_M = 0x00;
+;TIMER1_CMP_H = 0x00;
+;
+;TIMER1_CMP_REG = TMR_CMP_RELOAD;
+;TIMER1_CTRL_REG = TMR_EN | TMR_SLOAD;
+;
+InstallAudioJiffy mx %00
+
+; Trying for 50 hz here
+
+:RATE equ {14318180/50}
+
+; Fuck over the vector
+
+		sei
+
+		lda #$4C	; JMP
+		sta |VEC_INT02_TMR0
+
+		lda #:AudioJiffyTimer
+		sta |VEC_INT02_TMR0+1
+
+		; Configuring for count up
+		sep #$30
+
+		stz |TIMER0_CHARGE_L
+		stz |TIMER0_CHARGE_M
+		stz |TIMER0_CHARGE_H
+
+		lda #<:RATE
+		sta |TIMER0_CMP_L
+		lda #>:RATE
+		sta |TIMER0_CMP_M
+		lda #^:RATE
+		sta |TIMER0_CMP_H
+
+		lda #TMR0_CMP_RECLR
+		sta |TIMER0_CMP_REG
+		lda #TMR0_EN+TMR0_UPDWN+TMR0_SCLR
+		sta |TIMER0_CTRL_REG
+
+; Enable the TIME0 interrupt
+
+		lda	#FNX0_INT02_TMR0
+		trb |INT_MASK_REG0
+
+		rep #$35  ;mx-i-c = 0
+
+		rts
+
+:AudioJiffyTimer
+		phb
+		phk
+		plb
+		php
+		rep #$30
+		inc |{MyDP+dpAudioJiffy}
+		plp
+		plb
+		rtl
+
+;------------------------------------------------------------------------------
+;
+; Put DP back at 0, for Kernel call
+;
+myPRINTCR mx %00
+	    phd
+		pea #0
+		pld
+		jsl PRINTCR
+		pld
+		rts
+
+;------------------------------------------------------------------------------
+;
+; Put DP back at 0, for Kernel call
+;
+myPRINTAI mx %00
+	    phd
+		pea #0
+		pld
+		jsl PRINTAI
+		pld
+		rts
+
+;------------------------------------------------------------------------------
+;
+; Put DP back at 0, for Kernel call
+;
+myPRINTAH mx %00
+		; Kernel function doesn't work
+
+		sep #$30
+		xba
+		pha
+		lsr
+		lsr
+		lsr
+		lsr
+		tax
+		pla
+		and #$0F
+		tay
+		lda |:chars,x
+		sta |:temp
+		lda |:chars,y
+		sta |:temp+1
+		xba
+		pha
+		lsr
+		lsr
+		lsr
+		lsr
+		tax
+		pla
+		and #$0F
+		tay
+		lda |:chars,x
+		sta |:temp+2
+		lda |:chars,y
+		sta |:temp+3
+		rep #$30
+
+		ldx #:temp
+		jmp myPUTS
+
+:chars  ASC '0123456789ABCDEF'
+
+:temp	ds  5
+
+;------------------------------------------------------------------------------
+;
+; Put DP back at zero while calling out to PUTS
+;
+myPUTS  mx %00
+        phd
+        lda #0
+        tcd
+		;php
+		;sei
+        jsl PUTS
+		;plp
+        pld
+        rts
 
 ;------------------------------------------------------------------------------
 
