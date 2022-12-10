@@ -86,6 +86,9 @@ start ent       ; make sure start is visible outside the file
         clc
         xce
 		sei
+
+		stz |$00E0 ; this is fix the mouse MOUSE_IDX or MOUSE_PTR, depending kernel version
+
         rep $31 ; long MX, and CLC
 
 
@@ -217,7 +220,42 @@ main_loop mx %00
 		jsl LOCATE
 
 
-		bra ]lp
+;		bra ]lp
+
+;------------------------------------------------------------------------------
+; MIDI dump
+
+		ext midi_axelf ; This lives in a different segment
+
+pMidiFile = temp0
+
+		; Setup pointer to the new midi file
+		ldx #^midi_axelf
+		lda #midi_axelf
+		stx <pMidiFile+2
+		sta <pMidiFile
+
+		jsl MidiFileValidate
+		bcc :GoodFile
+
+		ldx #:txt_invalid_file
+		jsl PUTS
+
+]lp		bra ]lp
+
+:txt_invalid_file asc '!!Error: Midi file has unrecognized header chunk.'
+		db 13,0
+
+:txt_HeaderGood asc 'Midi1.0 header looks legit'
+		db 13,0
+
+:GoodFile
+		ldx #:txt_HeaderGood
+		jsl PUTS
+
+]lp		bra ]lp
+
+
 
 
 ;------------------------------------------------------------------------------
@@ -539,3 +577,36 @@ TrackSampler mx %00
 ;   9  || 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119
 ;  10  || 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 |
 ;
+
+;------------------------------------------------------------------------------
+;
+;
+MidiFileValidate mx %00
+
+		lda [pMidiFile]
+		cmp #'MT'
+		bne :BadHeader
+
+		ldy #2
+		lda [pMidiFile],y
+		cmp #'hd'
+		bne :BadHeader
+
+		ldy #4
+		lda [pMidiFile],y
+		bne :BadHeader
+
+		ldy #6
+		lda [pMidiFile],y
+		cmp #$0600
+		bne :BadHeader
+
+		clc
+		rtl
+
+:BadHeader
+		sec
+		rtl
+
+
+
