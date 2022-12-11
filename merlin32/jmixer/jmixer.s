@@ -224,10 +224,21 @@ main_loop mx %00
 
 ;------------------------------------------------------------------------------
 ; MIDI dump
+; Need to move these into MIDI Lib
+		; MIDI Header 1.0
+		dum 0
+MThd_MT        ds 2
+MThd_hd        ds 2
+MThd_Length    ds 4
+MThd_Format    ds 2
+MThd_NumTracks ds 2
+MThd_Division  ds 2
+		dend
 
 		ext midi_axelf ; This lives in a different segment
 
 pMidiFile = temp0
+NumTracks = temp1
 
 		; Setup pointer to the new midi file
 		ldx #^midi_axelf
@@ -239,7 +250,7 @@ pMidiFile = temp0
 		bcc :GoodFile
 
 		ldx #:txt_invalid_file
-		jsl PUTS
+		jsr myPUTS
 
 ]lp		bra ]lp
 
@@ -249,9 +260,23 @@ pMidiFile = temp0
 :txt_HeaderGood asc 'Midi1.0 header looks legit'
 		db 13,0
 
+:txt_NumTracks asc 'Tracks: '
+		db 0
+
 :GoodFile
 		ldx #:txt_HeaderGood
-		jsl PUTS
+		jsr myPUTS
+
+		ldy #MThd_NumTracks
+		lda [pMidiFile],y 
+		xba
+		sta <NumTracks
+
+		ldx #:txt_NumTracks
+		jsr myPUTS
+		lda <NumTracks
+		jsr myPRINTAI
+		jsr myPRINTCR
 
 ]lp		bra ]lp
 
@@ -448,12 +473,114 @@ myPRINTCR mx %00
 ; Put DP back at 0, for Kernel call
 ;
 myPRINTAI mx %00
-	    phd
-		pea #0
-		pld
-		jsl PRINTAI
-		pld
-		rts
+
+:bcd  = temp0
+
+		php 		 	; preserve P (mxdi)
+
+		pei :bcd		; preserve temp space we're stomping
+		pei :bcd+2
+
+		stz <:bcd   	; zero result
+		stz <:bcd+2
+
+		sei
+		sed   		; does the firmware handle interrupts with D=1?, don't know
+
+		ldx #16
+
+]cnvlp  asl
+		tay
+		lda <:bcd
+		adc <:bcd
+		sta <:bcd
+		lda <:bcd+2
+		adc <:bcd+2
+		sta <:bcd+2
+		tya
+		dex
+		bne ]cnvlp
+
+		cld
+
+		sep #$30
+
+		ldx #0     		; output index for text
+		lda <:bcd+2 	; only doing 5 digits, and trim leading 0
+		and #$0F
+		beq :skip1		; trim 0
+
+		tay
+		lda |:chars,y   ; not zero, get the char
+
+		sta |:txt,x		; output
+		inx
+:skip1
+		lda <:bcd+1
+		lsr
+		lsr
+		lsr
+		lsr
+		bne :emit1 	    ; 4th char, output if not zero
+		cpx #0
+		beq :skip2  	; if nothing output, and zero, trim leading 0
+:emit1
+		tay
+		lda |:chars,y   ; get char
+
+		sta |:txt,x     ; append to string
+		inx
+:skip2
+		lda <:bcd+1
+		and #$0F
+		bne :emit2 	    ; emit character if not 0
+		cpx #0
+		beq :skip3  	; trim leading 0
+:emit2
+		tay
+		lda |:chars,y
+
+		sta |:txt,x
+		inx
+:skip3
+		lda <:bcd
+		lsr
+		lsr
+		lsr
+		lsr
+		bne :emit3
+		cpx #0
+		beq :skip4
+:emit3
+		tay
+		lda |:chars,y
+		sta |:txt,x
+		inx
+:skip4
+		lda <:bcd
+		and #$0F
+		tay
+		lda |:chars,y ; last character is always emit
+		sta |:txt,x
+		inx
+		stz |:txt,x   ; zero terminate
+
+		rep #$30
+
+		pla
+		sta <:bcd+2
+		pla
+		sta <:bcd
+
+		plp
+
+
+		ldx #:txt
+		jmp myPUTS
+
+:chars  ASC '0123456789'
+
+:txt	ds 6
 
 ;------------------------------------------------------------------------------
 ;
@@ -577,7 +704,7 @@ TrackSampler mx %00
 ;   9  || 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119
 ;  10  || 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 |
 ;
-
+;
 ;------------------------------------------------------------------------------
 ;
 ;
@@ -587,16 +714,16 @@ MidiFileValidate mx %00
 		cmp #'MT'
 		bne :BadHeader
 
-		ldy #2
+		ldy #MThd_hd
 		lda [pMidiFile],y
 		cmp #'hd'
 		bne :BadHeader
 
-		ldy #4
+		ldy #MThd_Length
 		lda [pMidiFile],y
 		bne :BadHeader
 
-		ldy #6
+		ldy #MThd_Length+2
 		lda [pMidiFile],y
 		cmp #$0600
 		bne :BadHeader
