@@ -6,6 +6,81 @@
 
         use Util.Macs
 
+; move macs to move into another file
+
+;
+; Misc Macros, that just make things a little easier
+;
+; nvmx dizc	Status Register
+; Processor Status Register (P)
+;===================================
+;
+;Bits  7   6   5   4   3   2   1   0
+;                                /---\
+;                                I e --- Emulation 0 = Native Mode
+;    /---l---l---l---l---l---l---+---I
+;    I n I v I m I x I d I i I z I c I
+;    \-l-I-l-I-l-I-l-I-l-I-l-I-l-I-l-/
+;      I   I   I   I   I   I   I   \-------- Carry 1 = Carry
+;      I   I   I   I   I   I   \------------- Zero 1 = Result Zero
+;      I   I   I   I   I   \---------- IRQ Disable 1 = Disabled
+;      I   I   I   I   \------------- Decimal Mode 1 = Decimal, 0 = Binary
+;      I   I   I   \-------- Index Register Select 1 = 8-bit, 0 = 16-bit
+;      I   I   \-------- Memory/Accumulator Select 1 = 8-bit, 0 = 16 bit
+;      I   \----------------------------- Overflow 1 = Overflow
+;      \--------------------------------- Negative 1 = Negative
+;
+
+; Long Conditional Branches
+
+beql mac
+    bne skip@
+    jmp ]1
+skip@
+    <<<
+
+bnel mac
+    beq skip@
+    jmp ]1
+skip@
+    <<<
+
+bccl mac
+    bcs skip@
+    jmp ]1
+skip@
+    <<<
+
+bcsl mac
+    bcc skip@
+    jmp ]1
+skip@
+    <<<
+
+bpll mac
+	bmi skip@
+	jmp ]1
+skip@
+    <<<
+
+bmil mac
+	bpl skip@
+	jmp ]1
+skip@
+    <<<
+
+; Macro, for pushing K + Another Bank, using pea command
+;
+; Allows something like this
+;
+phkb mac
+k@
+	db $F4 ; pea
+	db ]1  ; target bank
+	db ^k@ ; k bank
+	<<<
+
+
 		; Vicky
 		use phx/vicky_ii_def.asm
 		use phx/VKYII_CFP9553_BITMAP_def.asm 
@@ -144,6 +219,24 @@ start ent       ; make sure start is visible outside the file
 
 		jsr InitTextMode
 
+		; poke in our favorite GS background color
+		sep #$30
+		lda #$ff
+		sta >BACKGROUND_COLOR_B
+		lda #$22
+		sta >BACKGROUND_COLOR_G
+		sta >BACKGROUND_COLOR_R
+
+		; get the FG color in there too
+		lda #$ff
+		ldx #{16*4}-1
+]lp
+		sta >FG_CHAR_LUT_PTR,x
+		dex
+		bpl ]lp
+
+		rep #$31
+
 		lda #0
 		sta >BM0_X_OFFSET
 		sta >BM0_Y_OFFSET
@@ -166,8 +259,14 @@ start ent       ; make sure start is visible outside the file
 		sta >$AF8100,x
 		inx
 		inx
-		cpx #768
+		cpx #1152
 		bcc ]copy
+
+		; set cursor to the Apple IIgs cursor glyph
+		sep #$30
+		lda #{32+95}
+		sta >VKY_TXT_CURSOR_CHAR_REG
+		rep #$30
 
 ;------------------------------------------------------------------------------
 
@@ -190,7 +289,7 @@ main_loop mx %00
 		jsr myPRINTCR
 
 		;lda #45123
-		;jsr myPRINTAI
+		;jsr myPrintAI
 		;jsr myPRINTCR
 
 ]lp
@@ -203,21 +302,21 @@ main_loop mx %00
 
 		ldx #96
 		ldy #0
-		jsl LOCATE	    ; cursor to top left of the screen
+		jsr myLOCATE	    ; cursor to top left of the screen
 
 		lda <dpJiffy
 		jsr myPRINTAH
 
 		ldx #96
 		ldy #1
-		jsl LOCATE
+		jsr myLOCATE
 
 		lda <dpAudioJiffy
 		jsr myPRINTAH
 
 		plx
 		ply
-		jsl LOCATE
+		jsr myLOCATE
 
 
 ;		bra ]lp
@@ -233,12 +332,14 @@ MThd_Length    ds 4
 MThd_Format    ds 2
 MThd_NumTracks ds 2
 MThd_Division  ds 2
+sizeof_MThd    ds 0
 		dend
 
 		ext midi_axelf ; This lives in a different segment
 
 pMidiFile = temp0
 NumTracks = temp1
+Format    = temp1+2
 
 		; Setup pointer to the new midi file
 		ldx #^midi_axelf
@@ -247,7 +348,7 @@ NumTracks = temp1
 		sta <pMidiFile
 
 		jsl MidiFileValidate
-		bcc :GoodFile
+		bccl :GoodFile
 
 		ldx #:txt_invalid_file
 		jsr myPUTS
@@ -260,12 +361,48 @@ NumTracks = temp1
 :txt_HeaderGood asc 'Midi1.0 header looks legit'
 		db 13,0
 
+:txt_Format asc 'Format: '
+		db 0
+
 :txt_NumTracks asc 'Tracks: '
 		db 0
+
+:txt_formats
+		da :0
+		da :1
+		da :2
+
+:0		asc ' Single multi-channel track'
+		db 13,0
+:1		asc ' One or more simultaneous tracks'
+		db 13,0
+:2		asc ' One or more sequentially independent single-track patterns'
+		db 13,0
+
+:txt_division asc 'Division:'
+		db 0
+
 
 :GoodFile
 		ldx #:txt_HeaderGood
 		jsr myPUTS
+
+		ldx #:txt_Format
+		jsr myPUTS
+
+		ldy #MThd_Format
+		lda [pMidiFile],y
+		xba
+		sta <Format
+		jsr myPrintAI
+
+		lda <Format
+		asl
+		tax
+		lda |:txt_formats,x
+		tax
+		jsr myPUTS
+		jsr myPRINTCR
 
 		ldy #MThd_NumTracks
 		lda [pMidiFile],y 
@@ -275,8 +412,50 @@ NumTracks = temp1
 		ldx #:txt_NumTracks
 		jsr myPUTS
 		lda <NumTracks
-		jsr myPRINTAI
+		jsr myPrintAI
 		jsr myPRINTCR
+
+		ldy #MThd_Division
+		lda [pMidiFile],y
+		xba
+		pha
+
+		ldx #:txt_division
+		jsr myPUTS
+
+		lda 1,s
+		jsr myPRINTAH
+		jsr myPRINTCR
+
+		pla
+		bpl :ticks
+		; else
+		; this the SMPTE format / ticks per frame
+:ticks
+; ticks = division = PPQ
+;
+; Default Timing is always 4/4 120bpm (tracks can easily change this)
+; I'm interested in getting to ticks per second
+; 120bpm is 2 beats per second, so ticks * 2 is the number of ticks per second?
+;
+;The formula is 60000 / (BPM * PPQ) (milliseconds).
+;
+;Where BPM is the tempo of the track (Beats Per Minute).
+;(i.e. a 120 BPM track would have a MIDI time of (60000 / (120 * 192)) or 2.604 ms for 1 tick.
+;
+;If you don't know the BPM then you'll have to determine that first. MIDI times are entirely dependent on the track tempo.
+;
+;You need two pieces of information:
+;
+;PPQ (pulses per quarter note), which is defined in the header of a midi file, once.
+;Tempo (in microseconds per quarter note), which is defined by "Set Tempo" meta events and can change during the musical piece.
+;Ticks can be converted to playback seconds as follows:
+;
+;ticks_per_quarter = <PPQ from the header>
+;탎_per_quarter = <Tempo in latest Set Tempo event>
+;탎_per_tick = 탎_per_quarter / ticks_per_quarter
+;seconds_per_tick = 탎_per_tick / 1.000.000
+;seconds = ticks * seconds_per_tick
 
 ]lp		bra ]lp
 
@@ -470,9 +649,21 @@ myPRINTCR mx %00
 
 ;------------------------------------------------------------------------------
 ;
+; Put DP back at 0 for kernel call
+;
+myLOCATE mx %00
+		phd
+		pea #0
+		pld
+		jsl LOCATE
+		pld
+		rts
+
+;------------------------------------------------------------------------------
+;
 ; Put DP back at 0, for Kernel call
 ;
-myPRINTAI mx %00
+myPrintAI mx %00
 
 :bcd  = temp0
 
@@ -735,5 +926,11 @@ MidiFileValidate mx %00
 		sec
 		rtl
 
+;------------------------------------------------------------------------------
+;GS Border Colors
+border_colors
+ dw $0,$d03,$9,$d2d,$72,$555,$22f,$6af ; Border Colors
+ dw $850,$f60,$aaa,$f98,$d0,$ff0,$5f9,$fff
+;------------------------------------------------------------------------------
 
 
