@@ -1,0 +1,9 @@
+;
+; This ORG File tells bin2hex where in memory to load each segment
+;
+
+; these addresses are for the bin2hex tool
+
+reset.bin org $FFFC
+main.bin  org $2000
+
