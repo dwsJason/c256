@@ -80,6 +80,44 @@ k@
 	db ^k@ ; k bank
 	<<<
 
+; MouseText
+	dum {32+96}
+MT_CLOSED_APPLE ds 1
+MT_OPEN_APPLE   ds 1
+MT_CURSOR       ds 1
+MT_HOURGLASS    ds 1
+MT_CHECK        ds 1
+MT_INV_CHECK    ds 1
+MT_INV_CR       ds 1
+MT_4BAR         ds 1
+MT_LEFT_ARROW   ds 1
+MT_DOTDOTDOT    ds 1
+MT_DOWN_ARROW   ds 1
+MT_UP_ARROW     ds 1
+MT_UP_BAR       ds 1
+MT_CR           ds 1
+MT_VBLOCK       ds 1
+MT_SCROLL_LEFT  ds 1
+MT_SCROLL_RIGHT ds 1
+MT_SCROLL_DOWN  ds 1
+MT_SCROLL_UP    ds 1
+MT_1BAR         ds 1
+MT_LLCORNER     ds 1
+MT_RIGHT_ARROW  ds 1
+MT_CHECKER1     ds 1
+MT_CHECKER2     ds 1
+MT_FOLDER1      ds 1
+MT_FOLDER2      ds 1
+MT_RIGHT_BAR    ds 1
+MT_DIAMOND      ds 1
+MT_2BAR         ds 1
+MT_PLUS         ds 1
+MT_CLOSE        ds 1
+MT_LEFT_BAR     ds 1
+MT_RUN1         ds 1
+MT_RUN2         ds 1
+	dend
+
 
 		; Vicky
 		use phx/vicky_ii_def.asm
@@ -457,10 +495,15 @@ Format    = temp1+2
 ;seconds_per_tick = µs_per_tick / 1.000.000
 ;seconds = ticks * seconds_per_tick
 
+		lda #$2020
+		ldy #$1010
+		ldx #:TestTitle
+		jsr DrawBox
+
 ]lp		bra ]lp
 
-
-
+:TestTitle asc 'Test Title'
+		db 0
 
 ;------------------------------------------------------------------------------
 ; WaitVBL
@@ -932,5 +975,173 @@ border_colors
  dw $0,$d03,$9,$d2d,$72,$555,$22f,$6af ; Border Colors
  dw $850,$f60,$aaa,$f98,$d0,$ff0,$5f9,$fff
 ;------------------------------------------------------------------------------
+
+;------------------------------------------------------------------------------
+;
+; Draw Mouse Box
+;
+; A = XY    ; X + Y position
+; Y = WH    ; Width + Height
+; X = Title ; pointer to a title string
+DrawBox mx %00
+:x = temp0
+:y = temp0+2
+:width = temp1
+:height = temp1+2
+:pTitle = temp2
+
+		pha
+		and #$FF
+		sta <:x
+		pla
+		xba
+		and #$FF
+		sta <:y
+
+		tya
+		and #$FF
+		sta <:width
+		tya
+		xba
+		and #$FF
+		sta <:height
+
+		stx <:pTitle
+
+		ldx <:x
+		ldy <:y
+		jsr myLOCATE
+
+; first draw a top bar
+
+		sep #$30
+		lda #'_'
+		ldx <:width
+		dex
+		stz |:temp,x
+		dex
+		bmi :done_top_bar
+]lp		sta |:temp,x
+		dex
+		bne ]lp
+
+		lda #' '
+		sta |:temp,x
+
+:done_top_bar
+		rep #$30
+		ldx #:temp
+		jsr myPUTS
+
+; next line
+		ldy <:y
+		iny
+		sty <:y
+		ldx <:x
+		jsr myLOCATE
+
+		ldx #:left_str
+		jsr myPUTS
+
+		ldx <:pTitle
+		jsr myPUTS
+
+		clc
+		lda <:x
+		adc <:width
+		dec
+		tax
+		ldy <:y
+		jsr myLOCATE
+		ldx #:right_str
+		jsr myPUTS
+
+; next line
+		ldy <:y
+		iny
+		sty <:y
+		ldx <:x
+		jsr myLOCATE
+
+		sep #$30
+		lda #MT_LEFT_BAR
+		ldx <:width
+		stz |:temp,x
+		dex
+		sta |:temp,x
+		dex
+		bmi :done_under_bar
+		lda #MT_UP_BAR
+]lp 	sta |:temp,x
+		dex
+		bne ]lp
+
+		lda #MT_RIGHT_BAR
+		sta |:temp,x
+
+:done_under_bar
+		rep #$30
+
+		ldx #:temp
+		jsr myPUTS
+
+]lp
+; next line
+		ldy <:y
+		iny
+		sty <:y
+		ldx <:x
+		jsr myLOCATE
+
+		ldx #:left_str
+		jsr myPUTS
+
+		clc
+		lda <:x
+		adc <:width
+		dec
+		tax
+		ldy <:y
+		jsr myLOCATE
+		ldx #:right_str
+		jsr myPUTS
+
+		dec <:height
+		bne ]lp
+
+; next line
+		ldy <:y
+		iny
+		sty <:y
+		ldx <:x
+		jsr myLOCATE
+
+; bottom bar
+		sep #$30
+		lda #MT_UP_BAR
+		ldx <:width
+		dex
+		bmi :done_bot_bar
+		stz |:temp,x
+		dex
+		bmi :done_bot_bar
+]lp		sta |:temp,x
+		dex
+		bne ]lp
+
+		lda #' '
+		sta |:temp,x
+
+:done_bot_bar
+		rep #$30
+		ldx #:temp
+		jsr myPUTS
+
+		rts
+:left_str db MT_RIGHT_BAR,' ',0
+:right_str db MT_LEFT_BAR,0
+
+:temp ds 101
+
 
 
