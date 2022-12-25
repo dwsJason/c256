@@ -148,7 +148,9 @@ MT_RUN2         ds 1
 
 ;------------------------------------------------------------------------------
 ; I like having my own Direct Page
-MyDP  = $2000
+MyDP   = $2000
+MidiDP = $2100
+
 MySTACK = $EFFF
 
 VICKY_DISPLAY_BUFFER  = $100000
@@ -182,6 +184,14 @@ temp7          = 54
 
 dpJiffy       = 128
 dpAudioJiffy  = dpJiffy+2
+
+	dum 132
+pMidiFileStart ds 4
+pMidiFile      ds 4
+MF_NumTracks   ds 2
+MF_Format      ds 2
+	dend
+
 ;------------------------------------------------------------------------------
 ; Video Stuff
 XRES = 800
@@ -373,17 +383,26 @@ MThd_Division  ds 2
 sizeof_MThd    ds 0
 		dend
 
+	   dum 0
+MTrk_MT	ds 2
+MTrk_rk ds 2
+MTrk_Length ds 4
+MTrk_sizeof ds 0
+		dend
+
 		ext midi_axelf ; This lives in a different segment
 
-pMidiFile = temp0
-NumTracks = temp1
-Format    = temp1+2
+;pMidiFile = temp0
+NumTracks = MF_NumTracks
+Format    = MF_Format
 
 		; Setup pointer to the new midi file
 		ldx #^midi_axelf
 		lda #midi_axelf
 		stx <pMidiFile+2
+		stx <pMidiFileStart+2
 		sta <pMidiFile
+		sta <pMidiFileStart
 
 		jsl MidiFileValidate
 		bccl :GoodFile
@@ -422,6 +441,9 @@ Format    = temp1+2
 
 
 :GoodFile
+
+		jsl PrintMidiFileChunk
+
 		ldx #:txt_HeaderGood
 		jsr myPUTS
 
@@ -494,6 +516,41 @@ Format    = temp1+2
 ;µs_per_tick = µs_per_quarter / ticks_per_quarter
 ;seconds_per_tick = µs_per_tick / 1.000.000
 ;seconds = ticks * seconds_per_tick
+;------------------------------------------------------------------------------
+
+; We need to loop through all the chunks
+
+		lda #0
+]loop
+		pha
+
+		jsr myPrintAI
+		lda #' '
+		jsr myPUTC
+
+		jsl MidiFileNextChunk
+
+; Loop through the chunk itself
+
+		jsl PrintMidiFileChunk
+
+		lda 1,s    			; current track index
+		asl
+		asl
+		tax
+		lda <pMidiFile		; current track pointer
+		adc #MTrk_sizeof    ; size of the chunk header
+		sta |MidiDP,x     	; Array of track pointers
+		lda <pMidiFile
+		adc #0
+		sta |MidiDP+2,x
+
+		pla
+		inc
+		cmp <NumTracks
+		bcc ]loop
+
+;------------------------------------------------------------------------------
 
 		lda #$2020
 		ldy #$1010
@@ -877,6 +934,18 @@ myPUTS  mx %00
         rts
 
 ;------------------------------------------------------------------------------
+;
+; Put DP back at zero while calling out to PUTS
+;
+myPUTC  mx %00
+        phd
+        pea 0
+        pld
+        jsl PUTC
+        pld
+        rts
+
+;------------------------------------------------------------------------------
 	do 0
 TrackSampler mx %00
 
@@ -970,6 +1039,91 @@ MidiFileValidate mx %00
 		rtl
 
 ;------------------------------------------------------------------------------
+; Print everything we know about a chunk
+;
+PrintMidiFileChunk mx %00
+
+:temp = GlobalTemp
+
+		; start with the address
+		lda #'$'
+		jsr myPUTC
+
+		lda <pMidiFile+2
+		jsr myPRINTAH
+		lda <pMidiFile
+		jsr myPRINTAH
+
+		lda #':'
+		jsr myPUTC
+
+		lda [pMidiFile]
+		sta |:temp
+		ldy #MTrk_rk
+		lda [pMidiFile],y
+		sta |:temp+2
+		
+		lda #8-1
+		ldx #:txt_len
+		ldy #:temp+4
+		mvn ^:txt_len,^:temp
+
+		; zero teminate
+		tyx
+		stz |0,x
+
+		ldx #:temp
+		jsr myPUTS
+
+		ldy #MTrk_Length
+		lda [pMidiFile],y
+		xba
+		jsr myPRINTAH
+
+		ldy #MTrk_Length+2
+		lda [pMidiFile],y
+		xba
+		jsr myPRINTAH
+		jsr myPRINTCR
+
+		rtl
+
+:txt_len asc ' Length='
+		db 0
+
+;------------------------------------------------------------------------------
+;
+;  Advance pMidiFile to Next Chunk
+;
+;
+MidiFileNextChunk mx %00
+
+		ldy #MThd_Length+2
+		lda [pMidiFile],y
+		xba 			 	; low 16 bits, endian corrected
+		clc
+		adc <pMidiFile
+		pha
+		ldy #MThd_Length
+		lda [pMidiFile],y   ; high 16 bits
+		xba					; endian corrected
+		adc <pMidiFile+2
+		sta <pMidiFile+2
+		pla
+		sta <pMidiFile
+
+		; Add the 8 bytes that are not included
+		clc
+		lda <pMidiFile
+		adc #MTrk_sizeof	; 8 bytes not included
+		sta <pMidiFile
+		lda <pMidiFile+2
+		adc #0
+		sta <pMidiFile+2
+
+		rtl
+
+;------------------------------------------------------------------------------
 ;GS Border Colors
 border_colors
  dw $0,$d03,$9,$d2d,$72,$555,$22f,$6af ; Border Colors
@@ -989,6 +1143,7 @@ DrawBox mx %00
 :width = temp1
 :height = temp1+2
 :pTitle = temp2
+:temp = GlobalTemp
 
 		pha
 		and #$FF
@@ -1141,7 +1296,7 @@ DrawBox mx %00
 :left_str db MT_RIGHT_BAR,' ',0
 :right_str db MT_LEFT_BAR,0
 
-:temp ds 101
+GlobalTemp ds 1024
 
 
 
