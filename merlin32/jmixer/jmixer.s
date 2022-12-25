@@ -148,8 +148,14 @@ MT_RUN2         ds 1
 
 ;------------------------------------------------------------------------------
 ; I like having my own Direct Page
-MyDP   = $2000
-MidiDP = $2100
+MyDP        = $2000
+MidiDP      = $2100 ; Tracks
+MidiEventDP = $2200 ; Tracks
+
+; Midi Event Structure
+; pMidiData
+; DelayTime
+; Event
 
 MySTACK = $EFFF
 
@@ -532,7 +538,7 @@ Format    = MF_Format
 		lda <pMidiFile		; current track pointer
 		adc #MTrk_sizeof    ; size of the chunk header
 		sta |MidiDP,x     	; Array of track pointers
-		lda <pMidiFile
+		lda <pMidiFile+2
 		adc #0
 		sta |MidiDP+2,x
 
@@ -564,6 +570,37 @@ Format    = MF_Format
 ;		db 0
 
 		jsr DrawFancyScreen
+
+;-----------------------------------------------------------------------------
+; start weirdness
+; Init the Tracks for play
+		ldy <MF_NumTracks
+
+		phd
+		pea MidiEventDP
+		pld
+
+		dey
+]lp
+		tya
+		asl
+		asl
+		asl
+		tax
+
+		lda |MidiDP,x
+		sta <MidiEventDP,x
+		lda |MidiDP+2,x
+		sta <MidiEventDP+2,x
+		stz <MidiEventDP+4,x
+		stz <MidiEventDP+6,x
+
+		dey
+		bpl ]lp
+		pld
+;-----------------------------------------------------------------------------
+
+		jsr DrawBoxTimes
 
 ]lp		bra ]lp
 
@@ -1568,6 +1605,119 @@ DrawFancyScreen mx %00
 :text09 asc '0123456789'
 
 ;------------------------------------------------------------------------------
+;
+; A = Box #
+;
+LocateTextBox mx %00
+:row = temp0
+:col = temp0+1
+:x = temp1
+:y = temp1+2
+
+		pha
+		lsr
+		lsr
+		lsr
+		sta <:row
+		pla
+		and #$7
+		sta <:column
+
+		lda #2+1   ; offset to inside the box
+		sta <:x
+		lda #18+3  ; offset to inside the box
+		sta <:y
+
+; X
+		lda <:column
+		asl
+		asl 		 ; x4
+		pha
+		asl 		 ; x8
+		adc 1,s		 ; x12
+		adc <:x 	 ; +x
+		sta 1,s
+		pla
+		sta <:x
+
+; Y
+		lda <:row
+		asl
+		asl 	 	; x4
+		pha
+		asl 		; x8
+		adc 1,s 	; x12
+		adc <:row   ; x13
+		adc <:row   ; x14
+		adc <:y 	; +y
+		sta 1,s
+		pla
+		sta <:y
+
+		ldx <:x
+		ldy <:y
+		jsr myLOCATE
+
+		rts
+
+;------------------------------------------------------------------------------
+;
+DrawBoxTimes mx %00
+
+:x = temp1
+:y = temp1+2
+
+		ldy #0
+]loop
+		phy
+		tya
+
+		jsr LocateTextBox
+		inc <:x
+		ldx <:x
+		ldy <:y
+		jsr myLOCATE
+
+		lda 1,s
+		asl
+		asl
+		asl
+		tax
+		phx
+
+		lda |MidiEventDP+2,x
+		jsr myPRINTAH
+
+		plx
+		phx
+
+		lda |MidiEventDP,x
+		jsr myPRINTAH
+
+		inc <:y
+		ldx <:x
+		ldy <:y
+		jsr myLOCATE
+
+		plx
+		phx
+
+		lda |MidiEventDP+6,x
+		jsr myPRINTAH
+		plx
+		lda |MidiEventDP+4,x
+		jsr myPRINTAH
+
+		ply
+		iny
+
+		cpy <MF_NumTracks
+		bcc ]loop
+
+
+
+		rts
+;------------------------------------------------------------------------------
 
 txt_song  asc 'Song: '
 		  db 0
@@ -1583,6 +1733,8 @@ txt_division asc 'Division: '
 
 txt_axelF asc 'Axel-F'
 		  db 0
+
+
 
 
 GlobalTemp ds 1024

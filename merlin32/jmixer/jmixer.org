@@ -5,6 +5,6 @@
 .autopack  org $10000
 
 RESET org $FFFC
-Main  org $2200
+Main  org $3000
 ;font  org $010000
 
