@@ -190,6 +190,7 @@ pMidiFileStart ds 4
 pMidiFile      ds 4
 MF_NumTracks   ds 2
 MF_Format      ds 2
+MF_Division	   ds 2
 	dend
 
 ;------------------------------------------------------------------------------
@@ -392,7 +393,6 @@ MTrk_sizeof ds 0
 
 		ext midi_axelf ; This lives in a different segment
 
-;pMidiFile = temp0
 NumTracks = MF_NumTracks
 Format    = MF_Format
 
@@ -418,12 +418,6 @@ Format    = MF_Format
 :txt_HeaderGood asc 'Midi1.0 header looks legit'
 		db 13,0
 
-:txt_Format asc 'Format: '
-		db 0
-
-:txt_NumTracks asc 'Tracks: '
-		db 0
-
 :txt_formats
 		da :0
 		da :1
@@ -436,10 +430,6 @@ Format    = MF_Format
 :2		asc ' One or more sequentially independent single-track patterns'
 		db 13,0
 
-:txt_division asc 'Division:'
-		db 0
-
-
 :GoodFile
 
 		jsl PrintMidiFileChunk
@@ -447,7 +437,7 @@ Format    = MF_Format
 		ldx #:txt_HeaderGood
 		jsr myPUTS
 
-		ldx #:txt_Format
+		ldx #txt_Format
 		jsr myPUTS
 
 		ldy #MThd_Format
@@ -469,7 +459,7 @@ Format    = MF_Format
 		xba
 		sta <NumTracks
 
-		ldx #:txt_NumTracks
+		ldx #txt_NumTracks
 		jsr myPUTS
 		lda <NumTracks
 		jsr myPrintAI
@@ -478,16 +468,16 @@ Format    = MF_Format
 		ldy #MThd_Division
 		lda [pMidiFile],y
 		xba
-		pha
+		sta <MF_Division
 
-		ldx #:txt_division
+		ldx #txt_division
 		jsr myPUTS
 
-		lda 1,s
+		lda <MF_Division
 		jsr myPRINTAH
 		jsr myPRINTCR
 
-		pla
+		lda <MF_Division
 		bpl :ticks
 		; else
 		; this the SMPTE format / ticks per frame
@@ -537,6 +527,7 @@ Format    = MF_Format
 		lda 1,s    			; current track index
 		asl
 		asl
+		asl
 		tax
 		lda <pMidiFile		; current track pointer
 		adc #MTrk_sizeof    ; size of the chunk header
@@ -545,6 +536,16 @@ Format    = MF_Format
 		adc #0
 		sta |MidiDP+2,x
 
+		; fetch out the length too
+		ldy #MTrk_Length+2
+		lda [pMidiFile],y
+		xba
+		sta |MidiDP+4,x
+		ldy #MTrk_Length
+		lda [pMidiFile],y
+		xba
+		sta |MidiDP+6,x
+
 		pla
 		inc
 		cmp <NumTracks
@@ -552,15 +553,20 @@ Format    = MF_Format
 
 ;------------------------------------------------------------------------------
 
-		lda #$2020
-		ldy #$1010
-		ldx #:TestTitle
-		jsr DrawBox
+;		lda #$2020
+;		ldy #$1010
+;		ldx #:TestTitle
+;		jsr DrawBox
+;
+;]lp		bra ]lp
+;
+;:TestTitle asc 'Test Title'
+;		db 0
+
+		jsr DrawFancyScreen
 
 ]lp		bra ]lp
 
-:TestTitle asc 'Test Title'
-		db 0
 
 ;------------------------------------------------------------------------------
 ; WaitVBL
@@ -1295,6 +1301,289 @@ DrawBox mx %00
 		rts
 :left_str db MT_RIGHT_BAR,' ',0
 :right_str db MT_LEFT_BAR,0
+
+;------------------------------------------------------------------------------
+DrawFancyScreen mx %00
+
+		phd
+		pea #0
+		pld
+		jsl CLRSCREEN
+
+		ldx #0
+		txy
+		jsl LOCATE
+
+		pld
+
+:columns = 100
+:rows    = 75
+:buffer = GlobalTemp
+
+; top bar
+
+		lda #MT_RIGHT_BAR
+		sta |:buffer
+		lda #MT_LEFT_BAR
+		sta |:buffer+:columns-1
+		stz |:buffer+:columns
+
+		lda #MT_4BAR
+		sta |:buffer+1
+
+		lda #:columns-4
+		ldx #:buffer+1
+		ldy #:buffer+2
+		mvn ^:buffer,^:buffer
+
+		sep #$30
+
+		lda #' '
+		sta |:buffer+1
+		lda #MT_RUN1
+		sta |:buffer+2
+		lda #MT_RUN2
+		sta |:buffer+3
+		lda #' '
+		sta |:buffer+4
+
+		rep #$30
+
+		ldx #:buffer
+		jsr myPUTS
+
+; Bottom Bar
+		ldx #1
+		ldy #:rows-1
+		jsr myLOCATE
+
+		lda #MT_UP_BAR
+		sta |:buffer
+
+		lda #:columns-4
+		ldx #:buffer
+		txy
+		iny
+		mvn ^:buffer,^:buffer
+		stz |:buffer+:columns-2
+
+		ldx #|:buffer
+		jsr myPUTS
+; re-enforce top bar
+		ldx #1
+		ldy #1
+		jsr myLOCATE
+		ldx #|:buffer
+		jsr myPUTS
+
+; Divider for the "Top
+
+		ldx #1
+		ldy #17
+		jsr myLOCATE
+		ldx #|:buffer
+		jsr myPUTS
+
+; Left
+		ldy #1
+]lp
+		phy
+		ldx #0
+		jsr myLOCATE
+
+		lda #MT_RIGHT_BAR
+		jsr myPUTC
+		ply
+		iny
+		cpy #:rows-1
+		bcc ]lp
+
+; Right
+		ldy #1
+]lp
+		phy
+		ldx #:columns-1
+		jsr myLOCATE
+
+		lda #MT_LEFT_BAR
+		jsr myPUTC
+		ply
+		iny
+		cpy #:rows-1
+		bcc ]lp
+
+; Title
+		ldx #5
+		ldy #0
+		jsr myLOCATE
+
+		ldx #:Text
+		jsr myPUTS
+
+; Song Name
+
+		ldx #6
+		ldy #2
+		jsr myLOCATE
+		ldx #txt_song
+		jsr myPUTS
+
+		ldx #txt_axelF
+		jsr myPUTS
+
+; Format
+		ldx #4
+		ldy #4
+		jsr myLOCATE
+		ldx #txt_Format
+		jsr myPUTS
+		lda <MF_Format
+		jsr myPrintAI
+; Division
+
+		ldx #2
+		ldy #6
+		jsr myLOCATE
+		ldx #txt_division
+		jsr myPUTS
+		lda <MF_Division
+		jsr myPrintAI
+; Tracks
+		ldx #4
+		ldy #8
+		jsr myLOCATE
+		ldx #txt_NumTracks
+		jsr myPUTS
+		lda <MF_NumTracks
+		jsr myPrintAI
+
+; For Each Track draw a box
+
+:x = temp3
+:y = temp3+2
+:column = temp4
+:row    = temp4+2
+:count = temp5
+:bcd_track = temp5+2
+
+		;lda #25
+		;sta <MF_NumTracks
+
+		lda #1
+		sta <:bcd_track
+
+		lda #'1 '
+		sta |:track_no+6
+
+		stz <:column
+		stz <:row
+		stz <:count
+
+		; Start here
+		lda #2
+		sta <:x
+		lda #18
+		sta <:y
+
+]box_loop
+		lda <:column
+		asl
+		asl 		 ; x4
+		pha
+		asl 		 ; x8
+		adc 1,s		 ; x12
+		adc <:x 	 ; +x
+		sta 1,s
+
+		lda <:row
+		asl
+		asl 	 	; x4
+		pha
+		asl 		; x8
+		adc 1,s 	; x12
+		adc <:row   ; x13
+		adc <:row   ; x14
+		adc <:y 	; +y
+		sta 1,s
+
+		pla
+		xba
+		ora 1,s
+		sta 1,s
+		pla
+
+		ldy #$0A0C
+		ldx #:track_no
+		jsr DrawBox
+
+; inc track_no
+		sep #$38
+		clc
+		lda <:bcd_track
+		adc #1
+		sta <:bcd_track
+		cld
+
+		cmp #$10
+		bcc :single_digit
+
+		and #$F
+		tax
+		lda |:text09,x
+		sta |:track_no+7
+
+		lda <:bcd_track
+		lsr
+		lsr
+		lsr
+		lsr
+:single_digit
+		tax
+		lda :text09,x
+		sta |:track_no+6
+		rep #$30
+
+; inc column
+		lda <:column
+		inc
+		cmp #8
+		bcc :col_good
+		inc <:row
+		lda #0
+:col_good
+		sta <:column
+
+		lda <:count
+		inc
+		cmp <MF_NumTracks
+		bcs :done
+		sta <:count
+		bra ]box_loop
+:done
+		rts
+:Text   asc 'Jason',27,'s MIDI Mixer '
+		db 0
+:track_no asc 'Track   '
+		db 0
+:text09 asc '0123456789'
+
+;------------------------------------------------------------------------------
+
+txt_song  asc 'Song: '
+		  db 0
+
+txt_NumTracks asc 'Tracks: '
+		db 0
+
+txt_Format asc 'Format: '
+		db 0
+
+txt_division asc 'Division: '
+		db 0
+
+txt_axelF asc 'Axel-F'
+		  db 0
+
 
 GlobalTemp ds 1024
 
