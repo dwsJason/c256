@@ -602,6 +602,11 @@ Format    = MF_Format
 
 		jsr DrawBoxTimes
 
+
+; Take Time Elapsed, and process each track
+
+
+
 ]lp		bra ]lp
 
 
@@ -1667,11 +1672,14 @@ DrawBoxTimes mx %00
 :x = temp1
 :y = temp1+2
 
+:end_addy = temp2
+:delta = temp3
+
 		ldy #0
 ]loop
 		phy
 		tya
-
+; Draw the Data Pointer
 		jsr LocateTextBox
 		inc <:x
 		ldx <:x
@@ -1694,6 +1702,40 @@ DrawBoxTimes mx %00
 		lda |MidiEventDP,x
 		jsr myPRINTAH
 
+; Draw the Length Remaining
+		plx
+		phx
+
+		; first calculate the delta
+		lda |MidiDP,x
+		clc
+		adc |MidiDP+4,x
+		sta <:end_addy
+		lda |MidiDP+2,x
+		adc |MidiDP+6,x
+		sta <:end_addy+2
+
+		sec
+		lda <:end_addy
+		sbc |MidiEventDP,x
+		sta <:delta
+		lda <:end_addy+2
+		sbc |MidiEventDP+2,x
+		sta <:delta+2
+		 
+		inc <:y
+		ldx <:x
+		ldy <:y
+		jsr myLOCATE
+		
+		lda <:delta+2
+;		lda <:end_addy+2
+		jsr myPRINTAH
+		lda <:delta
+;		lda <:end_addy
+		jsr myPRINTAH
+
+; Draw the event wait time
 		inc <:y
 		ldx <:x
 		ldy <:y
