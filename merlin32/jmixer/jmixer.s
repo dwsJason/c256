@@ -1781,9 +1781,9 @@ ReadVLQ mx %00
 :pTrack  = temp2
 :VLQ = temp3
 :v0 = temp4
-:V1 = temp4+2
-:V2 = temp5
-:V3 = temp5+2
+:v1 = temp4+2
+:v2 = temp5
+:v3 = temp5+2
 
 		stz <:VLQ
 		stz <:VLQ+2
@@ -1842,7 +1842,7 @@ ReadVLQ mx %00
 		sta <:VLQ
 		rts
 
-:oneanddone
+:oneandone
 		sta <:VLQ
 		rts
 
@@ -1894,15 +1894,11 @@ UpdateTrack mx %00
 		; add the VLQ to the current elapsed time, carry overfloat
 		clc
 		lda <:VLQ
-		adc |MidiEvent+4,x
-		sta |MidiEvent+4,x
+		adc |MidiEventDP+4,x
+		sta |MidiEventDP+4,x
 		lda <:VLQ+2
-		adc |MidiEvent+6,x
-		sta |MidiEvent+6,x
-
-
-
-
+		adc |MidiEventDP+6,x
+		sta |MidiEventDP+6,x
 :done
 		rts
 
