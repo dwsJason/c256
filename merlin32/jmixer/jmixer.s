@@ -69,6 +69,25 @@ bmil mac
 skip@
     <<<
 
+cstr mac
+	asc ]1
+	db 0
+	<<<
+;-------------------------------------------------------------------------------
+; print X;Y;'CSTRING'
+print mac
+	ldx #]1
+	ldy #]2
+	jsr myLOCATE
+	ldx #datastr
+	jsr myPUTS
+	bra skip
+datastr cstr ]3
+skip
+	eom
+
+
+
 ; Macro, for pushing K + Another Bank, using pea command
 ;
 ; Allows something like this
@@ -187,6 +206,10 @@ pPIXL		   = 42
 temp5          = 46
 temp6		   = 50
 temp7          = 54
+temp8          = 58
+temp9          = 62
+temp10         = 66
+temp11         = 70
 
 dpJiffy       = 128
 dpAudioJiffy  = dpJiffy+2
@@ -197,6 +220,9 @@ pMidiFile      ds 4
 MF_NumTracks   ds 2
 MF_Format      ds 2
 MF_Division	   ds 2
+; Current Track
+pTrack		   ds 4
+VLQ            ds 4
 	dend
 
 ;------------------------------------------------------------------------------
@@ -600,6 +626,21 @@ Format    = MF_Format
 		pld
 ;-----------------------------------------------------------------------------
 
+		phd
+		pea 0
+		pld
+		jsl CLRSCREEN ; because the data in the screen is messed up
+		ldx #0
+		txy
+		jsl LOCATE	    ; cursor to top left of the screen
+		pld
+
+		lda #3
+		jsr DumpTrack
+
+testwait bra testwait
+;-----------------------------------------------------------------------------
+
 PlayLoop
 ; Take Time Elapsed, and process each track
 		jsr WaitMidiTimer
@@ -608,8 +649,6 @@ PlayLoop
 		jsr UpdateTracks
 
 		jsr DrawBoxTimes
-
-
 
 ]lp		bra ]lp
 
@@ -937,6 +976,38 @@ myPrintAI mx %00
 :chars  ASC '0123456789'
 
 :txt	ds 6
+
+
+;------------------------------------------------------------------------------
+;
+; Put DP back at 0, for Kernel call
+;
+myPRINTBYTE mx %00
+		; Kernel function doesn't work
+
+		sep #$30
+		pha
+		lsr
+		lsr
+		lsr
+		lsr
+		tax
+		pla
+		and #$0F
+		tay
+		lda |:chars,x
+		sta |:temp
+		lda |:chars,y
+		sta |:temp+1
+		rep #$30
+
+		ldx #:temp
+		jmp myPUTS
+
+:chars  ASC '0123456789ABCDEF'
+
+:temp	ds  3
+
 
 ;------------------------------------------------------------------------------
 ;
@@ -1778,51 +1849,49 @@ DrawBoxTimes mx %00
 		rts
 ;------------------------------------------------------------------------------
 ReadVLQ mx %00
-:pTrack  = temp2
-:VLQ = temp3
-:v0 = temp4
-:v1 = temp4+2
-:v2 = temp5
-:v3 = temp5+2
+:v0 = temp9
+:v1 = temp9+2
+:v2 = temp10
+:v3 = temp10+2
 
-		stz <:VLQ
-		stz <:VLQ+2
+		stz <VLQ
+		stz <VLQ+2
 
-		jsr :readByte
+		jsr ReadByte
 		bit #$80
 		beq :oneandone
 
 		and #$7F
 		sta <:v3
 
-		jsr :readByte
+		jsr ReadByte
 		bit #$80
 		beq :twoandone
 
 		and #$7f
 		sta <:v2
 
-		jsr :readByte
+		jsr ReadByte
 		bit #$80
 		beq :threeandone
 		and #$7F
 		sta <:v1
 
-		jsr :readByte
-		sta <:VLQ
+		jsr ReadByte
+		sta <VLQ
 
 		lda <:v1-1
 		lsr
-		tsb <:VLQ+1
+		tsb <VLQ+1
 		lda <:v2-1
 		lsr
 		lsr
-		tsb <:VLQ+1
+		tsb <VLQ+1
 		lda <:v3-1
 		lsr
 		lsr
 		lsr
-		tsb <:VLQ+2
+		tsb <VLQ+2
 		rts
 
 :threeandone
@@ -1830,28 +1899,30 @@ ReadVLQ mx %00
 		lsr <:v3-1
 		lsr <:v2-1
 		ora <:v2-1
-		sta <:VLQ
+		sta <VLQ
 		lda <:v3-1
-		tsb <:VLQ+1
+		tsb <VLQ+1
 		rts
 
 :twoandone
 		lsr <:v3-1
 		and #$7F
 		ora <:v3-1
-		sta <:VLQ
+		sta <VLQ
 		rts
 
 :oneandone
-		sta <:VLQ
+		sta <VLQ
 		rts
 
-:readByte
-		lda [:pTrack]
+;------------------------------------------------------------------------------
+
+ReadByte mx %00
+		lda [pTrack]
 		and #$FF
-		inc <:pTrack
+		inc <pTrack
 		bne :done
-		inc <:pTrack+2
+		inc <pTrack+2
 :done
 		rts
 
@@ -1859,13 +1930,31 @@ ReadVLQ mx %00
 ;
 UpdateTrack mx %00
 
+:row = temp0
+:col = temp0+1
+:x = temp1
+:y = temp1+2
+
 :elapsedTime = temp1
-:pTrack  = temp2
-:VLQ     = temp3
 
 		sta <:elapsedTime
 
 		tya
+		phy
+		jsr LocateTextBox
+
+		clc
+		lda <:y
+		adc #3
+		sta <:y
+
+		ldx <:x
+		ldy <:y
+		jsr myLOCATE
+
+		ply
+		tya
+
 		asl
 		asl
 		asl
@@ -1883,32 +1972,198 @@ UpdateTrack mx %00
 		bpl :done
 
 ; Elapsed Time is now negative
-
+		; get the track pointer
 		lda |MidiEventDP,x
-		sta <:pTrack
+		sta <pTrack
 		lda |MidiEventDP+2,x
-		sta <:pTrack+2
+		sta <pTrack+2
 
 		jsr ReadVLQ
 
 		; add the VLQ to the current elapsed time, carry overfloat
 		clc
-		lda <:VLQ
+		lda <VLQ
 		adc |MidiEventDP+4,x
 		sta |MidiEventDP+4,x
-		lda <:VLQ+2
+		lda <VLQ+2
 		adc |MidiEventDP+6,x
 		sta |MidiEventDP+6,x
+
+		; Read the event
+		;pei pTrack
+		;pei pTrack+2
+
+		phx
+		jsr ReadEvent
+
+
+
+		plx
+
+		; save back the track pointer
+		lda <pTrack
+		sta |MidiEventDP,x
+		lda <pTrack+2
+		sta |MidiEventDP+2,x
 :done
+
+
+
 		rts
 
+
+;------------------------------------------------------------------------------
+ReadEvent mx %00
+
+:row = temp0
+:col = temp0+1
+:x = temp1
+:y = temp1+2
+
+:event   = temp11
+:channel = temp11+2
+:keynum   = temp4
+:velocity = temp4+2
+:connum   = temp4
+:polyval  = temp4+2
+:conval   = temp4+2
+:prognum  = temp4
+:chanval  = temp4
+:plow     = temp4
+:phigh    = temp4+2
+:meta_type = temp4
+
+
+
+		jsr ReadByte
+		sta <:event
+
+		and #$0F
+		sta <:channel
+
+		lda <:event
+		and #$F0
+
+		lsr
+		lsr
+		lsr
+
+		tax
+		jmp (:table,x)
+
+:table
+		da :unknown
+		da :unknown
+		da :unknown
+		da :unknown
+		da :unknown
+		da :unknown
+		da :unknown
+		da :unknown
+		da :note_off	; 0x80
+		da :note_on 	; 0x90
+		da :polypress   ; 0xA0
+		da :control     ; 0xB0
+		da :program     ; 0xC0
+		da :chanpress   ; 0xD0
+		da :pitchbend   ; 0xE0
+		da :sysx		; 0xF0
+
+:unknown
+		ldx #txt_UNKNOWN
+		jsr myPUTS
+]stop	bra ]stop
+
+:note_off
+		ldx #txt_NOTEOFF
+		jsr myPUTS
+
+		jsr ReadByte
+		sta <:keynum
+		jsr ReadByte
+		sta <:velocity
+		rts
+:note_on
+		ldx #txt_NOTEON
+		jsr myPUTS
+
+		jsr ReadByte
+		sta <:keynum
+		jsr ReadByte
+		sta <:velocity
+		rts
+:polypress
+		ldx #txt_POLYPRESS
+		jsr myPUTS
+
+		jsr ReadByte
+		sta <:keynum
+		jsr ReadByte
+		sta <:velocity
+		rts
+:control
+		ldx #txt_CONTROL
+		jsr myPUTS
+
+		jsr ReadByte
+		sta <:keynum
+		jsr ReadByte
+		sta <:velocity
+		rts
+:program
+		ldx #txt_PROGRAM
+		jsr myPUTS
+
+		jsr ReadByte
+		sta <:prognum
+		rts
+
+:chanpress
+		ldx #txt_CHANPRESS
+		jsr myPUTS
+
+		jsr ReadByte
+		sta <:chanval
+		rts
+
+:pitchbend
+		ldx #txt_PITCHBEND
+		jsr myPUTS
+
+		jsr ReadByte
+		sta <:plow
+		jsr ReadByte
+		sta <:phigh
+		rts
+:sysx
+		lda <:event
+		cmp #$FF
+		beq :meta
+
+		bra :sysx
+:meta
+		ldx #txt_META
+		jsr myPUTS
+
+		jsr ReadByte
+		sta <:meta_type
+		jsr ReadVLQ
+
+		clc
+		lda <pTrack
+		adc <VLQ
+		sta <pTrack
+		lda <pTrack+2
+		adc <VLQ+2
+		sta <pTrack+2
+		rts
 
 
 ;------------------------------------------------------------------------------
 ; A = elapsed time in ticks
 UpdateTracks mx %00
 
-:elapsedtime = temp0
+:elapsedtime = temp8
 
 		sta <:elapsedtime
 
@@ -1940,7 +2195,260 @@ txt_division asc 'Division: '
 txt_axelF asc 'Axel-F'
 		  db 0
 
+; Midi Event Texts
+txt_NOTEON    cstr '  NOTEON  '
+txt_NOTEOFF   cstr ' NOTEOFF  '
+txt_POLYPRESS cstr 'POLYPRESS '
+txt_CONTROL   cstr ' CONTROL  '
+txt_PROGRAM   cstr ' PROGRAM  '
+txt_CHANPRESS cstr 'CHANPRESS '
+txt_PITCHBEND cstr 'PITCHBEND '
+txt_SYSEX1    cstr ' SYSEX1   '
+txt_SYSEX2    cstr ' SYSEX2   '
+txt_META      cstr '  META    '
+txt_UNKNOWN   cstr 'UNKNOWN   '
 
+;------------------------------------------------------------------------------
+; A=Track number to dump
+DumpTrack mx %00
+
+		; Setup a pointer to the current track
+		asl
+		asl
+		asl
+		tax
+		lda |MidiEventDP,x
+		sta <pTrack
+		lda |MidiEventDP+2,x
+		sta <pTrack+2
+
+]loop
+		ldx #MyDP+pTrack
+		jsr myPRINTAddress		; Current Address
+		lda #':'
+		jsr myPUTC
+
+		jsr :PrintVLQ   		; VLQ Bytes at Address
+
+		jsr ReadVLQ 			; Value extraced from VLQ bytes
+
+		lda <VLQ+2
+		jsr myPRINTAH
+		lda <VLQ
+		jsr myPRINTAH
+		jsr myPRINTCR
+
+;------------------------------------------------------------------------------
+
+		ldx #MyDP+pTrack
+		jsr myPRINTAddress		; Current Address
+
+		lda #':'
+		jsr myPUTC
+
+		jsr ReadByte
+		pha
+		jsr myPRINTBYTE			; Event Byte
+		lda #' '
+		jsr myPUTC
+		
+		lda 1,s
+		jsr :PrintEventText
+
+		; we need to eat the right number of bytes here to continue
+		lda 1,s
+		and #$F0
+		lsr
+		lsr
+		lsr
+		tax
+		pla
+		jsr (:events,x)
+		bra ]loop
+
+:events
+		da :unknown
+		da :unknown
+		da :unknown
+		da :unknown
+		da :unknown
+		da :unknown
+		da :unknown
+		da :unknown
+		da :note_off	; 0x80
+		da :note_on 	; 0x90
+		da :polypress   ; 0xA0
+		da :control     ; 0xB0
+		da :program     ; 0xC0
+		da :chanpress   ; 0xD0
+		da :pitchbend   ; 0xE0
+		da :sysx		; 0xF0
+
+:unknown
+]stop	bra ]stop
+
+:note_off
+:note_on
+		jsr ReadByte   ; key
+		jsr myPRINTBYTE
+		lda #' '
+		jsr myPUTC
+
+		jsr ReadByte  ; velocity
+		jsr myPRINTBYTE
+		jsr myPRINTCR
+		rts
+
+:polypress
+		jsr ReadByte  ; key
+		jsr myPRINTBYTE
+		lda #' '
+		jsr myPUTC
+		jsr ReadByte  ; poly value
+		jsr myPRINTBYTE
+		jsr myPRINTCR
+		rts
+
+:control
+		jsr ReadByte   ; control num
+		jsr myPRINTBYTE
+		lda #' '
+		jsr myPUTC
+
+		jsr ReadByte  ; control value
+		jsr myPRINTBYTE
+		jsr myPRINTCR
+		rts
+
+:program
+		jsr ReadByte ; program num
+		jsr myPRINTBYTE
+		jsr myPRINTCR
+		rts
+
+:chanpress
+		jsr ReadByte ; channel press
+		jsr myPRINTBYTE
+		jsr myPRINTCR
+		rts
+
+:pitchbend
+		jsr ReadByte  ; pitch bend low
+		jsr myPRINTBYTE
+		lda #' '
+		jsr myPUTC
+		jsr ReadByte  ; pitch bend high
+		jsr myPRINTBYTE
+		jsr myPRINTCR
+		rts
+:sysx
+		cmp #$FF
+		beq :meta
+
+		bra :sysx
+:meta
+		jsr ReadByte    ; meta type
+		pha
+		jsr myPRINTBYTE
+		lda #' '
+		jsr myPUTC
+
+		jsr :PrintVLQ
+		jsr ReadVLQ
+
+		lda <VLQ+2
+		jsr myPRINTAH
+		lda <VLQ
+		jsr myPRINTAH
+		jsr myPRINTCR
+
+		clc
+		lda <pTrack
+		adc <VLQ
+		sta <pTrack
+		lda <pTrack+2
+		adc <VLQ+2
+		sta <pTrack+2
+
+		pla
+		cmp #$2F ; end of track
+		bne :cont
+		pla      ; break out of loop
+:cont
+		rts
+
+
+:PrintEventText
+		and #$F0
+		lsr
+		lsr
+		lsr
+		tax
+		lda :ttable,x
+		tax
+		jsr myPUTS
+		rts
+
+:ttable
+		da txt_UNKNOWN
+		da txt_UNKNOWN
+		da txt_UNKNOWN
+		da txt_UNKNOWN
+
+		da txt_UNKNOWN
+		da txt_UNKNOWN
+		da txt_UNKNOWN
+		da txt_UNKNOWN
+
+		da txt_NOTEOFF
+		da txt_NOTEON
+		da txt_POLYPRESS
+		da txt_CONTROL
+
+		da txt_PROGRAM
+		da txt_CHANPRESS
+		da txt_PITCHBEND
+		da txt_META
+
+
+:PrintVLQ
+
+		pei <pTrack
+		pei <pTrack+2
+]vlqlp
+		jsr ReadByte
+		pha
+		jsr myPRINTBYTE
+		lda #' '
+		jsr myPUTC
+		pla
+		bit #$80
+		bne ]vlqlp
+
+:VLQ_done
+		pla
+		sta <pTrack+2
+		pla
+		sta <pTrack
+
+		rts
+
+;------------------------------------------------------------------------------
+myPRINTAddress mx %00
+		phx
+		lda #'$'
+		jsr myPUTC
+		plx
+		phx
+		lda |2,x
+		jsr myPRINTBYTE
+		plx
+		lda |0,x
+		jsr myPRINTAH
+
+		rts
+
+;------------------------------------------------------------------------------
 
 
 GlobalTemp ds 1024
