@@ -600,10 +600,14 @@ Format    = MF_Format
 		pld
 ;-----------------------------------------------------------------------------
 
-		jsr DrawBoxTimes
-
-
+PlayLoop
 ; Take Time Elapsed, and process each track
+		jsr WaitMidiTimer
+
+		lda #15	; Elapsed time (192*4/50)
+		jsr UpdateTracks
+
+		jsr DrawBoxTimes
 
 
 
@@ -619,6 +623,19 @@ WaitVBL
 		lda <dpJiffy
 ]lp
 		cmp <dpJiffy
+		beq ]lp
+		pla
+		rts
+
+;------------------------------------------------------------------------------
+; WaitMidiTimer
+; Preserve all registers
+;
+WaitMidiTimer
+		pha
+		lda <dpAudioJiffy
+]lp
+		cmp <dpAudioJiffy
 		beq ]lp
 		pla
 		rts
@@ -1757,6 +1774,157 @@ DrawBoxTimes mx %00
 		bcc ]loop
 
 
+
+		rts
+;------------------------------------------------------------------------------
+ReadVLQ mx %00
+:pTrack  = temp2
+:VLQ = temp3
+:v0 = temp4
+:V1 = temp4+2
+:V2 = temp5
+:V3 = temp5+2
+
+		stz <:VLQ
+		stz <:VLQ+2
+
+		jsr :readByte
+		bit #$80
+		beq :oneandone
+
+		and #$7F
+		sta <:v3
+
+		jsr :readByte
+		bit #$80
+		beq :twoandone
+
+		and #$7f
+		sta <:v2
+
+		jsr :readByte
+		bit #$80
+		beq :threeandone
+		and #$7F
+		sta <:v1
+
+		jsr :readByte
+		sta <:VLQ
+
+		lda <:v1-1
+		lsr
+		tsb <:VLQ+1
+		lda <:v2-1
+		lsr
+		lsr
+		tsb <:VLQ+1
+		lda <:v3-1
+		lsr
+		lsr
+		lsr
+		tsb <:VLQ+2
+		rts
+
+:threeandone
+		lsr <:v3-1
+		lsr <:v3-1
+		lsr <:v2-1
+		ora <:v2-1
+		sta <:VLQ
+		lda <:v3-1
+		tsb <:VLQ+1
+		rts
+
+:twoandone
+		lsr <:v3-1
+		and #$7F
+		ora <:v3-1
+		sta <:VLQ
+		rts
+
+:oneanddone
+		sta <:VLQ
+		rts
+
+:readByte
+		lda [:pTrack]
+		and #$FF
+		inc <:pTrack
+		bne :done
+		inc <:pTrack+2
+:done
+		rts
+
+;------------------------------------------------------------------------------
+;
+UpdateTrack mx %00
+
+:elapsedTime = temp1
+:pTrack  = temp2
+:VLQ     = temp3
+
+		sta <:elapsedTime
+
+		tya
+		asl
+		asl
+		asl
+		tax
+
+; update the elapsed time
+
+		sec
+		lda |MidiEventDP+4,x
+		sbc <:elapsedTime
+		sta |MidiEventDP+4,x
+		lda |MidiEventDP+6,x
+		sbc #0
+		sta |MidiEventDP+6,x
+		bpl :done
+
+; Elapsed Time is now negative
+
+		lda |MidiEventDP,x
+		sta <:pTrack
+		lda |MidiEventDP+2,x
+		sta <:pTrack+2
+
+		jsr ReadVLQ
+
+		; add the VLQ to the current elapsed time, carry overfloat
+		clc
+		lda <:VLQ
+		adc |MidiEvent+4,x
+		sta |MidiEvent+4,x
+		lda <:VLQ+2
+		adc |MidiEvent+6,x
+		sta |MidiEvent+6,x
+
+
+
+
+:done
+		rts
+
+
+
+;------------------------------------------------------------------------------
+; A = elapsed time in ticks
+UpdateTracks mx %00
+
+:elapsedtime = temp0
+
+		sta <:elapsedtime
+
+		ldy #0
+]lp
+		lda <:elapsedtime
+		phy
+		jsr UpdateTrack
+		ply
+		iny
+		cpy <MF_NumTracks
+		bcc ]lp
 
 		rts
 ;------------------------------------------------------------------------------
