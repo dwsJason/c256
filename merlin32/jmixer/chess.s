@@ -2,10 +2,11 @@
 ; Midi song
 ;
 		rel
-		lnk axelf.l
+		lnk chess.l
 
 ;------------------------------------------------------------------------------
 
-midi_axelf ent
-	putbin data\axel-f.mid
+midi_chess ent
+	putbin data\chess.mid
+
 

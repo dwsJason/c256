@@ -424,6 +424,10 @@ MTrk_sizeof ds 0
 		dend
 
 		ext midi_axelf ; This lives in a different segment
+		ext midi_oaxelf
+		ext midi_axelf2
+		ext midi_chess
+		ext midi_canon
 
 NumTracks = MF_NumTracks
 Format    = MF_Format
@@ -625,7 +629,7 @@ Format    = MF_Format
 		bpl ]lp
 		pld
 ;-----------------------------------------------------------------------------
-
+		do 0
 		phd
 		pea 0
 		pld
@@ -637,8 +641,9 @@ Format    = MF_Format
 
 		lda #3
 		jsr DumpTrack
+		fin
 
-testwait bra testwait
+;testwait bra testwait
 ;-----------------------------------------------------------------------------
 
 PlayLoop
@@ -2180,20 +2185,15 @@ UpdateTracks mx %00
 		rts
 ;------------------------------------------------------------------------------
 
-txt_song  asc 'Song: '
-		  db 0
-
-txt_NumTracks asc 'Tracks: '
-		db 0
-
-txt_Format asc 'Format: '
-		db 0
-
-txt_division asc 'Division: '
-		db 0
-
-txt_axelF asc 'Axel-F'
-		  db 0
+txt_song  cstr 'Song: '
+txt_NumTracks cstr 'Tracks: '
+txt_Format cstr 'Format: '
+txt_division cstr 'Division: '
+txt_oaxelf cstr 'O Axel-F'
+txt_axelF cstr 'Axel-F'
+txt_axelF2 cstr 'Axel-F 2'
+txt_chess cstr 'Chess'
+txt_canon cstr 'Canon'
 
 ; Midi Event Texts
 txt_NOTEON    cstr '  NOTEON  '
@@ -2384,7 +2384,7 @@ DumpTrack mx %00
 		lsr
 		lsr
 		tax
-		lda :ttable,x
+		lda |:ttable,x
 		tax
 		jsr myPUTS
 		rts
@@ -2450,6 +2450,24 @@ myPRINTAddress mx %00
 
 ;------------------------------------------------------------------------------
 
+GlobalSongTable
+		adrl midi_oaxelf
+		adrl midi_axelf
+		adrl midi_axelf2
+		adrl midi_chess
+		adrl midi_canon
+
+GlobalSongNameTable
+		da txt_oaxelf
+		da txt_axelF
+		da txt_axelF2
+		da txt_chess
+		da txt_canon
+
+
+
+
+;------------------------------------------------------------------------------
 
 GlobalTemp ds 1024
 

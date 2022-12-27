@@ -11,3 +11,9 @@ merlin32/bin/Source/
 merlin32/jmixer/bin/makefont/obj/
 merlin32/jmixer/bin/makefont/bin/
 
+Kernel_FMX.old2/
+*.lst
+*.vpj
+*.vpw
+*.vpwhist
+*.vtg

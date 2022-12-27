@@ -2,10 +2,10 @@
 ; Midi song
 ;
 		rel
-		lnk axelf.l
+		lnk canon.l
 
 ;------------------------------------------------------------------------------
 
-midi_axelf ent
-	putbin data\axel-f.mid
+midi_canon ent
+	putbin data\canon1.mid
 
