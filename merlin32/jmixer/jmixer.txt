@@ -11,12 +11,13 @@ MIX Oscillator - 256 bytes per Oscillator - why 256 bytes?
 Oscillator code, can be optimized to use DP variables, and we can run the next
 Oscillator by moving to another page
 
-The plan is to support different Oscillator types, at least for version 1, I
-plan on having support for 3 types of Oscillators
+The plan is to support different Oscillator types, I
+plan on having support for 4 types of Oscillators
 
-8  bit PCM
-16 bit PCM
-16 bit ADPCM
+8  bit PCM    - MOD
+16 bit PCM    - MIDI
+16 bit ADPCM  - Standard
+16 bit BRR    - SNES 
 
 Future Oscillators might support ADSR (Attack Decay Sustain Release)
 Or they might support SNES BRR format
@@ -29,14 +30,28 @@ in there.
 
 - I think some parts of the OSCillator needs to be common to all OSC types
 
+; --- for now, wave data is not allowed to cross bank boundary, so largest
+; sample is 65536 bytes in size
+
         ds 2  ; Version/Type - what type of OSC is this (which decoder is called)
         ds 2  ; state, stopped or playing
         ds 4  ; pWave Data - Pointer to the Wave data
         ds 4  ; pWave Data Loop Point
         ds 4  ; pWave End  - Pointer to the end of the wave data
         ds 2  ; Playback frequency
-        ds 2  ; Channel Volume
-        ds 2  ; Pan (left/right pan value)
+        ds 2  ; Left Volume
+        ds 2  ; Right Volume
+
+-------------------------------------------------------------------------------
+
+Direct Page Addresses
+
+pSourceSample = 0
+pDestFIFO     = 4
+SampleRate    = 8
+
+        ldx #256
+
 
 
 
