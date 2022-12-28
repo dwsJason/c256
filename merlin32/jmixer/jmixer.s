@@ -430,6 +430,12 @@ MTrk_sizeof ds 0
 		ext midi_chess
 		ext midi_canon
 
+		; instruments
+		ext inst_atmosphere,inst_polysynth,inst_acsnare,inst_ehorn,inst_synbass
+		ext inst_strings,inst_cymbal,inst_celesta,inst_bassdrum,inst_sitar,inst_hightom
+		ext inst_closehihat,inst_piano,inst_taiko,inst_contrabass,inst_synbrass,inst_snareroll
+		ext inst_openhihat,inst_pedalhihat,inst_tambourine,inst_handclap,inst_syndrum,inst_slapbass
+
 NumTracks = MF_NumTracks
 Format    = MF_Format
 
@@ -633,6 +639,26 @@ Format    = MF_Format
 		bpl ]lp
 		pld
 ;-----------------------------------------------------------------------------
+; Text Code to dump an instrument
+		do 1
+
+		phd
+		pea 0
+		pld
+		jsl CLRSCREEN ; because the data in the screen is messed up
+		ldx #0
+		txy
+		jsl LOCATE	    ; cursor to top left of the screen
+		pld
+
+		lda #inst_piano
+		ldx #^inst_piano
+		jsr DumpInstrument
+
+]done bra ]done
+		fin
+;-----------------------------------------------------------------------------
+; Test Code to dump a track out
 		do 0
 		phd
 		pea 0
@@ -2437,6 +2463,425 @@ DumpTrack mx %00
 
 		rts
 
+txt_invalid_wave cstr 'Invalid WAVE file'
+txt_length cstr 'Length='
+txt_toolarge cstr 'Wave is too large, must be < 64K'
+txt_wavefmt cstr 'WAVEfmt'
+txt_type cstr           '            Type='
+txt_channels cstr       '        Channels='
+txt_samplerate cstr     '      SampleRate='
+txt_bytespersample cstr 'Bytes Per Sample='
+txt_bitspersample  cstr ' Bits Per Sample='
+txt_missingdatablock cstr '!!ERROR - data block is missing'
+txt_data_found cstr 'data block found'
+txt_missingsample cstr '!!ERROR - sample block is missing'
+txt_samplefound cstr 'smpl - block found!'
+txt_missingxtra cstr '!!ERROR - xtra block is missing'
+txt_xtrafound cstr 'xtra - block found!'
+txt_pitch_keycenter cstr 'Pitch Key Center='
+txt_loop_mode       cstr '      Loop Mode ='
+txt_loop_start      cstr '      Loop Start='
+txt_loop_end        cstr '      Loop End  ='
+txt_cue_missing     cstr '!!ERROR - cue block is missing'
+txt_cue_found       cstr 'cue - block found'
+txt_cset_missing    cstr '!!ERROR - CSET block is missing'
+txt_list_missing    cstr '!!ERROR - LIST block is missing'
+txt_missingname cstr '!!ERROR - Missing INFOINAME/Instrument name'
+txt_instname    cstr 'Instrument Name='
+
+
+;------------------------------------------------------------------------------
+; AX = pInstrument
+;
+DumpInstrument mx %00
+:pInstrument = temp0
+:length = temp1
+
+		sta <:pInstrument
+		stx <:pInstrument+2
+
+		lda [:pInstrument]
+		cmp #'RI'
+		beq :good0
+:invalid_wave
+		ldx #txt_invalid_wave
+:too_large
+		jsr myPUTS
+		rts
+:good0
+		ldy #2
+		lda [:pInstrument],y
+		cmp #'FF'
+		bne :invalid_wave
+
+		ldy #4
+		lda [:pInstrument],y
+		sta <:length
+		ldy #6
+		lda [:pInstrument],y
+		sta <:length+2
+
+		ldx #txt_length
+		jsr myPUTS
+		lda <:length+2
+		jsr myPRINTAH
+		lda <:length
+		jsr myPRINTAH
+		jsr myPRINTCR
+
+		ldx #txt_toolarge
+		lda <:length+2
+		bne :too_large
+
+; So far so good
+
+; next block, I expect 8 bytes, 'WAVEfmt '
+		; skip forward
+		clc
+		lda <:pInstrument
+		adc #8
+		sta <:pInstrument
+		lda <:pInstrument+2
+		adc #0
+		sta <:pInstrument+2
+
+
+		jsr :get_word
+		cmp #'WA'
+		bne :invalid_wave
+		jsr :get_word
+		cmp #'VE'
+		bne :invalid_wave
+		jsr :get_word
+		cmp #'fm'
+		bne :invalid_wave
+		jsr :get_word
+		cmp #'t '
+		bne :invalid_wave
+
+		ldx #txt_wavefmt
+		jsr myPUTS
+		jsr myPRINTCR
+
+		ldx #txt_length
+		jsr myPUTS
+
+		; output length of WAVEfmt block, should be 16
+		jsr :get_word
+		pha
+		jsr :get_word
+		jsr myPRINTAH
+		pla
+		jsr myPRINTAH
+		jsr myPRINTCR
+
+		; type, 1 = PCM
+		ldx #txt_type
+		jsr myPUTS
+		jsr :get_word
+		jsr myPRINTAH
+		jsr myPRINTCR
+
+		; channels - needs to be 1
+		ldx #txt_channels
+		jsr myPUTS
+		jsr :get_word
+		jsr myPRINTAH
+		jsr myPRINTCR
+
+		ldx #txt_samplerate
+		jsr myPUTS
+		jsr :get_word
+		jsr myPrintAI
+		jsr myPRINTCR
+		jsr :get_word  ; high part of sample rate
+
+		jsr :get_word  ; sample rate * bits ber sample * channels / 8
+		jsr :get_word
+
+		ldx #txt_bytespersample
+		jsr myPUTS
+		jsr :get_word
+		jsr myPrintAI
+		jsr myPRINTCR
+
+		ldx #txt_bitspersample
+		jsr myPUTS
+		jsr :get_word
+		jsr myPrintAI
+		jsr myPRINTCR
+
+		; I expect 'data' to be next
+		; this is out actual wave!
+		jsr :get_word
+		cmp #'da'
+		beq :good2
+:missing
+		ldx #txt_missingdatablock
+		jsr myPUTS
+
+:good2
+		jsr :get_word
+		cmp #'ta'
+		bne :missing
+
+		ldx #txt_data_found
+		jsr myPUTS
+		jsr myPRINTCR
+
+		jsr :get_word
+		sta <:length
+		jsr :get_word
+		sta <:length+2
+
+		ldx #txt_length
+		jsr myPUTS
+		lda <:length+2
+		jsr myPRINTAH
+		lda <:length
+		jsr myPRINTAH
+		jsr myPRINTCR
+
+		clc
+		lda <:pInstrument
+		adc <:length
+		sta <:pInstrument
+		lda <:pInstrument+2
+		adc <:length+2
+		sta <:pInstrument+2
+
+		jsr :get_word
+		cmp #'sm'
+		beq :good3
+:nosample
+		ldx #txt_missingsample
+		jsr myPUTS
+		jsr myPRINTCR
+
+		rts
+:good3
+		jsr :get_word
+		cmp #'pl'
+		bne :nosample
+
+		ldx #txt_samplefound
+		jsr myPUTS
+		jsr myPRINTCR
+
+		jsr :get_word ; 3C
+		jsr :get_word ; 00
+
+		pei :pInstrument
+		pei :pInstrument+2
+
+; extra important instrument info here
+
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+
+		ldx #txt_pitch_keycenter
+		jsr myPUTS
+		jsr :get_word
+		jsr myPrintAI
+		jsr myPRINTCR
+		jsr :get_word ; ??
+
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+
+		ldx #txt_loop_mode
+		jsr myPUTS
+		jsr :get_word ; loop type or mode?
+		jsr myPrintAI
+		jsr myPRINTCR
+		jsr :get_word ; ??
+
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+
+		ldx #txt_loop_start
+		jsr myPUTS
+		jsr :get_word 	; loop start low
+		jsr myPrintAI
+		jsr myPRINTCR
+		jsr :get_word   ; loop start high
+
+		ldx #txt_loop_end
+		jsr myPUTS
+		jsr :get_word 	; loop end low
+		jsr myPrintAI
+		jsr myPRINTCR
+		jsr :get_word   ; loop end high
+
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+
+		pla
+		sta <:pInstrument+2
+		pla
+		sta <:pInstrument
+		clc
+		adc #$3C
+		sta <:pInstrument
+		lda <:pInstrument+2
+		adc #0
+		sta <:pInstrument+2
+
+		; xtra expected next
+
+		jsr :get_word
+		cmp #'xt'
+		beq :good4
+:noextra
+		ldx #txt_missingxtra
+		jsr myPUTS
+		jsr myPRINTCR
+		rts
+:good4
+		jsr :get_word
+		cmp #'ra'
+		bne :noextra
+
+		ldx #txt_xtrafound
+		jsr myPUTS
+		jsr myPRINTCR
+
+		jsr :skip_block
+
+		; 'cue ' next
+		jsr :get_word
+		cmp #'cu'
+		beq :good5
+:nocue
+		ldx #txt_cue_missing
+		jsr myPUTS
+		rts
+:good5
+		jsr :get_word
+		cmp #'e '
+		bne :nocue
+		ldx #txt_cue_found
+		jsr myPUTS
+		jsr myPRINTCR
+
+		jsr :skip_block
+
+		; 'CSET' next
+		jsr :get_word
+		cmp #'CS'
+		beq :good6
+:noCSET
+		ldx #txt_cset_missing
+		jsr myPUTS
+		rts
+:good6
+		jsr :get_word
+		cmp #'ET'
+		bne :noCSET
+
+		jsr :skip_block
+
+		; 'LIST' next
+		jsr :get_word
+		cmp #'LI'
+		beq :good7
+:nolist
+		ldx #txt_list_missing
+		jsr myPUTS
+		rts
+:good7
+		jsr :get_word
+		cmp #'ST'
+		bne :nolist
+
+; at this point I'm just interesting the instrument name
+
+		jsr :get_word ; list size
+		jsr :get_word
+
+; looking for INFOINAM - info instrument name
+
+		jsr :get_word
+		cmp #'IN'
+		beq :good8
+:missingname
+		ldx #txt_missingname
+		jsr myPUTS
+		rts
+:good8
+		jsr :get_word
+		cmp #'FO'
+		bne :missingname
+
+		jsr :get_word
+		cmp #'IN'
+		bne :missingname
+
+		jsr :get_word
+		cmp #'AM'
+		bne :missingname
+
+		jsr :get_word 	; length of the name
+		jsr :get_word
+
+		; now pInstrument is pointing a the name
+		sep #$20
+		ldx #$FFFF
+		txy
+]lp
+		inx
+		iny
+		lda [:pInstrument],y
+		sta |GlobalTemp,x
+		bne ]lp
+
+		rep #$30
+
+		ldx #txt_instname
+		jsr myPUTS
+
+		ldx #GlobalTemp
+		jsr myPUTS
+
+		jsr myPRINTCR
+
+		rts
+
+:get_word
+		lda [:pInstrument]
+		inc <:pInstrument
+		inc <:pInstrument
+		rts
+
+:skip_block
+		jsr :get_word ; 16
+		pha
+		jsr :get_word
+		tax
+		clc
+		pla
+		adc <:pInstrument
+		sta <:pInstrument
+		txa
+		adc <:pInstrument+2
+		sta <:pInstrument+2
+		rts
+
+
 ;------------------------------------------------------------------------------
 myPRINTAddress mx %00
 		phx
@@ -2468,8 +2913,11 @@ GlobalSongNameTable
 		da txt_chess
 		da txt_canon
 
-
-
+GlobalInstruments
+		adrl inst_atmosphere,inst_polysynth,inst_acsnare,inst_ehorn,inst_synbass
+		adrl inst_strings,inst_cymbal,inst_celesta,inst_bassdrum,inst_sitar,inst_hightom
+		adrl inst_closehihat,inst_piano,inst_taiko,inst_contrabass,inst_synbrass,inst_snareroll
+		adrl inst_openhihat,inst_pedalhihat,inst_tambourine,inst_handclap,inst_syndrum,inst_slapbass
 
 ;------------------------------------------------------------------------------
 
