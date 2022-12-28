@@ -217,6 +217,7 @@ dpAudioJiffy  = dpJiffy+2
 	dum 132
 pMidiFileStart ds 4
 pMidiFile      ds 4
+pMidiName      ds 2
 MF_NumTracks   ds 2
 MF_Format      ds 2
 MF_Division	   ds 2
@@ -433,8 +434,11 @@ NumTracks = MF_NumTracks
 Format    = MF_Format
 
 		; Setup pointer to the new midi file
-		ldx #^midi_axelf
-		lda #midi_axelf
+		lda #txt_oaxelf
+		sta <pMidiName
+
+		ldx #^midi_oaxelf
+		lda #midi_oaxelf
 		stx <pMidiFile+2
 		stx <pMidiFileStart+2
 		sta <pMidiFile
@@ -1563,7 +1567,7 @@ DrawFancyScreen mx %00
 		ldx #txt_song
 		jsr myPUTS
 
-		ldx #txt_axelF
+		ldx <pMidiName
 		jsr myPUTS
 
 ; Format
@@ -2189,11 +2193,11 @@ txt_song  cstr 'Song: '
 txt_NumTracks cstr 'Tracks: '
 txt_Format cstr 'Format: '
 txt_division cstr 'Division: '
-txt_oaxelf cstr 'O Axel-F'
-txt_axelF cstr 'Axel-F'
-txt_axelF2 cstr 'Axel-F 2'
-txt_chess cstr 'Chess'
-txt_canon cstr 'Canon'
+txt_oaxelf cstr  'Old Axel-F'
+txt_axelF cstr   'Axel-F    '
+txt_axelF2 cstr  'Axel-F 2  '
+txt_chess cstr   'Chess     '
+txt_canon cstr   'Canon     '
 
 ; Midi Event Texts
 txt_NOTEON    cstr '  NOTEON  '

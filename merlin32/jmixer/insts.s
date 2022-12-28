@@ -6,7 +6,10 @@
 
 ;------------------------------------------------------------------------------
 
-inst_violin ent
-	putbin data\arcoviolingx2.s3i
+	putbin data\insts\Atmosphere1.wav
+	putbin data\insts\PolySynth1.wav
+	putbin data\insts\AcousticSnare60.wav
+	putbin data\insts\EnglishHorn5.wav
+	putbin data\insts\SynthBass2.wav
 
 

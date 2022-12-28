@@ -96,4 +96,24 @@
         lna     jmixer.S16      ; Load Name ('jmixer.S16') 
         sna     insts           ; Segment Name ('insts')
 
+		asm		insts2.s	    ; sourcefile
+        ds      0               ; extra 0's to add to the segment
+        knd     $1100           ; Type and Attr ($11=Static+Bank Relative,$00=Code)
+        ali     none            ; Boundary Alignment
+        lna     jmixer.S16      ; Load Name ('jmixer.S16') 
+        sna     insts2          ; Segment Name ('insts2')
+
+		asm		insts3.s		; sourcefile
+        ds      0               ; extra 0's to add to the segment
+        knd     $1100           ; Type and Attr ($11=Static+Bank Relative,$00=Code)
+        ali     none            ; Boundary Alignment
+        lna     jmixer.S16      ; Load Name ('jmixer.S16') 
+        sna     insts3          ; Segment Name ('insts3')
+
+		asm		insts4.s		; sourcefile
+        ds      0               ; extra 0's to add to the segment
+        knd     $1100           ; Type and Attr ($11=Static+Bank Relative,$00=Code)
+        ali     none            ; Boundary Alignment
+        lna     jmixer.S16      ; Load Name ('jmixer.S16') 
+        sna     insts4          ; Segment Name ('insts3')
 		
