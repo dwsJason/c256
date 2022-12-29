@@ -655,6 +655,10 @@ Format    = MF_Format
 		ldx #^inst_piano
 		jsr DumpInstrument
 
+		ldx #23
+		ldy #20
+		jsr DrawKeyBoard
+
 ]done bra ]done
 		fin
 ;-----------------------------------------------------------------------------
@@ -2918,6 +2922,199 @@ GlobalInstruments
 		adrl inst_strings,inst_cymbal,inst_celesta,inst_bassdrum,inst_sitar,inst_hightom
 		adrl inst_closehihat,inst_piano,inst_taiko,inst_contrabass,inst_synbrass,inst_snareroll
 		adrl inst_openhihat,inst_pedalhihat,inst_tambourine,inst_handclap,inst_syndrum,inst_slapbass
+
+;------------------------------------------------------------------------------
+; Draw an 88 key keyboard, with mouse text?
+;
+KEYS equ 52
+DrawKeyBoard mx %00
+:x = temp0
+:y = temp0+2
+
+		stx <:x
+		sty <:y
+		jsr myLOCATE
+
+; Draw the Top of the keyboard
+
+		lda #'__'
+		ldx #KEYS-2
+]lp     sta |GlobalTemp,x
+		dex
+		dex
+		bpl ]lp
+
+		stz |GlobalTemp+KEYS
+
+		ldx #GlobalTemp
+		jsr myPUTS
+		inc <:y
+
+; Draw a Row with Sharps
+		jsr :locate
+		jsr :fill_left_bars
+		jsr :fill_sharps
+		ldx #GlobalTemp
+		jsr myPUTS
+		inc <:y
+		jsr :locate
+		ldx #GlobalTemp
+		jsr myPUTS
+		inc <:y
+		jsr :locate
+		ldx #GlobalTemp
+		jsr myPUTS
+		inc <:y
+		jsr :locate
+		ldx #GlobalTemp
+		jsr myPUTS
+
+; Draw a native row, no sharps
+		jsr :native_row
+; another row
+		jsr :locate
+		ldx #GlobalTemp
+		jsr myPUTS
+		inc <:y
+
+; Draw the Bottom of the keyboard
+
+		jsr :locate
+
+		lda #MT_LLCORNER+{MT_LLCORNER*256}
+		ldx #KEYS-2
+]lp     sta |GlobalTemp,x
+		dex
+		dex
+		bpl ]lp
+
+		lda #MT_LEFT_BAR
+		sta |GlobalTemp+KEYS
+
+		ldx #GlobalTemp
+		jsr myPUTS
+		inc <:y
+
+; Draw the C keys
+		jsr :locate
+		jsr :fill_c_keys
+		ldx #|GlobalTemp
+		jsr myPUTS
+		inc <:y
+
+; Draw the Octaves
+		jsr :locate
+		jsr :fill_octaves
+		ldx #|GlobalTemp
+		jsr myPUTS
+		inc <:y
+
+		rts
+
+:native_row
+		jsr :locate
+		jsr :fill_left_bars
+		inc <:y
+		rts
+
+:fill_left_bars
+		lda #MT_LEFT_BAR+{MT_LEFT_BAR*256}
+		ldx #KEYS-2
+]lp     sta |GlobalTemp,x
+		dex
+		dex
+		bpl ]lp
+
+		lda #MT_LEFT_BAR
+		sta |GlobalTemp+KEYS
+		rts
+
+:locate
+		ldx <:x
+		ldy <:y
+		jmp myLOCATE
+
+:fill_sharps
+		ldy #{KEYS/7}
+		ldx #0
+		txa
+		sep #$20
+		clc
+]loop
+		lda #MT_VBLOCK
+		sta |GlobalTemp+1,x ;B1
+		sta |GlobalTemp+3,x ;D1
+		sta |GlobalTemp+4,x ;E1
+		sta |GlobalTemp+6,x ;G1
+		sta |GlobalTemp+7,x ;A2
+		txa
+		adc #7
+		tax
+		dey
+		bne ]loop
+
+		lda #MT_VBLOCK
+		sta |GlobalTemp+1,x ;B8
+
+		rep #$30
+		rts
+:fill_octaves
+		jsr :fill_spaces
+
+		ldy #{KEYS/7}
+		ldx #0
+		txa
+		sep #$20
+		clc
+		lda #'0'
+]loop
+		inc
+		sta |GlobalTemp+2,x ; C1
+		pha
+		txa
+		adc #7
+		tax
+		pla
+		dey
+		bne ]loop
+
+		rep #$30
+
+		rts
+
+:fill_c_keys
+		jsr :fill_spaces
+
+		ldy #{KEYS/7}
+		ldx #0
+		txa
+		sep #$20
+		clc
+]clp
+		lda #'c'
+		sta |GlobalTemp+2,x ; C1
+		txa
+		adc #7
+		tax
+		dey
+		bne ]clp
+
+		rep #$30
+
+		rts
+
+:fill_spaces
+		lda #'  '
+		ldx #KEYS-2
+]lp     sta |GlobalTemp,x
+		dex
+		dex
+		bpl ]lp
+
+		stz |GlobalTemp+KEYS
+		rts
+
+
 
 ;------------------------------------------------------------------------------
 

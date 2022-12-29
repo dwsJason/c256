@@ -46,11 +46,26 @@ in there.
 
 Direct Page Addresses
 
-pSourceSample = 0
-pDestFIFO     = 4
-SampleRate    = 8
+pSourceSample = 0  ; 24.8 address
+pDestFIFO     = 4  ; address of output
+SampleRate    = 8  ; 24.8 sample rate
 
         ldx #256
+]lp
+        lda [pSourceSample+1]
+        sta [pDestFIFO]
+
+        clc
+        lda <pSourceSample
+        adc <SampleRate
+        sta <pSourceSample
+        lda <pSourceSample+2
+        adc <SampleRate+2
+        sta <pSourceSample+2
+
+        inc <pDestFIFO
+        dex
+        bne ]lp
 
 
 
