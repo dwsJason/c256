@@ -234,7 +234,8 @@ YRES = 600
 	do XRES=640
 VIDEO_MODE = $004F
 	else
-VIDEO_MODE = $014F
+;VIDEO_MODE = $014F
+VIDEO_MODE = $0141
 	fin
 ;------------------------------------------------------------------------------
 
@@ -302,21 +303,42 @@ start ent       ; make sure start is visible outside the file
 		jsr InitTextMode
 
 		; poke in our favorite GS background color
-		sep #$30
-		lda #$ff
-		sta >BACKGROUND_COLOR_B
-		lda #$22
-		sta >BACKGROUND_COLOR_G
-		sta >BACKGROUND_COLOR_R
 
-		; get the FG color in there too
-		lda #$ff
-		ldx #{16*4}-1
+;		sep #$30
+;		lda #$ff
+;		sta >BACKGROUND_COLOR_B
+;		lda #$22
+;		sta >BACKGROUND_COLOR_G
+;		sta >BACKGROUND_COLOR_R
+;		rep #$31
+
+		; Copy GS colors into the Text Color Memory
+		ldx #{16*4}-4
 ]lp
+		lda |gs_colors,x
+		sta >BG_CHAR_LUT_PTR,x
 		sta >FG_CHAR_LUT_PTR,x
+		lda |gs_colors+2,x
+		sta >BG_CHAR_LUT_PTR+2,x
+		sta >FG_CHAR_LUT_PTR+2,x
+		dex
+		dex
+		dex
 		dex
 		bpl ]lp
 
+		; Initalize the Color Buffer, so we have White Medium Blue
+
+;		lda #$F6F6
+;		ldx #$1FFE
+;]lp
+;		sta >CS_COLOR_MEM_PTR,x
+;		dex
+;		dex
+;		bpl ]lp
+		sep #$30
+		lda #$F6        ; white on medium blue
+		sta |CURCOLOR
 		rep #$31
 
 		lda #0
@@ -659,6 +681,10 @@ Format    = MF_Format
 		ldy #20
 		jsr DrawKeyBoard
 
+]lp
+		jsr DebugKeyboard
+		bra ]lp
+
 ]done bra ]done
 		fin
 ;-----------------------------------------------------------------------------
@@ -726,9 +752,9 @@ InitTextMode mx %00
 		tcd
 
 		; Fuck, make the text readable
-		dec  ; A = 0xFFFF
-		sta >$AF1F78
-		sta >$AF1F79
+		;dec  ; A = 0xFFFF
+		;sta >$AF1F78
+		;sta >$AF1F79
 
 ;
 ; Disable the border
@@ -1304,7 +1330,23 @@ border_colors
  dw $0,$d03,$9,$d2d,$72,$555,$22f,$6af ; Border Colors
  dw $850,$f60,$aaa,$f98,$d0,$ff0,$5f9,$fff
 ;------------------------------------------------------------------------------
-
+gs_colors
+	adrl $ff000000  ; Black
+	adrl $ffdd0033	; Deep Red
+	adrl $ff000099	; Dark Blue
+	adrl $ffdd22dd	; Purple
+	adrl $ff007722	; Dark Green
+	adrl $ff555555	; Dark Gray
+	adrl $ff2222ff	; Medium Blue
+	adrl $ff66aaff	; Light Blue
+	adrl $ff885500	; Brown
+	adrl $ffff6600	; Orange
+	adrl $ffaaaaaa	; Light Gray
+	adrl $ffff9988	; Pink
+	adrl $ff00dd00	; Light Green
+	adrl $ffffff00	; Yellow
+	adrl $ff55ff99	; Aquamarine
+	adrl $ffffffff	; White
 ;------------------------------------------------------------------------------
 ;
 ; Draw Mouse Box
@@ -2928,6 +2970,14 @@ GlobalInstruments
 ;
 KEYS equ 52
 DrawKeyBoard mx %00
+
+		sep #$30
+		lda |CURCOLOR
+		pha
+		lda #$0F  ; black on white
+		sta |CURCOLOR
+		rep #$30
+
 :x = temp0
 :y = temp0+2
 
@@ -2994,6 +3044,12 @@ DrawKeyBoard mx %00
 		ldx #GlobalTemp
 		jsr myPUTS
 		inc <:y
+
+	    ; restore color
+		sep #$30
+		pla
+		sta |CURCOLOR
+		rep #$30
 
 ; Draw the C keys
 		jsr :locate
@@ -3114,6 +3170,110 @@ DrawKeyBoard mx %00
 		stz |GlobalTemp+KEYS
 		rts
 
+
+;------------------------------------------------------------------------------
+;
+; The status of up to 128 keys on the keyboard
+;
+keyboard ds 128
+
+;------------------------------------------------------------------------------
+
+DebugKeyboard mx %00
+		phd
+		pea 0
+		pld
+
+HISTORY_SIZE = 16
+
+	; Collect Scancodes, but only when they change
+	; place into a history buffer
+	; print out the history buffer onto the screen
+	; for the world to see
+]key_loop
+		jsl GETSCANCODE
+		and #$FF
+		beq :exit
+		cmp |:last_code
+		beq :exit       	; duplicate code, so ignore
+
+		sta |:last_code		; last code, for the duplicate check
+
+	; hack in the actual keyboard driver?
+
+		sep #$30
+		tay
+		and #$7F
+		tax
+		tya
+		bpl :keydown
+		lda #$00  		; key-up
+:keydown
+		sta |keyboard,x
+		
+		tya
+		rep #$30
+
+	; done with the hack
+
+		ldx |:index     	; current index
+		sta |:history,x 	; save in history
+		dex
+		dex     		; next index
+		bpl :continue
+		ldx #{HISTORY_SIZE*2}-2 ; index wrap
+:continue
+		stx |:index     	; save index for next time
+
+		bra ]key_loop
+
+:exit
+		pld
+
+; print out the current history
+		do 1
+:x = temp0
+:y = temp0+2
+
+		ldx #90
+		ldy #2
+		stx <:x
+		sty <:y
+
+		ldy |:index
+]loop
+		phy
+		ldx <:x
+		ldy <:y
+		jsr myLOCATE
+
+		ply
+		iny
+		iny
+		cpy #HISTORY_SIZE*2
+		bcc :cont2
+		ldy #0
+:cont2
+		cpy |:index
+		beq :xit
+
+		lda |:history,y
+		phy
+		jsr myPRINTBYTE
+		ply
+		inc <:y
+
+		bra ]loop
+:xit
+
+		fin
+		rts
+
+
+:index		dw 0
+:last_code	dw 0
+
+:history	ds HISTORY_SIZE*2
 
 
 ;------------------------------------------------------------------------------
