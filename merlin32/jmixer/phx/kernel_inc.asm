@@ -11,8 +11,8 @@ PUTC             = $001018 ; Print a character to the currently selected channel
 PUTS             = $00101C ; Print a string to the currently selected channel
 PUTB             = $001020 ; Output a byte to the currently selected channel
 PUTBLOCK         = $001024 ; Ouput a binary block to the currently selected channel
-SETLFS           = $001028 ; Obsolete (done in OPEN)
-SETNAM           = $00102C ; Obsolete (done in OPEN)
+GETSCANCODE      = $001028 ; Get the next scancode from the keyboard (A = scancode, 0 if none available)
+GETLOCKS         = $00102C ; Get the state of the lock keys on the keyboard (A[2] = CAPS, A[1] = NUM, A[0] = SCROLL)
 OPEN             = $001030 ; Open a channel for reading and/or writing. Use SETLFS and SETNAM to set the channels and filename first.
 CLOSE            = $001034 ; Close a channel
 SETIN            = $001038 ; Set the current input channel
@@ -42,7 +42,7 @@ CSRLEFT          = $001094 ;
 CSRUP            = $001098 ;
 CSRDOWN          = $00109C ;
 CSRHOME          = $0010A0 ;
-SCROLLUmultP         = $0010A4 ; Scroll the screen up one line. Creates an empty line at the bottom.
+SCROLLUP         = $0010A4 ; Scroll the screen up one line. Creates an empty line at the bottom.
 ; Undefined label for: SCRGETWORD       = %ADDR% ; Read a current word on the screen. A word ends with a space, punctuation (except _), or any control character (value < 32). Loads the address into CMPTEXT_VAL and length into CMPTEXT_LEN variables.
 CLRSCREEN        = $0010A8 ; Clear the screen
 INITCHLUT        = $0010AC ; Init character look-up table
@@ -75,13 +75,43 @@ F_MOUNT          = $001128 ; Mount the designated block device
 F_COPY           = $001130 ; Copy a file
 F_ALLOCFD        = $001134 ; Allocate a file descriptor
 F_FREEFD         = $001138 ; Free a file descriptor
+TESTBREAK        = $00113C ; Check if BREAK was pressed recently by the user (C is set if true, clear if false)
+SETTABLE         = $001140 ; Set the keyboard scan code -> character translation tables (B:X points to the new tables)
+READVRAM         = $001144 ; Read a byte from video RAM at B:X
+SETHANDLER       = $001148 ; Set the handler for the interrupt # in A to the FAR routine at Y:X
+DELAY            = $00114C ; Wait at least Y:X ticks of the system clock.
 
 ;
-; Interrupt Jump Table
+; Interrupt Vector Table
 ;
 
-VEC_INT00_SOF   = $001700 ; Interrupt routine for Start Of Frame interrupt
-VEC_INT01_SOL   = $001704 ; Interrupt routine for Start Of Line interrupt
-VEC_INT02_TMR0  = $001708 ; Interrupt routine for Timer0
-VEC_INT03_TMR1  = $00170C ; Interrupt routine for Timer1
-VEC_INT04_TMR2  = $001710 ; Interrupt routine for Timer2
+VEC_INT00_SOF       = $001700 ; IRQ 0, 0 --- Start Of Frame interrupt 
+VEC_INT01_SOL       = $001704 ; IRQ 0, 1 --- Start Of Line interrupt
+VEC_INT02_TMR0      = $001708 ; IRQ 0, 2 --- Timer 0 interrupt
+VEC_INT03_TMR1      = $00170C ; IRQ 0, 3 --- Timer 1 interrupt
+VEC_INT04_TMR2      = $001710 ; IRQ 0, 4 --- Timer 2 interrupt
+VEC_INT05_RTC       = $001714 ; IRQ 0, 5 --- Real Time Clock interrupt
+VEC_INT06_FDC       = $001718 ; IRQ 0, 6 --- Floppy Drive Controller interrupt
+VEC_INT07_MOUSE     = $00171C ; IRQ 0, 7 --- Mouse interrupt
+
+VEC_INT10_KBD       = $001720 ; IRQ 1, 0 --- Keyboard interrupt
+VEC_INT11_COL0      = $001724 ; IRQ 1, 1 --- VICKY_II (INT2) Sprite Collision 
+VEC_INT12_COL1      = $001728 ; IRQ 1, 2 --- VICKY_II (INT3) Bitmap Collision
+VEC_INT13_COM2      = $00172C ; IRQ 1, 3 --- Serial port #2 interrupt
+VEC_INT14_COM1      = $001730 ; IRQ 1, 4 --- Serial port #1 interrupt
+VEC_INT15_MIDI      = $001734 ; IRQ 1, 5 --- MIDI controller interrupt
+VEC_INT16_LPT       = $001738 ; IRQ 1, 6 --- Parallel port interrupt
+VEC_INT17_SDC       = $00173C ; IRQ 1, 7 --- SD Card Controller interrupt (CH376S???)
+
+VEC_INT20_OPL       = $001740 ; IRQ 2, 0 --- OPL3
+VEC_INT21_GABE0     = $001744 ; IRQ 2, 1 --- GABE (INT0) - TBD
+VEC_INT22_GABE1     = $001748 ; IRQ 2, 2 --- GABE (INT1) - TBD
+VEC_INT23_VDMA      = $00174C ; IRQ 2, 3 --- VICKY_II (INT4) - VDMA Interrupt
+VEC_INT24_COL2      = $001750 ; IRQ 2, 4 --- VICKY_II (INT5) Tile Collision
+VEC_INT25_GABE2     = $001754 ; IRQ 2, 5 --- GABE (INT2) - TBD
+VEC_INT26_EXT       = $001758 ; IRQ 2, 6 --- External Expansion
+VEC_INT17_SDINS     = $00175C ; IRQ 2, 7 --- SDCARD Insertion
+
+VEC_INT30_OPN2      = $001760 ; IRQ 3, 0 --- OPN2
+VEC_INT31_OPM       = $001764 ; IRQ 3, 1 --- OPM
+VEC_INT32_IDE       = $001768 ; IRQ 3, 2 --- HDD IDE Interrupt
