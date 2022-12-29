@@ -210,6 +210,8 @@ temp8          = 58
 temp9          = 62
 temp10         = 66
 temp11         = 70
+KBX            = 74
+KBY            = 76
 
 dpJiffy       = 128
 dpAudioJiffy  = dpJiffy+2
@@ -1331,22 +1333,22 @@ border_colors
  dw $850,$f60,$aaa,$f98,$d0,$ff0,$5f9,$fff
 ;------------------------------------------------------------------------------
 gs_colors
-	adrl $ff000000  ; Black
-	adrl $ffdd0033	; Deep Red
-	adrl $ff000099	; Dark Blue
-	adrl $ffdd22dd	; Purple
-	adrl $ff007722	; Dark Green
-	adrl $ff555555	; Dark Gray
-	adrl $ff2222ff	; Medium Blue
-	adrl $ff66aaff	; Light Blue
-	adrl $ff885500	; Brown
-	adrl $ffff6600	; Orange
-	adrl $ffaaaaaa	; Light Gray
-	adrl $ffff9988	; Pink
-	adrl $ff00dd00	; Light Green
-	adrl $ffffff00	; Yellow
-	adrl $ff55ff99	; Aquamarine
-	adrl $ffffffff	; White
+	adrl $ff000000  ;0 Black
+	adrl $ffdd0033	;1 Deep Red
+	adrl $ff000099	;2 Dark Blue
+	adrl $ffdd22dd	;3 Purple
+	adrl $ff007722	;4 Dark Green
+	adrl $ff555555	;5 Dark Gray
+	adrl $ff2222ff	;6 Medium Blue
+	adrl $ff66aaff	;7 Light Blue
+	adrl $ff885500	;8 Brown
+	adrl $ffff6600	;9 Orange
+	adrl $ffaaaaaa	;A Light Gray
+	adrl $ffff9988	;B Pink
+	adrl $ff00dd00	;C Light Green
+	adrl $ffffff00	;D Yellow
+	adrl $ff55ff99	;E Aquamarine
+	adrl $ffffffff	;F White
 ;------------------------------------------------------------------------------
 ;
 ; Draw Mouse Box
@@ -1784,7 +1786,7 @@ DrawFancyScreen mx %00
 ;
 LocateTextBox mx %00
 :row = temp0
-:col = temp0+1
+:column = temp0+1
 :x = temp1
 :y = temp1+2
 
@@ -2966,17 +2968,88 @@ GlobalInstruments
 		adrl inst_openhihat,inst_pedalhihat,inst_tambourine,inst_handclap,inst_syndrum,inst_slapbass
 
 ;------------------------------------------------------------------------------
+ClearKey mx %00
+		rts
+
+;------------------------------------------------------------------------------
+ColorKey mx %00
+:pColor = temp0
+:key    = temp1
+
+		cmp #21
+		bcs :ok1
+		rts			; invalid range
+:ok1
+		cmp #109
+		bcc :ok2
+		rts         ; invalid range
+:ok2
+		sec
+		sbc #21
+		sta <:key   ; save this
+
+		lda |CURSORX
+		pha
+		lda |CURSORY
+		pha
+
+		ldx <KBX
+		ldy <KBY
+		iny
+		jsr myLOCATE
+
+		lda |COLORPOS
+		sta <:pColor
+		lda |COLORPOS+2
+		sta <:pColor+2
+
+		ldx <:key
+		lda |:column,x
+		and #$FF
+		clc
+		adc <:pColor
+		sta <:pColor
+
+		sep #$20
+		ldy #0
+		lda [:pColor],y
+		and #$F0
+		ora #$05 ; dark grey
+
+
+		ply
+		plx
+		jsr myLOCATE
+
+		rts
+:column
+		db 0,1,1
+]var = 0
+		lup 7
+		db 2+]var,3+]var,3+]var,4+]var,4+]var,5+]var,6+]var,6+]var,7+]var,7+]var,8+]var,8+]var
+]var = ]var+7
+		--^
+		db 2+]var
+		
+:height
+		db 5,3,5
+		db 5,3,5,3,5,5,3,5,3,5,3,5
+		db 5,3,5,3,5,5,3,5,3,5,3,5
+		db 5,3,5,3,5,5,3,5,3,5,3,5
+		db 5,3,5,3,5,5,3,5,3,5,3,5
+		db 5,3,5,3,5,5,3,5,3,5,3,5
+		db 5,3,5,3,5,5,3,5,3,5,3,5
+		db 5,3,5,3,5,5,3,5,3,5,3,5
+		db 5
+
+;------------------------------------------------------------------------------
 ; Draw an 88 key keyboard, with mouse text?
 ;
 KEYS equ 52
 DrawKeyBoard mx %00
 
-		sep #$30
-		lda |CURCOLOR
-		pha
-		lda #$0F  ; black on white
-		sta |CURCOLOR
-		rep #$30
+		stx <KBX
+		sty <KBY
 
 :x = temp0
 :y = temp0+2
@@ -2999,6 +3072,15 @@ DrawKeyBoard mx %00
 		ldx #GlobalTemp
 		jsr myPUTS
 		inc <:y
+
+		; Take the keybord to be white on black
+		sep #$30
+		lda |CURCOLOR
+		pha
+		lda #$0F  ; black on white
+		sta |CURCOLOR
+		rep #$30
+
 
 ; Draw a Row with Sharps
 		jsr :locate
