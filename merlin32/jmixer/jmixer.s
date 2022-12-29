@@ -681,7 +681,49 @@ Format    = MF_Format
 
 		ldx #23
 		ldy #20
-		jsr DrawKeyBoard
+		jsr DrawPiano
+
+
+		;ldx #$A5 ; light grey, dark gray
+		;lda #22
+		;jsr ColorKey
+		;ldx #$A5 ; light grey, dark gray
+		;lda #23
+		;jsr ColorKey
+
+		lda #0
+]weird
+		pha
+
+		jsr WaitVBL
+		jsr DebugKeyboard
+		jsr WaitVBL
+		jsr DebugKeyboard
+		jsr WaitVBL
+		jsr DebugKeyboard
+		jsr WaitVBL
+		jsr DebugKeyboard
+		lda 1,s
+;		ldx #$A5
+		ldx #$95
+		jsr ColorKey
+
+		jsr WaitVBL
+		jsr DebugKeyboard
+		jsr WaitVBL
+		jsr DebugKeyboard
+		jsr WaitVBL
+		jsr DebugKeyboard
+		jsr WaitVBL
+		jsr DebugKeyboard
+		lda 1,s
+		ldx #$0F
+		jsr ColorKey
+
+		pla
+		inc
+		and #$7F
+		bra ]weird
 
 ]lp
 		jsr DebugKeyboard
@@ -2968,13 +3010,11 @@ GlobalInstruments
 		adrl inst_openhihat,inst_pedalhihat,inst_tambourine,inst_handclap,inst_syndrum,inst_slapbass
 
 ;------------------------------------------------------------------------------
-ClearKey mx %00
-		rts
-
-;------------------------------------------------------------------------------
 ColorKey mx %00
 :pColor = temp0
 :key    = temp1
+:fg     = temp2
+:bg     = temp2+2
 
 		cmp #21
 		bcs :ok1
@@ -2988,6 +3028,13 @@ ColorKey mx %00
 		sbc #21
 		sta <:key   ; save this
 
+		txa
+		and #$F0
+		sta <:fg
+		txa
+		and #$0F
+		sta <:bg
+
 		lda |CURSORX
 		pha
 		lda |CURSORY
@@ -2995,7 +3042,6 @@ ColorKey mx %00
 
 		ldx <KBX
 		ldy <KBY
-		iny
 		jsr myLOCATE
 
 		lda |COLORPOS
@@ -3010,18 +3056,55 @@ ColorKey mx %00
 		adc <:pColor
 		sta <:pColor
 
-		sep #$20
-		ldy #0
-		lda [:pColor],y
-		and #$F0
-		ora #$05 ; dark grey
+		lda |key_height_table,x
+		and #$FF
+		tax
+		cmp #5
+		bcs :normal
+		; sharps
+]lp
+		jsr :grayfg
+		dex
+		bne ]lp
+		bra :done
 
 
+:normal
+		jsr :graybg
+		dex
+		bne :normal
+:done
 		ply
 		plx
 		jsr myLOCATE
 
 		rts
+
+:grayfg
+		sep #$20
+		lda [:pColor]
+		and #$0F
+		ora <:fg ; light grey
+		sta [:pColor]
+		rep #$31
+		lda <:pColor
+		adc #100
+		sta <:pColor
+		rts
+
+:graybg
+		sep #$20
+		lda [:pColor]
+		and #$F0
+		ora <:bg ; dark grey
+		sta [:pColor]
+		rep #$31
+		lda <:pColor
+		adc #100
+		sta <:pColor
+		rts
+
+
 :column
 		db 0,1,1
 ]var = 0
@@ -3029,24 +3112,24 @@ ColorKey mx %00
 		db 2+]var,3+]var,3+]var,4+]var,4+]var,5+]var,6+]var,6+]var,7+]var,7+]var,8+]var,8+]var
 ]var = ]var+7
 		--^
-		db 2+]var
+		db 2+49
 		
-:height
-		db 5,3,5
-		db 5,3,5,3,5,5,3,5,3,5,3,5
-		db 5,3,5,3,5,5,3,5,3,5,3,5
-		db 5,3,5,3,5,5,3,5,3,5,3,5
-		db 5,3,5,3,5,5,3,5,3,5,3,5
-		db 5,3,5,3,5,5,3,5,3,5,3,5
-		db 5,3,5,3,5,5,3,5,3,5,3,5
-		db 5,3,5,3,5,5,3,5,3,5,3,5
-		db 5
+key_height_table
+		db 6,4,6
+		db 6,4,6,4,6,6,4,6,4,6,4,6
+		db 6,4,6,4,6,6,4,6,4,6,4,6
+		db 6,4,6,4,6,6,4,6,4,6,4,6
+		db 6,4,6,4,6,6,4,6,4,6,4,6
+		db 6,4,6,4,6,6,4,6,4,6,4,6
+		db 6,4,6,4,6,6,4,6,4,6,4,6
+		db 6,4,6,4,6,6,4,6,4,6,4,6
+		db 6
 
 ;------------------------------------------------------------------------------
 ; Draw an 88 key keyboard, with mouse text?
 ;
 KEYS equ 52
-DrawKeyBoard mx %00
+DrawPiano mx %00
 
 		stx <KBX
 		sty <KBY
@@ -3060,18 +3143,18 @@ DrawKeyBoard mx %00
 
 ; Draw the Top of the keyboard
 
-		lda #'__'
-		ldx #KEYS-2
-]lp     sta |GlobalTemp,x
-		dex
-		dex
-		bpl ]lp
+;		lda #'__'
+;		ldx #KEYS-2
+;]lp     sta |GlobalTemp,x
+;		dex
+;		dex
+;		bpl ]lp
 
-		stz |GlobalTemp+KEYS
+;		stz |GlobalTemp+KEYS
 
-		ldx #GlobalTemp
-		jsr myPUTS
-		inc <:y
+;		ldx #GlobalTemp
+;		jsr myPUTS
+;		inc <:y
 
 		; Take the keybord to be white on black
 		sep #$30
@@ -3120,8 +3203,9 @@ DrawKeyBoard mx %00
 		dex
 		bpl ]lp
 
-		lda #MT_LEFT_BAR
-		sta |GlobalTemp+KEYS
+		;lda #MT_LEFT_BAR
+		;sta |GlobalTemp+KEYS
+		stz |GlobalTemp+KEYS
 
 		ldx #GlobalTemp
 		jsr myPUTS
@@ -3163,8 +3247,9 @@ DrawKeyBoard mx %00
 		dex
 		bpl ]lp
 
-		lda #MT_LEFT_BAR
-		sta |GlobalTemp+KEYS
+		;lda #MT_LEFT_BAR
+		;sta |GlobalTemp+KEYS
+		stz |GlobalTemp+KEYS
 		rts
 
 :locate
@@ -3199,7 +3284,7 @@ DrawKeyBoard mx %00
 :fill_octaves
 		jsr :fill_spaces
 
-		ldy #{KEYS/7}
+		ldy #{KEYS/7}+1
 		ldx #0
 		txa
 		sep #$20
@@ -3223,7 +3308,7 @@ DrawKeyBoard mx %00
 :fill_c_keys
 		jsr :fill_spaces
 
-		ldy #{KEYS/7}
+		ldy #{KEYS/7}+1
 		ldx #0
 		txa
 		sep #$20
