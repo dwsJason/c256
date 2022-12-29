@@ -670,8 +670,8 @@ Format    = MF_Format
 		pld
 ;-----------------------------------------------------------------------------
 ; Text Code to dump an instrument
-		do 1
 
+		do 0
 		phd
 		pea 0
 		pld
@@ -684,11 +684,13 @@ Format    = MF_Format
 		lda #inst_piano
 		ldx #^inst_piano
 		jsr DumpInstrument
+		fin
 
-		ldx #23
-		ldy #20
+		ldx #44
+		ldy #8
 		jsr DrawPiano
 
+		do 0
 
 		;ldx #$A5 ; light grey, dark gray
 		;lda #22
@@ -730,16 +732,16 @@ Format    = MF_Format
 		inc
 		and #$7F
 		bra ]weird
+		fin
 
+		do 0
 ]lp
 		jsr WaitVBL
 		jsr DebugKeyboard
-		bra ]lp
 		jsr UpdatePianoKeys
-
-]done bra ]done
 		bra ]lp
 		fin
+
 ;-----------------------------------------------------------------------------
 ; Test Code to dump a track out
 		do 0
@@ -752,12 +754,14 @@ Format    = MF_Format
 		jsl LOCATE	    ; cursor to top left of the screen
 		pld
 
-		lda #3
+		lda #0
 		jsr DumpTrack
 		fin
 
-;testwait bra testwait
+testwait bra testwait
 ;-----------------------------------------------------------------------------
+
+;]done bra ]done
 
 PlayLoop
 ; Take Time Elapsed, and process each track
@@ -3361,7 +3365,7 @@ DebugKeyboard mx %00
 		pea 0
 		pld
 
-HISTORY_SIZE = 16
+HISTORY_SIZE = 15
 
 	; Collect Scancodes, but only when they change
 	; place into a history buffer
@@ -3412,7 +3416,7 @@ HISTORY_SIZE = 16
 :x = temp0
 :y = temp0+2
 
-		ldx #90
+		ldx #97
 		ldy #2
 		stx <:x
 		sty <:y
