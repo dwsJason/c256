@@ -284,6 +284,12 @@ start ent       ; make sure start is visible outside the file
 		;lda #BM_Enable
 		lda #0
 		sta >BM0_CONTROL_REG
+		sta >BM1_CONTROL_REG
+		sta >TL0_CONTROL_REG
+		sta >TL1_CONTROL_REG
+		sta >TL2_CONTROL_REG
+		sta >TL3_CONTROL_REG
+
 
 		lda #<VICKY_DISPLAY_BUFFER
 		sta >BM0_START_ADDY_L
@@ -726,10 +732,13 @@ Format    = MF_Format
 		bra ]weird
 
 ]lp
+		jsr WaitVBL
 		jsr DebugKeyboard
 		bra ]lp
+		jsr UpdatePianoKeys
 
 ]done bra ]done
+		bra ]lp
 		fin
 ;-----------------------------------------------------------------------------
 ; Test Code to dump a track out
@@ -3343,6 +3352,7 @@ DrawPiano mx %00
 ; The status of up to 128 keys on the keyboard
 ;
 keyboard ds 128
+piano_keys ds 128
 
 ;------------------------------------------------------------------------------
 
@@ -3442,6 +3452,55 @@ HISTORY_SIZE = 16
 
 :history	ds HISTORY_SIZE*2
 
+;------------------------------------------------------------------------------
+
+UpdatePianoKeys mx %00
+
+;		$22 -> map to C4 -> 60/$3C
+		ldy #$22-4
+		ldx #60-4
+		sep #$20
+]loop1
+		lda |keyboard,y
+		cmp |piano_keys,x
+		beq :next
+
+		sta |piano_keys,x
+
+		and #$ff
+		beq :erase
+
+		; Show
+		phy
+		phx
+
+		rep #$30
+		txa 	  ; key
+		ldx #$95  ; colors
+		jsr ColorKey
+		sep #$20
+		plx
+		ply
+		bra :next
+
+:erase
+		phy
+		phx
+		rep #$30
+		txa
+		ldx #$0F
+		jsr ColorKey
+		sep #$20
+		plx
+		ply
+:next
+		inx
+		iny
+		cpy #$29
+		bcc ]loop1
+
+		rep #$30
+		rts
 
 ;------------------------------------------------------------------------------
 
