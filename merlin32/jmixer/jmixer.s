@@ -940,14 +940,6 @@ Format    = MF_Format
 		bra ]weird
 		fin
 
-		do 0
-]lp
-		jsr WaitVBL
-		jsr DebugKeyboard
-		jsr UpdatePianoKeys
-		bra ]lp
-		fin
-
 ;-----------------------------------------------------------------------------
 ; Test Code to dump a track out
 		do 0
@@ -971,13 +963,17 @@ Format    = MF_Format
 
 PlayLoop
 ; Take Time Elapsed, and process each track
-		;jsr WaitMidiTimer
+		jsr WaitMidiTimer
 
 		lda #15	; Elapsed time (192*4/50)
-		;jsr UpdateTracks
+		jsr UpdateTracks
 		jsr DrawBoxTimes
 
-]lp		bra ]lp
+]lp
+		jsr WaitVBL
+		jsr DebugKeyboard
+		jsr UpdatePianoKeys
+		bra ]lp
 
 
 ;------------------------------------------------------------------------------
