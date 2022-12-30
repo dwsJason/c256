@@ -273,6 +273,136 @@ start ent       ; make sure start is visible outside the file
 
 		jsr	WaitVBL
 
+		jmp SkipJiffys
+
+;
+; As long as the Jiffy's don't move, then I don't have to push the reset
+; button, so copy them up here, less likely to move
+;
+
+;------------------------------------------------------------------------------
+;
+; Jiffy Timer Installer, Enabler
+; Depends on the Kernel Interrupt Handler
+;
+InstallJiffy mx %00
+
+; Fuck over the vector
+
+		sei
+
+		lda #$4C	; JMP
+		sta |VEC_INT00_SOF
+
+		lda #:JiffyTimer
+		sta |VEC_INT00_SOF+1
+
+; Enable the SOF interrupt
+
+		lda	#FNX0_INT00_SOF
+		trb |INT_MASK_REG0
+
+		cli
+		rts
+
+:JiffyTimer
+		phb
+		phk
+		plb
+		php
+		rep #$30
+		inc |{MyDP+dpJiffy}
+		plp
+		plb
+		rtl
+
+;------------------------------------------------------------------------------
+;
+; Audio Jiffy Timer Installer, Enabler
+; Depends on the Kernel Interrupt Handler
+;
+; Currently hijack timer 0, but could work on timer 1
+;
+;C pseudo code for counting up
+;TIMER1_CHARGE_L = 0x00;
+;TIMER1_CHARGE_M = 0x00;
+;TIMER1_CHARGE_H = 0x00;
+;TIMER1_CMP_L = clockValue & 0xFF;
+;TIMER1_CMP_M = (clockValue >> 8) & 0xFF;
+;TIMER1_CMP_H = (clockValue >> 16) & 0xFF;
+;
+;TIMER1_CMP_REG = TMR_CMP_RECLR;
+;TIMER1_CTRL_REG = TMR_EN | TMR_UPDWN | TMR_SCLR;
+;
+;C pseudo code for counting down
+;TIMER1_CHARGE_L = (clockValue >> 0) & 0xFF;
+;TIMER1_CHARGE_M = (clockValue >> 8) & 0xFF;
+;TIMER1_CHARGE_H = (clockValue >> 16) & 0xFF;
+;TIMER1_CMP_L = 0x00;
+;TIMER1_CMP_M = 0x00;
+;TIMER1_CMP_H = 0x00;
+;
+;TIMER1_CMP_REG = TMR_CMP_RELOAD;
+;TIMER1_CTRL_REG = TMR_EN | TMR_SLOAD;
+;
+InstallAudioJiffy mx %00
+
+; Trying for 50 hz here
+
+:RATE equ {14318180/50}
+
+; Fuck over the vector
+
+		sei
+
+		lda #$4C	; JMP
+		sta |VEC_INT02_TMR0
+
+		lda #:AudioJiffyTimer
+		sta |VEC_INT02_TMR0+1
+
+		; Configuring for count up
+		sep #$30
+
+		stz |TIMER0_CHARGE_L
+		stz |TIMER0_CHARGE_M
+		stz |TIMER0_CHARGE_H
+
+		lda #<:RATE
+		sta |TIMER0_CMP_L
+		lda #>:RATE
+		sta |TIMER0_CMP_M
+		lda #^:RATE
+		sta |TIMER0_CMP_H
+
+		lda #TMR0_CMP_RECLR
+		sta |TIMER0_CMP_REG
+		lda #TMR0_EN+TMR0_UPDWN+TMR0_SCLR
+		sta |TIMER0_CTRL_REG
+
+; Enable the TIME0 interrupt
+
+		lda	#FNX0_INT02_TMR0
+		trb |INT_MASK_REG0
+
+		rep #$35  ;mx-i-c = 0
+
+		rts
+
+:AudioJiffyTimer
+		phb
+		phk
+		plb
+		php
+		rep #$30
+		inc |{MyDP+dpAudioJiffy}
+		plp
+		plb
+		rtl
+;------------------------------------------------------------------------------
+
+
+SkipJiffys
 ;------------------------------------------------------------------------------
 
 		lda #VIDEO_MODE  		  	; 800x600 + Gamma + Bitmap_en
@@ -644,30 +774,106 @@ Format    = MF_Format
 ;-----------------------------------------------------------------------------
 ; start weirdness
 ; Init the Tracks for play
-		ldy <MF_NumTracks
 
+		jsr InitTrackPointers
+
+;-----------------------------------------------------------------------------
+; Do some testing of registers
+		do 0
 		phd
-		pea MidiEventDP
+		pea 0
+		pld
+		jsl CLRSCREEN ; because the data in the screen is messed up
+		ldx #0
+		txy
+		jsl LOCATE	    ; cursor to top left of the screen
+
+		pea $0100
 		pld
 
-		dey
-]lp
-		tya
-		asl
-		asl
-		asl
-		tax
+		lda #$0080
+		sta <ADDER32_A_LL
+		sta <UNSIGNED_MULT_A_LO
+		stz <ADDER32_A_HL
 
-		lda |MidiDP,x
-		sta <MidiEventDP,x
-		lda |MidiDP+2,x
-		sta <MidiEventDP+2,x
-		stz <MidiEventDP+4,x
-		stz <MidiEventDP+6,x
+		stz <UNSIGNED_MULT_B_LO
 
-		dey
-		bpl ]lp
+		stz <ADDER32_B_LL
+		stz <ADDER32_B_HL
+
+		lda <ADDER32_A_HL
+		jsr myPRINTAH
+		lda <ADDER32_A_LL
+		jsr myPRINTAH
+		jsr myPRINTCR
+
+;		lda <UNSIGNED_MULT_A_HI
+;		jsr myPRINTAH
+;		lda <UNSIGNED_MULT_A_LO
+;		jsr myPRINTAH
+;		jsr myPRINTCR
+
+
+]loop
+		lda 1,s
+		tcd
+
+		jsr WaitVBL
+
+		pea $0100
 		pld
+
+		ldx #0
+		ldy #2
+		jsr myLOCATE
+
+		lda <ADDER32_R_HL
+		jsr myPRINTAH
+		lda <ADDER32_R_LL
+		jsr myPRINTAH
+		jsr myPRINTCR
+
+		lda <ADDER32_R_LL
+		ldx <ADDER32_R_HL
+
+		sta <ADDER32_B_LL
+		stx <ADDER32_B_HL
+
+		lda <UNSIGNED_MULT_B_LO
+		inc
+		inc
+		sta <UNSIGNED_MULT_B_LO
+
+		sep #$30
+		lda |CURCOLOR
+		pha
+		rep #$30
+
+		lda <UNSIGNED_MULT_AL_LO
+		and #$100
+		beq :good
+
+		sep #$30
+		lda #$F1
+		sta |CURCOLOR
+		rep #$30
+
+:good
+		lda <UNSIGNED_MULT_AH_LO
+		jsr myPRINTAH
+		lda <UNSIGNED_MULT_AL_LO
+		jsr myPRINTAH
+		jsr myPRINTCR
+
+		sep #$30
+		pla
+		sta |CURCOLOR
+		rep #$30
+
+		bra ]loop
+
+		fin
+
 ;-----------------------------------------------------------------------------
 ; Text Code to dump an instrument
 
@@ -758,18 +964,17 @@ Format    = MF_Format
 		jsr DumpTrack
 		fin
 
-testwait bra testwait
+;testwait bra testwait
 ;-----------------------------------------------------------------------------
 
 ;]done bra ]done
 
 PlayLoop
 ; Take Time Elapsed, and process each track
-		jsr WaitMidiTimer
+		;jsr WaitMidiTimer
 
 		lda #15	; Elapsed time (192*4/50)
-		jsr UpdateTracks
-
+		;jsr UpdateTracks
 		jsr DrawBoxTimes
 
 ]lp		bra ]lp
@@ -841,125 +1046,6 @@ InitTextMode mx %00
 		db 0
 
 ;------------------------------------------------------------------------------
-;------------------------------------------------------------------------------
-;
-; Jiffy Timer Installer, Enabler
-; Depends on the Kernel Interrupt Handler
-;
-InstallJiffy mx %00
-
-; Fuck over the vector
-
-		sei
-
-		lda #$4C	; JMP
-		sta |VEC_INT00_SOF
-
-		lda #:JiffyTimer
-		sta |VEC_INT00_SOF+1
-
-; Enable the SOF interrupt
-
-		lda	#FNX0_INT00_SOF
-		trb |INT_MASK_REG0
-
-		cli
-		rts
-
-:JiffyTimer
-		phb
-		phk
-		plb
-		php
-		rep #$30
-		inc |{MyDP+dpJiffy}
-		plp
-		plb
-		rtl
-
-;------------------------------------------------------------------------------
-;
-; Audio Jiffy Timer Installer, Enabler
-; Depends on the Kernel Interrupt Handler
-;
-; Currently hijack timer 0, but could work on timer 1
-;
-;C pseudo code for counting up
-;TIMER1_CHARGE_L = 0x00;
-;TIMER1_CHARGE_M = 0x00;
-;TIMER1_CHARGE_H = 0x00;
-;TIMER1_CMP_L = clockValue & 0xFF;
-;TIMER1_CMP_M = (clockValue >> 8) & 0xFF;
-;TIMER1_CMP_H = (clockValue >> 16) & 0xFF;
-;
-;TIMER1_CMP_REG = TMR_CMP_RECLR;
-;TIMER1_CTRL_REG = TMR_EN | TMR_UPDWN | TMR_SCLR;
-;
-;C pseudo code for counting down
-;TIMER1_CHARGE_L = (clockValue >> 0) & 0xFF;
-;TIMER1_CHARGE_M = (clockValue >> 8) & 0xFF;
-;TIMER1_CHARGE_H = (clockValue >> 16) & 0xFF;
-;TIMER1_CMP_L = 0x00;
-;TIMER1_CMP_M = 0x00;
-;TIMER1_CMP_H = 0x00;
-;
-;TIMER1_CMP_REG = TMR_CMP_RELOAD;
-;TIMER1_CTRL_REG = TMR_EN | TMR_SLOAD;
-;
-InstallAudioJiffy mx %00
-
-; Trying for 50 hz here
-
-:RATE equ {14318180/50}
-
-; Fuck over the vector
-
-		sei
-
-		lda #$4C	; JMP
-		sta |VEC_INT02_TMR0
-
-		lda #:AudioJiffyTimer
-		sta |VEC_INT02_TMR0+1
-
-		; Configuring for count up
-		sep #$30
-
-		stz |TIMER0_CHARGE_L
-		stz |TIMER0_CHARGE_M
-		stz |TIMER0_CHARGE_H
-
-		lda #<:RATE
-		sta |TIMER0_CMP_L
-		lda #>:RATE
-		sta |TIMER0_CMP_M
-		lda #^:RATE
-		sta |TIMER0_CMP_H
-
-		lda #TMR0_CMP_RECLR
-		sta |TIMER0_CMP_REG
-		lda #TMR0_EN+TMR0_UPDWN+TMR0_SCLR
-		sta |TIMER0_CTRL_REG
-
-; Enable the TIME0 interrupt
-
-		lda	#FNX0_INT02_TMR0
-		trb |INT_MASK_REG0
-
-		rep #$35  ;mx-i-c = 0
-
-		rts
-
-:AudioJiffyTimer
-		phb
-		phk
-		plb
-		php
-		rep #$30
-		inc |{MyDP+dpAudioJiffy}
-		plp
-		plb
-		rtl
 
 ;------------------------------------------------------------------------------
 ;
@@ -1841,7 +1927,7 @@ DrawFancyScreen mx %00
 ;
 LocateTextBox mx %00
 :row = temp0
-:column = temp0+1
+:column = temp0+2
 :x = temp1
 :y = temp1+2
 
@@ -1955,10 +2041,8 @@ DrawBoxTimes mx %00
 		jsr myLOCATE
 		
 		lda <:delta+2
-;		lda <:end_addy+2
 		jsr myPRINTAH
 		lda <:delta
-;		lda <:end_addy
 		jsr myPRINTAH
 
 ; Draw the event wait time
@@ -1978,11 +2062,8 @@ DrawBoxTimes mx %00
 
 		ply
 		iny
-
 		cpy <MF_NumTracks
 		bcc ]loop
-
-
 
 		rts
 ;------------------------------------------------------------------------------
@@ -3504,6 +3585,36 @@ UpdatePianoKeys mx %00
 		bcc ]loop1
 
 		rep #$30
+		rts
+
+;------------------------------------------------------------------------------
+; Init the Tracks for play
+InitTrackPointers mx %00
+		ldy <MF_NumTracks
+
+		phd
+		pea MidiEventDP
+		pld
+
+		dey
+]lp
+		tya
+		asl
+		asl
+		asl
+		tax
+
+		lda |MidiDP,x
+		sta <MidiEventDP,x
+		lda |MidiDP+2,x
+		sta <MidiEventDP+2,x
+		stz <MidiEventDP+4,x
+		stz <MidiEventDP+6,x
+
+		dey
+		bpl ]lp
+		pld
+
 		rts
 
 ;------------------------------------------------------------------------------
