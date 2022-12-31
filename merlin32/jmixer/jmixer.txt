@@ -33,14 +33,18 @@ in there.
 ; --- for now, wave data is not allowed to cross bank boundary, so largest
 ; sample is 65536 bytes in size
 
+; - for now an oscillator is 32 bytes - allowing some extra space
+; for specific types to keep track of type specific information
+;
         ds 2  ; Version/Type - what type of OSC is this (which decoder is called)
         ds 2  ; state, stopped or playing
-        ds 4  ; pWave Data - Pointer to the Wave data
-        ds 4  ; pWave Data Loop Point
+        ds 4  ; pWave Data - Current Pointer to the Wave data                   (24.8)
+        ds 4  ; pWave Data Loop Point - when we reach the end, where do we loop (24.8)
+              ; if it's zero, perhaps this means no loop
         ds 4  ; pWave End  - Pointer to the end of the wave data
-        ds 2  ; Playback frequency
-        ds 2  ; Left Volume
-        ds 2  ; Right Volume
+        ds 2  ; Playback frequency  8.8
+        ds 2  ; Left Volume  - 8.8
+        ds 2  ; Right Volume - 8.8
 
 -------------------------------------------------------------------------------
 

@@ -6,5 +6,19 @@
 
 RESET org $FFFC
 Main  org $3000
-;font  org $010000
+
+; I needed to manually define some of this stuff
+; to reserve the volume tables (the first 512 bytes)
+
+font  org  $010200
+axelf  org $012200
+axelf2 org $020200
+axelf3 org $028200
+canon  org $030200
+chess  org $040200
+insts  org $120000
+insts2 org $130000
+insts3 org $140000
+insts4 org $150000
+mixer  org $160000
 

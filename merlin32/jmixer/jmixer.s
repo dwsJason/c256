@@ -973,6 +973,23 @@ PlayLoop
 		jsr WaitVBL
 		jsr DebugKeyboard
 		jsr UpdatePianoKeys
+
+; View the keyboard buffer
+;		ldx #0
+;		ldy #16
+;		jsr myLOCATE
+;
+;		ldx #0
+;]debug	lda |keyboard,x
+;		xba
+;		phx
+;		jsr myPRINTAH
+;		plx
+;		inx
+;		inx
+;		cpx #48
+;		bcc ]debug 
+
 		bra ]lp
 
 
@@ -3618,4 +3635,15 @@ InitTrackPointers mx %00
 GlobalTemp ds 1024
 
 
+;------------------------------------------------------------------------------
+;
+;  Pump Mixer
+;
+;PumpMixer mx %00
+;		lda <bMixerEnabled
+;		beq :enabled
+;
+;:enabled
+
+;------------------------------------------------------------------------------
 
