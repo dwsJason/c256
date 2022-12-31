@@ -4213,6 +4213,11 @@ task_colorMaze mx %00
 ;24d8  78        ld      a,b		; load A with task parameter
 ;24d9  fe02      cp      #02		; == # 02 ?
 ;24db  3e1f      ld      a,#1f		; load A with #1F = white color for flashing at end of level
+		cmp #2
+		bne ColorMaze
+
+		lda #$1F
+		bra ColorMaze+3
 
 
 ;------------------------------------------------------------------------------
@@ -4224,8 +4229,8 @@ task_colorMaze mx %00
 ColorMaze mx %00
 
 		jsr GetLevelColor
-		; now A has the fill color
 
+		; now A has the fill color
 		ldx #1022-128  ; length
 
 		; mirror color in low and high, for 16 bit stores
@@ -6609,7 +6614,7 @@ flash_screen2 mx %00
 ;09fd  c9        ret     		; return
 		rts
 
-flash_off lda #$0
+flash_off 	lda #$0
 		bra flash_screen2
 
 ;------------------------------------------------------------------------------
