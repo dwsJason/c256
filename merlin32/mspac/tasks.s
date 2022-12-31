@@ -1526,11 +1526,17 @@ task_drawText mx %00
 
 ;960b  c5        push    bc		; save BC
 ;960c  e5        push    hl		; save HL
+		phy
+		phx
+
 ;960d  211696    ld      hl,#9616	; load HL with start of table data
 		ldx #:mspac_gr_table
 ;9610  cd2796    call    #9627		; draws the MS PAC MAN graphic which appears between "ADDITIONAL" and "AT 10,000 pts" 
+		jsr draw_table
 ;9613  e1        pop     hl		; restore HL
 ;9614  c1        pop     bc		; restore BC
+		plx
+		ply
 ;9615  c9        ret     		; return
 		rts
 
@@ -1543,7 +1549,7 @@ task_drawText mx %00
 	dw tile_ram+$1F5
 
 ;961a  09 21 15 42			; screen location #4215
-	db $09,$22
+	db $09,$21
 	dw tile_ram+$215
 
 ;961e  09 22 f6 41 			; screen location #41F6
@@ -1555,7 +1561,7 @@ task_drawText mx %00
 	dw tile_ram+$216
 
 ;9626  ff
-	db $ffff
+	db $ff,$ff
 
 	; subroutine for start button press
 	; called from #9610
@@ -1563,7 +1569,7 @@ task_drawText mx %00
 draw_table mx %00
 ;9627  7e        ld      a,(hl)		; load A with table data
 ]loop
-		lda |0,x
+		lda |0,x	 ; $TTCC  ; Tile #, Color#
 ;9628  feff      cp      #ff		; are we done?
 		cmp #$FFFF
 ;962a  280f      jr      z,#963b         ; yes, return
@@ -1575,7 +1581,7 @@ draw_table mx %00
 ;9630  5e        ld      e,(hl)		; load E with next data
 ;9631  23        inc     hl		; next table entry
 ;9632  56        ld      d,(hl)		; load D with next data
-		ldy |2,x
+		ldy |2,x                    ; y is the RAM address
 ;9633  12        ld      (de),a		; Draws element to screen
 		sep #$20
 		sta |$400,y		; stores out the color data into the palette_ram

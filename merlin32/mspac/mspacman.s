@@ -1730,7 +1730,7 @@ gamemode_dispatch mx %00
 			tax
 			jmp (:dispatch,x)
 :dispatch
-			da power_on	     ;#03D4;#4E00 = 0 ;GAME POWER ON
+			da power_on	 ;#03D4;#4E00 = 0 ;GAME POWER ON
 			da attract_mode  ;#03FE;#4E00 = 1 ;ALL ATTRACT MODES.  this runs until a credit is inserted
 			da oneortwo      ;#05E5;#4E00 = 2 ;PLAYER 1 OR 2 SCREEN.  draw screen and wait for start to be pressed
 			da gameplay_mode ;#06BE;#4E00 = 3 ;PLAYER 1 OR 2 PLAYING.  runs core game loop
