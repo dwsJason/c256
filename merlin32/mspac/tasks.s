@@ -887,6 +887,11 @@ task_copyDips mx %00
 		lsr
 ;26ee  e603      and     #03		; mask bits.  how many pacmen per game?
 		and #03
+
+		;$$JGA TEMP ### - until DIPS are wired
+		lda #2
+		;$$JGA TEMP ###
+
 ;26f0  3c        inc     a		; increment
 		inc
 ;26f1  fe04      cp      #04		; == #04 ?  (swtich set of 3 which gives 5 pacmen per game)
