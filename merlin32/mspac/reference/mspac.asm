@@ -7508,7 +7508,7 @@ task_clearMemory4D
 
 ; called from #23A7 as task #1F
 ; writes points needed for extra life digits to screen
-
+task_drawExtraLife
 26b2  dd213641  ld      ix,#4136	; load IX with screen position
 26b6  3a714e    ld      a,(#4e71)	; load A with points needed for bonus life (#10, #15, #20 or #FF)
 26b9  e60f      and     #0f		; mask out left digit bits
@@ -8322,7 +8322,7 @@ ScoreTable
 2b45  21154e    ld      hl,#4e15	; load HL with number of lives on the screen
 2b48  34        inc     (hl)		; inc lives displayed
 2b49  46        ld      b,(hl)		; load B with number of lives on the screen.  This is used for a loop counter at instruction #2B5F
-
+DrawExtraLives
 2b4a  211a40    ld      hl,#401a	; load HL with start screen location for extra lives
 2b4d  0e05      ld      c,#05		; C := #05.  This counter is used to determine how many blanks to draw
 2b4f  78        ld      a,b		; load A with B which has number of lives on the screen
@@ -8365,7 +8365,7 @@ task_drawLives
 ; and HL is loaded with the memory address of the position on screen where the first color is to be drawn.
 ; If a clear value is to be drawn, the first address is called (#2B7E). 
 ; If A is preloaded with a color, then the second address is called (#2B80).
-
+clear2x2
 2B7E 3E 40 	LD 	A,#40 		; Used to draw clear value
 2B80 E5 	PUSH 	HL 		; Save HL
 2B81 D5 	PUSH 	DE 		; Save DE
@@ -8384,7 +8384,7 @@ task_drawLives
 ; Draws the four parts of a fruit onscreen.  Also used to draw extra pac man lives at bottom of screen.
 ; It requires that A is loaded with the code for the first part of the fruit,
 ; and HL is loaded with the memory address of the first position on screen where it is to be drawn.
-
+draw4parts
 2B8F E5 	PUSH 	HL 		; Save HL
 2B90 D5 	PUSH 	DE 		; Save DE
 2B91 11 1F 00 	LD 	DE,#001F 	; this offset is added later for third part of fruit 

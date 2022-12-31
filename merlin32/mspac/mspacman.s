@@ -2158,22 +2158,24 @@ ttask1 mx %00
 
 	;; draw lives displayed onto the screen
 :drawlives
-    ; $$JGA TODO
 ;06a8  21154e    ld      hl,#4e15	; load HL with lives displayed on screen loc
 ;06ab  35        dec     (hl)		; decrement
+		lda |displayed_lives
+		dec
 ;06ac  cd6a2b    call    #2b6a		; draw remaining lives at bottom of screen 
+		jsr task_drawLives
 ;06af  af        xor     a		; A := #00
 ;06b0  32034e    ld      (#4e03),a	; clear main routine 2, subroutine #
-			stz |mainroutine2
+		stz |mainroutine2
 ;06b3  32024e    ld      (#4e02),a	; clear main routine 1, subroutine #
-			stz |mainroutine1
+		stz |mainroutine1
 ;06b6  32044e    ld      (#4e04),a	; clear level state subroutine #
-			stz |levelstate
+		stz |levelstate
 ;06b9  21004e    ld      hl,#4e00	; load HL with game mode address
 ;06bc  34        inc     (hl)		; inc game mode.  game mode is now 3 = game is just now starting
-			inc |mainstate
+		inc |mainstate
 ;06bd  c9        ret     		; return
-			rts
+		rts
 
 ;------------------------------------------------------------------------------
 ; arrive here from #03CB or from #057C, when someone or demo is playing
@@ -5143,10 +5145,84 @@ BlitColorMap mx %00
 		cmp #$3C0+palette_ram
 		bcc ]row_loop
 
-; Still need to do the horizontal lines at the top, and bottom
+;------------------------------------------------------------------------------
+; Need the Top 2 lines
 
+; 3DF->3C0 - line 0
+;		ldx #64*2+{{25-14}*2}-2	; offset into vicky
+;		ldy #palette_ram+$3C0+31
+;		jsr :BlitLine
 
-	rts
+; 3FF->3E0 - line 1
+;		ldx #64*4+{{25-14}*2}-2	; offset into vicky
+;		ldy #palette_ram+$3E0+31
+;		jsr :BlitLine
+
+;------------------------------------------------------------------------------
+; Need the Bottom 2 lines
+
+; 01F->000 - line 34
+		ldx #64*{{34*2}+2}+{{25-14}*2}-2	; offset into vicky
+		ldy #palette_ram+$000+31
+		jsr :BlitLine
+; 03F->020 - line 35
+		ldx #64*{{35*2}+2}+{{25-14}*2}-2	; offset into vicky
+		ldy #palette_ram+$020+31
+		jsr :BlitLine
+
+		rts
+
+;------------------------------------------------------------------------------
+
+:BlitLine
+		sty <:cursor
+		lda #32
+		sta <:count
+]loop
+		lda (:cursor)
+		and #$3F
+		sep #$20
+
+		tay
+		lda |palette_hash,y
+		bpl :BL_good_value
+
+		rep #$30
+		phx
+		jsr BGPaletteAlloc
+		bpl :BL_ok
+		; error, out of palettes :-/
+		plx
+		bra :BL_error
+:BL_ok
+		sep #$20
+		pha
+		asl
+		asl
+		asl
+		sta |palette_hash,y
+		pla
+		rep #$30
+
+		jsr :LoadPalette
+
+		plx
+		bra ]loop
+
+:BL_good_value
+		sta >VRAM+VICKY_MAP0+1,x
+:BL_error
+		rep #$30
+		inx
+		inx
+		dec <:cursor
+		dec <:count
+		bne ]loop
+
+		rts
+
+;------------------------------------------------------------------------------
+
 
 ; A = target palette# on Vicky
 ; Y = source palette# on ms pacman

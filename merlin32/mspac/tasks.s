@@ -1460,6 +1460,60 @@ task_updateScore mx %00
 :skip
 		lda #$0304
 		jmp DrawScore
+;------------------------------------------------------------------------------
+;2B4A
+;  A contains the number of lives on entry here, instead of B
+;
+DrawExtraLives mx %00
+		pha
+;2b4a  211a40    ld      hl,#401a	; load HL with start screen location for extra lives
+		ldx #tile_ram+$1a
+;2b4d  0e05      ld      c,#05		; C := #05.  This counter is used to determine how many blanks to draw
+		ldy #5
+;2b4f  78        ld      a,b		; load A with B which has number of lives on the screen
+;2b50  a7        and     a		; == #00 ?
+		lda 1,s
+;2b51  280e      jr      z,#2b61         ; yes, skip ahead, nothing to draw
+		beq :clear_loop
+
+;2b53  fe06      cp      #06		; >= #06 ?
+;2b55  300a      jr      nc,#2b61        ; yes, skip ahead, we can't draw more than 5 extra lives
+		cmp #6
+		bcs :clear_loop
+:draw
+;2b57  3e20      ld      a,#20		; A := #20
+		lda #$20
+;2b59  cd8f2b    call    #2b8f		; draw extra life
+		jsr draw4parts
+
+;2b5c  2b        dec     hl		; 
+;2b5d  2b        dec     hl		; HL is now 2 less than before.  If another life is to be drawn, it will be in correct location.
+		dex
+		dex
+;2b5e  0d        dec     c		; decrement C 
+		dey
+		pla
+		dec
+		pha
+;2b5f  10f6      djnz    #2b57           ; Next B
+		bne :draw
+:clear_loop
+;2b61  0d        dec     c		; decrement C.  Are there blank spaces to be drawn next ?
+		dey
+		bmi :done
+;2b62  f8        ret     m		; No, return
+
+;2b63  cd7e2b    call    #2b7e		; Yes, draw blank for the next extra life position
+		jsr clear2x2
+;2b66  2b        dec     hl		; 
+;2b67  2b        dec     hl		; HL is now 2 less for next position if needed
+		dex
+		dex
+;2b68  18f7      jr      #2b61           ; loop again
+		bra :clear_loop
+:done
+		pla
+		rts
 
 ;------------------------------------------------------------------------------
 ; #2B6A ; A=1A	; draws remaining lives at bottom of screen
@@ -1472,7 +1526,6 @@ task_drawLives mx %00
 		bne :continue
 		rts
 :continue
-
 ;2b70  cdcd2b    call    #2bcd		; colors the bottom two rows of 10 the color 9 (yellow)
 ;2b73  12 44				; #4412 is starting location for above subroutine
 ;2B75  09 0A 02				; data used in above subroutine call.  9 is the color, #0A is the length, #02 is the number of rows
@@ -1482,10 +1535,70 @@ task_drawLives mx %00
 
 ;2b78  21154e    ld      hl,#4e15	; load HL with address of number of lives to display
 ;2b7b  46        ld      b,(hl)		; load B with number of lives to display
+		lda |displayed_lives
 ;2b7c  18cc      jr      #2b4a           ; draw extra lives on screen and return
+;		rts
+		bra DrawExtraLives
 
+
+;------------------------------------------------------------------------------
+; Draws colors onscreen for a 2x2 grid.
+; It requires that A is loaded with the code for the color,
+; and HL is loaded with the memory address of the position on screen where the first color is to be drawn.
+; If a clear value is to be drawn, the first address is called (#2B7E). 
+; If A is preloaded with a color, then the second address is called (#2B80).
+;2B7E
+clear2x2 mx %00
+;2B7E 3E 40 	LD 	A,#40 		; Used to draw clear value
+;2B80 E5 	PUSH 	HL 		; Save HL
+;2B81 D5 	PUSH 	DE 		; Save DE
+;2B82 77 	LD 	(HL),A 		; Draw color into first part
+;2B83 23 	INC 	HL 		; Set location to second part of fruit
+;2B84 77 	LD 	(HL),A 		; Draw color into second part
+;2B85 11 1F 00 	LD 	DE,#001F 	; Offset is used for third part
+;2B88 19 	ADD 	HL,DE 		; Set location to third part of fruit
+;2B89 77 	LD 	(HL),A 		; Draw color into third part
+;2B8A 23 	INC 	HL 		; Set location to fourth part of fruit
+;2B8B 77 	LD 	(HL),A 		; Draw color into fourth part
+;2B8C D1 	POP 	DE 		; Restore DE
+;2B8D E1 	POP 	HL 		; Restore HL
+;2B8E C9 	RET 			; Return
+		lda #$4040
+		sta |0,x
+		sta |32,x
 		rts
-
+;------------------------------------------------------------------------------
+; Draws the four parts of a fruit onscreen.  Also used to draw extra pac man lives at bottom of screen.
+; It requires that A is loaded with the code for the first part of the fruit,
+; and HL is loaded with the memory address of the first position on screen where it is to be drawn.
+;2B8F
+draw4parts mx %00
+		sep #$20
+;2B8F E5 	PUSH 	HL 		; Save HL
+;2B90 D5 	PUSH 	DE 		; Save DE
+;2B91 11 1F 00 	LD 	DE,#001F 	; this offset is added later for third part of fruit 
+;2B94 77 	LD 	(HL),A 		; Draw first part of fruit code into screen memory
+		sta |0,x
+;2B95 3C 	INC 	A 		; Point to second part of fruit
+		inc
+;2B96 23 	INC 	HL 		; Increment screen memory for second part of fruit
+;2B97 77 	LD 	(HL),A 		; Draw second part of fruit code into screen memory
+		sta |1,x
+;2B98 3C 	INC 	A 		; Point to third part of fruit
+		inc
+;2B99 19 	ADD 	HL,DE 		; Add offset for third part of fruit
+;2B9A 77 	LD 	(HL),A 		; Draw third part of fruit code into screen memory
+		sta |$20,x
+;2B9B 3C 	INC 	A 		; Point to fourth part of fruit
+		inc
+;2B9C 23 	INC 	HL 		; Increment screen memory for fourth part of fruit
+;2B9D 77 	LD 	(HL),A 		; Draw fourth part of fruit code into screen memory
+		sta |$21,x
+;2B9E D1 	POP 	DE 		; Restore DE
+;2B9F E1 	POP 	HL 		; Restore HL
+		rep #$30
+;2BA0 C9 	RET 			; Return     
+		rts
 ;------------------------------------------------------------------------------
 
 ; this subroutine takes 5 bytes after the call and uses them to copy the 3rd byte into several memories
@@ -1547,6 +1660,7 @@ ColorStuff mx %00
 		phy
 ]inloop
 		sta |0,y
+		iny
 		dex
 		bne ]inloop
 
