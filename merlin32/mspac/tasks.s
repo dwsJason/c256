@@ -1569,6 +1569,7 @@ clear2x2 mx %00
 ;2B8D E1 	POP 	HL 		; Restore HL
 ;2B8E C9 	RET 			; Return
 		lda #$4040
+clear2x22
 		sta |0,x
 		sta |32,x
 		rts
@@ -1681,8 +1682,148 @@ ColorStuff mx %00
 
 ;------------------------------------------------------------------------------
 ; #2BEA ; A=1B	; draws fruit at bottom right of screen
-task_drawFruit
+task_drawFruit mx %00
+;2bea  3a004e    ld      a,(#4e00)	; load A with game mode
+;2bed  fe01      cp      #01		; is this the attract mode ?
+;2bef  c8        ret     z		; yes, return
+		lda |mainstate
+		cmp #1
+		bne :not_demo
+; demo mode, return early
 		rts
+:not_demo
+	;; draw the fruit
+
+;2bf0  3a134e    ld      a,(#4e13)	; else Load A with current board level
+;2bf3  3c        inc     a		; increment it
+		lda |level
+		inc
+
+; jumped from #2BF4 for fruit drawing subroutine
+; A has the level number
+; keeps the fruit level at banana after level 7
+
+;8793 FE 08 	CP 	#08 		; Is Level >= #08 ?
+;8795 DA F9 2B 	JP 	C,#2BF9 	; No, return
+		cmp #8
+		bcc :continue
+
+;8798 3E 07 	LD 	A,#07 		; Yes, set A := #07
+;879A C3 F9 2B 	JP 	#2BF9 		; Return
+		lda #7
+
+:continue
+		pei <temp0
+		pei <temp0+2
+:temp  = temp0
+:pFruit = temp0+2
+
+		pha
+
+		lda #data_fruit_table
+		sta <:pFruit
+
+;2BF9 11083B	LD	DE,#3B08 	; Yes, load DE with address of cherry in fruit table
+;2BFC 47 	LD	B,A 		; For B = 1 to level number
+;2BFD 0E07 	LD	C,#07 		; C is 7 = the total number of locations to draw
+		ldy #7
+;2BFF 210440 	LD	HL,#4004 	; Load HL with the start of video memory
+		ldx #tile_ram+$4
+;2C02 1A 	LD	A,(DE) 		; Load A with value from fruit table
+;2C03 CD8F2B 	CALL	#2B8F 		; Draw fruit subroutine
+]lp
+		lda (:pFruit)
+		jsr draw4parts
+
+;2C06 3E04 	LD	A,#04 		; 
+;2C08 84 	ADD	A,H 		; Add 400 to HL
+;2C09 67 	LD	H,A 		; HL now points to color memory
+;2C0A 13 	INC	DE 		; DE now points to color code in fruit table
+;2C0B 1A 	LD	A,(DE) 		; Load A with color code from fruit table
+;2C0C CD802B 	CALL	#2B80 		; Draw color subroutine
+		phx
+		clc
+		txa
+		adc #$400
+		tax
+		inc <:pFruit
+		lda (:pFruit)
+		and #$FF
+		sta <:temp
+		xba
+		ora <:temp
+		jsr clear2x22
+;2C0F 3EFC 	LD	A,#FC 		; 
+;2C11 84 	ADD	A,H 		; Subtract 4 from H
+;2C12 67 	LD	H,A 		; HL now points back to video memory
+		plx
+;2C13 13 	INC	DE 		; Increase pointer to next fruit in table
+		inc <:pFruit
+;2C14 23 	INC	HL 		; 
+;2C15 23 	INC	HL 		; Next starting point is 2 bytes higher
+		inx
+		inx
+;2C16 0D 	DEC	C 		; Count down how many clears to draw
+		dey
+;2C17 10E9 	DJNZ	#2C02 		; Next B – loop back and draw next fruit
+		pla
+		dec
+		pha
+		bne ]lp
+]clear_lp
+;2C19 0D 	DEC	C 		; Count down C. Did C just turn negative?
+;2C1A F8 	RET	M 		; Yes, return to game, we are done
+		dey
+		bmi :done
+
+;2C1B CD7E2B 	CALL	#2B7E 		; No, call subroutine to draw a clear
+		jsr clear2x2
+;2C1E 3E04 	LD	A,#04 		; 
+;2C20 84 	ADD	A,H 		;
+;2C21 67 	LD	H,A 		; Increase HL by 400 for color value to be cleared
+		phx
+		clc
+		txa
+		adc #$400
+		tax
+;2C22 AF 	XOR	A 		; Load A with 0, the code for black color
+		lda #$0000
+;2C23 CD802B 	CALL	#2B80 		; Draw color subroutine – draws black color
+		jsr clear2x22
+;2C26 3EFC 	LD	A,#FC 		; 
+;2C28 84 	ADD	A,H 		; Subtract 4 from H
+;2C29 67 	LD	H,A 		; HL now points back to video memory
+		plx
+;2C2A 23 	INC	HL 		;
+;2C2B 23 	INC	HL 		; Set next starting point to be 2 bytes more
+		inx
+		inx
+;2C2C 18EB 	JR	#2C19 		; Jump back and draw next clear
+		bra ]clear_lp
+:done
+		pla
+		pla
+		sta <temp0+2
+		pla
+		sta <temp0
+
+		rts
+
+;3B08
+data_fruit_table
+	db $90,$14				; cherry
+	db $94,$0F				; strawberry
+	db $98,$15				; peach
+	db $9C,$07				; pretzel
+	db $A0,$14				; apple
+	db $A4,$17				; pear
+	db $A8,$16				; banana
+	db $AC,$16				; key (unused in ms. pac)
+	db $00,$00,$00,$00,$00,$00,$00,$00		; unused
+	db $00,$00,$00,$00,$00,$00,$00,$00		; unused
+	db $00,$00,$9C,$16,$9C,$16,$9C,$16		; unused, pretzels
+
+
 ;------------------------------------------------------------------------------
 
 ; #95E3	; A=1C	; used to draw text and some other functions  ; parameter lookup for text found at #36a5
