@@ -12,6 +12,7 @@
 ;  400-16-224 = 160 (leaving 80 bitmap pixels on the left, and on the right)
 ;
 
+; Conditional Compile
 DEBUG equ 0
 
         rel     ; relocatable

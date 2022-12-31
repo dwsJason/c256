@@ -862,6 +862,110 @@ task_clearSprites mx %00
 ;------------------------------------------------------------------------------
 ; #26D0 ; A=14	; checks all dip switches and assigns memories to the settings indicated
 task_copyDips mx %00
+;26d0  3a8050    ld      a,(#5080)	; load A with Dip Switch
+;26d3  47        ld      b,a		; copy to B
+;26d4  e603      and     #03		; mask bits 0000 0011 - is free play set in the DIP ?
+;26d6  c2de26    jp      nz,#26de	; no, skip ahead
+
+;26d9  216e4e    ld      hl,#4e6e	; yes, load HL with credit memory address
+;26dc  36ff      ld      (hl),#ff	; store #FF to indicate free play
+;26de  4f        ld      c,a		; load C with result computed above
+;26df  1f        rra     		; roll right = moves bit 0 to the carry bit and carry flag to bit 7
+;26e0  ce00      adc     a,#00		; A := #00 plus carry bit
+;26e2  326b4e    ld      (#4e6b),a	; store into coins per credit
+;26e5  e602      and     #02		; mask bits 0000 0010 
+;26e7  a9        xor     c		; XOR with original result.  this will toggle bit 1 on or off
+;26e8  326d4e    ld      (#4e6d),a	; store into number of credits per coin
+
+; check dip switches 2 and 3.  number of starting lives per game
+
+;26eb  78        ld      a,b		; load A with Dip Switch original value from #5080
+		lda |DSW1
+;26ec  0f        rrca    		; 
+;26ed  0f        rrca    		; roll right twice
+		lsr
+		lsr
+;26ee  e603      and     #03		; mask bits.  how many pacmen per game?
+		and #03
+;26f0  3c        inc     a		; increment
+		inc
+;26f1  fe04      cp      #04		; == #04 ?  (swtich set of 3 which gives 5 pacmen per game)
+		cmp #4
+;26f3  2001      jr      nz,#26f6        ; no, skip next step
+		bne :store_lives
+;26f5  3c        inc     a		; increment
+		inc
+:store_lives
+;26f6  326f4e    ld      (#4e6f),a	; store result into # of pacmen per game
+		sta |no_lives
+
+; check dip switches 4 and 5.  points for bonus pac man
+
+;26f9  78        ld      a,b		; load A with Dip switch
+		lda |DSW1
+;26fa  0f        rrca    
+;26fb  0f        rrca    
+;26fc  0f        rrca    
+;26fd  0f        rrca 			; roll right four times   
+		lsr
+		lsr
+		lsr
+		lsr
+
+;26fe  e603      and     #03		; mask bits - checks score for bonus packman
+		and #03
+;2700  212827    ld      hl,#2728	; load HL with start of table for this option
+;2703  d7        rst     #10		; A := (HL + A).  loads A with table value based on dip switch setting
+		tax
+		lda |:bonus_scores,x
+		and #$FF
+;2704  32714e    ld      (#4e71),a	; store result into extra life setting
+		sta |bonus_life
+
+; check dip switch 7 for ghost names during attract mode
+
+;2707  78        ld      a,b		; load A with Dip Switch
+;2708  07        rlca    		; rotate left with bit 7 moved to bit 0
+;2709  2f        cpl			; invert A (one's complement)
+;270a  e601      and     #01		; mask bits
+;270c  32754e    ld      (#4e75),a	; store result into ghost names mode
+
+; check dip switch 6 for difficulty
+
+;270f  78        ld      a,b		; load A with Dip Switch
+;2710  07        rlca    
+;2711  07        rlca    		; rotate left twice
+;2712  2f        cpl     		; invert A
+;2713  e601      and     #01		; mask bits
+;2715  47        ld      b,a		; copy result to B
+;2716  212c27    ld      hl,#272c	; load HL with start address of difficulty table
+;2719  df        rst     #18		; HL := HL + A
+;271a  22734e    ld      (#4e73),hl	; store into difficulty table lookup
+
+; check bit 7 on IN1 for upright / cocktail
+
+;271d  3a4050    ld      a,(#5040)	; load A with IN1
+;2720  07        rlca    		; rotatle left
+;2721  2f        cpl     		; invert A
+;2722  e601      and     #01		; mask bits
+;2724  32724e    ld      (#4e72),a	; store result into cocktail/upright setting
+;2727  c9        ret     		; return
+		rts
+	; data - bonus/life
+	; called from #2700
+:bonus_scores
+;2728  10				; 10,000 points
+;2729  15				; 15,000 points
+;272A  20				; 20,000 points
+;272B  FF				; code for no extra life
+		db $10,$15,$20,$ff
+
+	; data - difficulty settings table
+	; called from #2716
+
+;272C  68 00				; normal at #0068
+;272E  7D 00				; hard at #007D	
+
 		rts
 ;------------------------------------------------------------------------------
 ; update the current screen pill config to video ram
@@ -1679,7 +1783,41 @@ clear_ghosts
 		rts
 ;------------------------------------------------------------------------------
 ; #26B2	; A=1F	; writes points needed for extra life digits to screen
-task_drawExtraLife
+task_drawExtraLife mx %00
+;26b2  dd213641  ld      ix,#4136	; load IX with screen position
+		ldx #$136
+		sep #$20
+;26b6  3a714e    ld      a,(#4e71)	; load A with points needed for bonus life (#10, #15, #20 or #FF)
+		lda |bonus_life
+;26b9  e60f      and     #0f		; mask out left digit bits
+		and #$0F
+;26bb  c630      add     a,#30		; add #30, gives ascii code for this digit
+		clc
+		adc #$30
+;26bd  dd7700    ld      (ix+#00),a	; write digit to screen
+		sta |tile_ram,x
+;26c0  3a714e    ld      a,(#4e71)	; load A with points needed for bonus life (#10, #15, #20 or #FF) 
+		lda |bonus_life
+;26c3  0f        rrca    
+;26c4  0f        rrca    
+;26c5  0f        rrca    
+;26c6  0f        rrca    		; rotate right 4 times.  A now has the tens digit
+		lsr
+		lsr
+		lsr
+		lsr
+;26c7  e60f      and     #0f		; mask out left digit bits
+		and #$0F
+;26c9  c8        ret     z		; return if zero (when would this happen?)
+		beq :skip
+;26ca  c630      add     a,#30		; add #30, gives ascii code for this digit
+;26cc  dd7720    ld      (ix+#20),a	; write digit to screen
+		clc
+		adc #$30
+		sta |tile_ram+$20,x
+:skip
+		rep #$30
+;26cf  c9        ret     		; return
 		rts
 
 ;------------------------------------------------------------------------------
