@@ -1969,7 +1969,8 @@ oneortwo mx %00
 			lda |bonus_life
 ;0611: FE FF	cp	#FF		; does this game award any bonus lives?
 ;0613: C8	ret	z		; no, return
-			bmi :no_bonus_life
+			cmp #$00FF
+			beq :no_bonus_life
 
 ;0614: EF	rst	#28		; else insert task to draw the MS PAC MAN graphic which appears between "ADDITIONAL" and "AT 10,000 pts"
 ;0615: 1C 0A				; task data
