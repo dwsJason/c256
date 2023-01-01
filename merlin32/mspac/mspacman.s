@@ -1701,8 +1701,8 @@ clear_1up mx %00
 ;0383  dd360040  ld      (ix+#00),#40	; ' '
 ;0387  dd360140  ld      (ix+#01),#40	; ' '
 ;038b  dd360240  ld      (ix+#02),#40	; ' '
-			sta |0,x
-			sta |1,y
+			sta |tile_ram,x
+			sta |tile_ram+1,x
 ;038f  c9        ret
 			rts
 
@@ -1713,9 +1713,9 @@ clear_2up mx %00
 			lda #$4040
 ;0390  fd360040  ld      (iy+#00),#40	; ' '
 ;0394  fd360140  ld      (iy+#01),#40	; ' '
-			sta |0,y
+			sta |tile_ram,y
 ;0398  fd360240  ld      (iy+#02),#40	; ' '
-			sta |1,y
+			sta |tile_ram+1,y
 ;039c  c9        ret
 			rts
 
