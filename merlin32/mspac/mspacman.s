@@ -2161,8 +2161,7 @@ ttask1 mx %00
 :drawlives
 ;06a8  21154e    ld      hl,#4e15	; load HL with lives displayed on screen loc
 ;06ab  35        dec     (hl)		; decrement
-		lda |displayed_lives
-		dec
+		dec |displayed_lives
 ;06ac  cd6a2b    call    #2b6a		; draw remaining lives at bottom of screen 
 		jsr task_drawLives
 ;06af  af        xor     a		; A := #00
