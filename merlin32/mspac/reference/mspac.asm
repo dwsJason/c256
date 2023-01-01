@@ -8463,7 +8463,7 @@ ColorStuff
 
 ; called from #23A7 as task #1B
 ; called from #0792
-
+task_drawFruit
 2bea  3a004e    ld      a,(#4e00)	; load A with game mode
 2bed  fe01      cp      #01		; is this the attract mode ?
 2bef  c8        ret     z		; yes, return
@@ -10837,7 +10837,7 @@ string_table
 	; the first code is the 1st value of the graphic for the fruit
 	; the second code is the color value for the fruit
 
-
+data_fruit_table
 3B08:  90 14				; cherry
 3B0A:  94 0F				; strawberry
 3B0C:  98 15				; peach
