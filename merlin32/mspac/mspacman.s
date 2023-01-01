@@ -6106,8 +6106,8 @@ game_init mx %00
 			stz |orange_home_counter
 			stz |pacman_dead
 			stz |level
-			stz |num_lives
-			stz |displayed_lives
+			;stz |num_lives       ; $$JGA seems like these should not be cleared
+			;stz |displayed_lives
 
 ;0880  cdc924    call    #24c9		; set up pills and power pills in RAM
 			jsr ResetPills
