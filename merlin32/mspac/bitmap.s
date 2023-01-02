@@ -21,11 +21,11 @@ DecompressPanel mx %00
 
 		jsl decompress_clut
 
-        ; Copy over the LUT
-        ;ldy     #GRPH_LUT0_PTR  ; dest
-        ;ldx     #pal_buffer  	; src
-        ;lda     #1024-1			; length
-        ;mvn     ^pal_buffer,^GRPH_LUT0_PTR    ; src,dest
+        ; Copy over the 128 color LUT
+        ldy     #GRPH_LUT0_PTR+{128*4}  ; dest
+        ldx     #pal_buffer  	; src
+        lda     #512-1			; length - only 128 colors
+        mvn     ^pal_buffer,^GRPH_LUT0_PTR    ; src,dest
 
 		phk
 		plb
@@ -61,6 +61,8 @@ DecompressPanel mx %00
 
 ;------------------------------------------------------------------------------
 ;
+; And remap colors
+;
 CopyPixelsToBitmap mx %00
 
 ]offset = 0
@@ -70,6 +72,9 @@ CopyPixelsToBitmap mx %00
 ]lp
 		lup 8
 		lda >pixel_buffer+]offset-2,x
+		beq :keep_zero
+		ora #$8080 								; shift colors + 128
+:keep_zero
 		sta >VICKY_BITMAP0+VRAM+]offset-2,x
 ]offset = ]offset+]size
 		--^
