@@ -4596,7 +4596,6 @@ Power2
 
 ;------------------------------------------------------------------------------
 	;; entrance fruit paths for maze 2:  #8E40-8E72
-	;; $$TODO  fix all these address pointers to point to labels
 ;8e40
 ent_fpaths_maze2
 		da :path0 ;db $54,$8E				; #8E54
@@ -4618,7 +4617,6 @@ ent_fpaths_maze2
 
 
 	;; exit fruit paths for maze 2
-	;; $$TODO  fix all these address pointers to point to labels
 ;8e73
 exit_fpaths_maze2
 		da :path0 ;db $87,$8E				; #8E87
@@ -17079,7 +17077,7 @@ set_f_count
 ;87e4  32404c    ld      (#4c40),a	; store into #4C40
 			sta |COUNT
 ;87e7  3e1f      ld      a,#1f		; A := #1F
-			and #$1F
+			lda #$1F
 ;87e9  32414c    ld      (#4c41),a	; store into #4C41
 			sta |BCNT
 ;87ec  c9        ret     		; return
