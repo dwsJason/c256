@@ -7219,9 +7219,9 @@ ghost_house_movement mx %00
 ;0c4b  32944d    ld      (#4d94),a	; store result
 	    sep #$20
 	    asl |home_counter0
-		rep #$30
+	    rep #$30
 ;0c4e  d0        ret     nc		; return if no carry
-		bcc :rts
+	    bcc :rts
 
 	    lda #1
 	    tsb |home_counter0
@@ -9666,7 +9666,7 @@ pacman_movement mx %00
 	    lda |speedbit_normal+2
 ;1832  29        add     hl,hl		; double
 	    clc
-		adc |speedbit_normal+2
+	    adc |speedbit_normal+2
 ;1833  22484d    ld      (#4d48),hl	; store result
 	    sta |speedbit_normal+2
 ;1836  2a464d    ld      hl,(#4d46)	; load HL with speed for pacman in normal state (high bytes)
@@ -10584,9 +10584,9 @@ control_red mx %00
 ;1b5a  2a5e4d    ld      hl,(#4d5e)	; load HL with red ghost speed bit patterns for tunnel areas
 ;1b5d  ed6a      adc     hl,hl		; double it
 ;1b5f  225e4d    ld      (#4d5e),hl	; store result.  have we exceeded the threshold ?
-		lda |speedbit_red_tunnel
-		adc |speedbit_red_tunnel
-		sta |speedbit_red_tunnel
+	    lda |speedbit_red_tunnel
+	    adc |speedbit_red_tunnel
+	    sta |speedbit_red_tunnel
 ;1b62  d0        ret     nc		; no, return
 	    bcs :no_rts
 :rts
@@ -11740,6 +11740,18 @@ spr_to_tile mx %00
 ;2023  cb3f      srl     a
 ;2025  cb3f      srl     a
 ;2027  cb3f      srl     a		; shift right 3 times
+    ;!!$$JGA I added this gum to clamp the ranges, that didn't seem to be
+    ;!!$$JGA required in the original code, but I'm trying to keep
+    ;!!$$JGA ms pacman from escaping the maze when she tunnels
+	    cmp #{3*8}
+	    bcc :clamp
+	    cmp #{28*8}
+	    bcc :range_ok
+:clamp
+	    lda #28*8
+:range_ok
+    ;!!$$JGA I added this gum to clamp the ranges
+
 	    lsr
 	    lsr
 	    lsr
@@ -11774,6 +11786,7 @@ yx_to_screen mx %00
 		sta <temp0
 
 		; (0x1e..0x3d) (left-right = decrease) 
+		sec
 		lda <temp1
 		sbc #$20
 		asl
