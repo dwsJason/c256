@@ -13,9 +13,6 @@
 
 		mx %00
 
-		 
-VOICES   equ 8
-DAC_RATE equ 48000
 
 ; Dispatch
 
@@ -180,10 +177,15 @@ MIXFIFO24_end
 	rts
 	fin
 
+	do 1
 ; 24Khz + 8 channel
 MIXFIFO24_8_start mx %00
-
-	lup 128								  ; 291 (48Khz), 583 (24Khz),875(16Khz)
+	; 19733 bytes (this is better than the the one below), because
+	; it can have more bits of resolution in the audio, potentially up to 15 bit
+	; if we want to pay the time to alter 64K of data to adjust the volume 
+	; we'll have to time the volume setting with 8 bit, and consider going
+	; to 9 or 10 bit resolution
+	lup 256								  ; 291 (48Khz), 583 (24Khz),875(16Khz)
 
 	lda >Channel0Left  ;6        
 	adc >Channel1Left  ;6        
@@ -214,4 +216,58 @@ MIXFIFO24_8_start mx %00
 MIXFIFO24_8_end
 
     rts
+	fin
+
+	do 0
+	; this is like 17940 bytes
+; 24Khz + 8 channel
+MIXFIFO24_8_start mx %00
+
+	lup 256								  ; 291 (48Khz), 583 (24Khz),875(16Khz)
+
+	lda |Channel0Left  ;5        
+	adc |Channel1Left  ;5        
+	adc |Channel2Left  ;5        
+	adc |Channel3Left  ;5
+	adc |Channel4Left  ;5
+	adc |Channel5Left  ;5
+	adc |Channel6Left  ;5
+	adc |Channel7Left  ;5
+	tax 			   ;2   ; 42
+
+	lda |Channel0Right ;5
+	adc |Channel1Right ;5
+	adc |Channel2Right ;5
+	adc |Channel3Right ;5
+	adc |Channel4Right ;5
+	adc |Channel5Right ;5
+	adc |Channel6Right ;5
+	adc |Channel7Right ;5   ; 40
+	tay 			   ;2   ; 42
+
+	txa 			   ;2
+	sta >$1908  	   ;6  
+	tya 			   ;2
+	sta >$1908         ;6  
+	txa 			   ;2
+	sta >$1908  	   ;6
+	tya 			   ;2
+	sta >$1908         ;6   ; 32 = total 116
+
+	--^
+
+MIXFIFO24_8_end
+	fin
+
+; channel resampler will work something like this
+; At lower rates, we can, maybe peep-hole optmize the loads
+; the code gen itself will be faster if we don't (might be worth it, to chisel away the clocks)
+;	lda |0,y            ; 5
+;	sta >left_chx,x 	; 6
+;	sta >right_chx,x	; 6 17 (x8 = 136)  (116+136 = 252)   (~87% duty cycle, 48Khz) (43% at 24Khz) (28% at 16Khz)
+
+; 3+4+4 = 11 bytes * 256 = 2816/$B00 (so $B01 as minimum, up $17/23 in 64K of RAM)
+; 128 volume tables in 64K
+
+
 

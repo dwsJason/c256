@@ -13,6 +13,9 @@
 ; to handle the complexity
 ;
 
+VOICES   equ 8
+DAC_RATE equ 24000
+
 ; Enum for Oscillator types
 		dum 0
 ot_pcm8    ds 1  	; 8 bit  mono pcm, MOD compatible
@@ -42,6 +45,8 @@ osc_frequency ds 2 ; 8.8 frequency
 osc_left_vol  ds 2 ; Left Volume
 osc_right_vol ds 2 ; Right Volume
 ; 22
-osc_reserved  ds 10 ; pad the oscillator out to 32 bytes 	
+osc_frame_size ds 4 
+osc_reserved  ds 6 ; pad the oscillator out to 32 bytes
+
 		dend
 		 
