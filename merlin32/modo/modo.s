@@ -42,6 +42,8 @@
 		ext MIXER_INIT
 		ext MIXER_PUMP
 
+		ext shaston
+
         mx %00
 
 ;
@@ -126,6 +128,42 @@ start   ent             ; make sure start is visible outside the file
 
 		phk
 		plb
+
+;------------------------------------------------------------------------------
+
+		stz |$00E0 ; this is fix the mouse MOUSE_IDX or MOUSE_PTR, depending kernel version
+
+;------------------------------------------------------------------------------
+
+		; copy up a font
+
+		phk
+		plb
+		lda #0
+		ldx #0
+]clear  sta >$AF8000,x		; clear font
+		inx
+		inx
+		cpx #$1000
+		bcc ]clear
+
+		ldx #0
+]copy   ;lda >nicefont,x    ; copy up new glyphs
+		lda >shaston,x
+		sta >$AF8100,x
+		inx
+		inx
+		cpx #1152
+		bcc ]copy
+
+		; set cursor to the Apple IIgs cursor glyph
+		sep #$30
+		lda #{32+95}
+		sta >VKY_TXT_CURSOR_CHAR_REG
+		rep #$30
+
+;------------------------------------------------------------------------------
+
 ;
 ; Setup a Jiffy Timer, using Kernel Jump Table
 ; Trying to be friendly, in case we can friendly exit

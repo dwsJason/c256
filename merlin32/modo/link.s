@@ -71,4 +71,13 @@
 		lna		modo.s16
 		sna		magic
 
+; Font
+
+		asm	font.s
+		ds 0
+		knd $0001
+		ali none
+		lna modo.s16
+		sna font
+
 
