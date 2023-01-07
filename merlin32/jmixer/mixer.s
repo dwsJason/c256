@@ -270,4 +270,30 @@ MIXFIFO24_8_end
 ; 128 volume tables in 64K
 
 
+	lda #freq ; 8.8
+	sta <UNSIGNED_MULT_A_LO
+	
+	ldy #0
+; loop 256 times	
+	iny 						; 2
+	sty <UNSIGNED_MULT_B_LO 	; 4
+	lda <UNSIGNED_MULT_AL_HI	; 4
+	sta |RESAMPLER  			; 5   ; 11 * 256 = 2816
+; --^
+	
+	
+	lda #volume ; 0-255
+	sta <SIGNED_MULT_A_LO
+	
+	; short index
+	iny 					 ; 2
+	sty <SIGNED_MULT_B_LO    ; 3
+	sty <SIGNED_MULT_B_HI    ; 3
+	lda <SIGNED_MULT_AH_LO   ; 4
+	sta |volume 			 ; 5   ; 17 * 256 = 4352, with DMA this could be under 600 clocks, so we need to use DMA
+	
+	
+		
+	
+	
 
