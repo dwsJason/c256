@@ -440,6 +440,14 @@ SkipJiffys
 
 		rep #$31
 
+		; Init BSS
+
+		stz |GlobalTemp
+		ldx #GlobalTemp
+		ldy #GlobalTemp+2
+		lda #sizeof_BSS-3
+		mvn ^GlobalTemp,^GlobalTemp
+
 		jsr InitTextMode
 
 		; poke in our favorite GS background color
@@ -3690,13 +3698,20 @@ InitTrackPointers mx %00
 
 ProcessInstruments mx %00
 		rts
+
+;		do *>#$5000
+;ERROR   asc "PROGRAM IS TOO LARGE, ADJUST BSS ADDRESS BEYOND $8000"
+;		fin
 ;------------------------------------------------------------------------------
 ; Uninitialized memory, so it doesn't take up space in the exe
-	DUM *
+	DUM $8000
+start_BSS
 ; Align to page
 	ds \,0
 GlobalTemp ds 1024
 Voices ds {VOICES*sizeof_osc}  ; 8*32
+end_BSS
+sizeof_BSS = {end_BSS-start_BSS}
 	DEND
 ;------------------------------------------------------------------------------
 
