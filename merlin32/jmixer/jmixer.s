@@ -877,7 +877,9 @@ Format    = MF_Format
 ;-----------------------------------------------------------------------------
 ; Text Code to dump an instrument
 
-		do 0
+		do 1
+		ldy #0
+]loop	phy
 		phd
 		pea 0
 		pld
@@ -887,10 +889,39 @@ Format    = MF_Format
 		jsl LOCATE	    ; cursor to top left of the screen
 		pld
 
-		lda #inst_piano
-		ldx #^inst_piano
+		ply
+
+		lda |GlobalInstruments,y
+		bne :good
+		ldx |GlobalInstruments+2,y
+		beq :done
+:good
+		ldx |GlobalInstruments+2,y
+		phy
+
 		jsr DumpInstrument
+
+]wait_space
+		jsr DebugKeyboard
+
+		lda |keyboard+$39
+		and #$FF
+		beq ]wait_space
+
+		stz |keyboard+$39 ; clear the space
+
+		ply
+		iny
+		iny
+		iny
+		iny
+		bra ]loop
+:done
+
+]stop	bra ]stop
 		fin
+
+
 
 		ldx #44
 		ldy #8
@@ -3115,6 +3146,7 @@ GlobalInstruments
 		adrl inst_strings,inst_cymbal,inst_celesta,inst_bassdrum,inst_sitar,inst_hightom
 		adrl inst_closehihat,inst_piano,inst_taiko,inst_contrabass,inst_synbrass,inst_snareroll
 		adrl inst_openhihat,inst_pedalhihat,inst_tambourine,inst_handclap,inst_syndrum,inst_slapbass
+		adrl 0
 
 ;------------------------------------------------------------------------------
 ColorKey mx %00

@@ -32,7 +32,7 @@ os_playing_looped     ds 1
 		dend
 ;
 ;
-; Voice/Oscillator Structure
+; Voice/Oscillator Structure (32 bytes)
 ;
 ; 
 		dum 0
@@ -45,8 +45,9 @@ osc_frequency ds 2 ; 8.8 frequency
 osc_left_vol  ds 2 ; Left Volume
 osc_right_vol ds 2 ; Right Volume
 ; 22
-osc_frame_size ds 4 
-osc_reserved  ds 6 ; pad the oscillator out to 32 bytes
-
+osc_frame_size ds 4
+osc_set_freq   ds 2 
+osc_set_left   ds 2
+osc_set_right  ds 2
 		dend
 		 

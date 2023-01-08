@@ -269,6 +269,7 @@ MIXFIFO24_8_end
 ; 3+4+4 = 11 bytes * 256 = 2816/$B00 (so $B01 as minimum, up $17/23 in 64K of RAM)
 ; 128 volume tables in 64K
 
+	do 0
 
 	lda #freq ; 8.8
 	sta <UNSIGNED_MULT_A_LO
@@ -292,7 +293,7 @@ MIXFIFO24_8_end
 	lda <SIGNED_MULT_AH_LO   ; 4
 	sta |volume 			 ; 5   ; 17 * 256 = 4352, with DMA this could be under 600 clocks, so we need to use DMA
 	
-	
+	fin	
 		
 	
 	
