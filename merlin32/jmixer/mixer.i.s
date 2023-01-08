@@ -45,11 +45,18 @@ osc_frequency ds 2 ; 8.8 frequency
 osc_left_vol  ds 2 ; Left Volume
 osc_right_vol ds 2 ; Right Volume
 ; 22
-osc_frame_size ds 4
+osc_frame_size ds 4 ; how many source samples will move when we render 256 output samples
 osc_set_freq   ds 2 
 osc_set_left   ds 2
 osc_set_right  ds 2
+
+sizeof_osc ds 0
 		dend
+
+;		do sizeof_osc#32
+;		ERROR "Oscillator Struct must be 32 bytes"
+;		fin
+
  
 ;
 ; An Instrument Data Structure
@@ -67,5 +74,11 @@ i_sample_start_addr ds 4    ; ram start address for sample
 i_sample_length     ds 4    ; length in bytes
 i_sample_loop_start ds 4    ; address
 i_sample_loop_end   ds 4    ; address
-
+i_space ds 6
+sizeof_inst ds 0
 		dend
+
+;		do sizeof_inst#64
+;		ERROR "Instrument Struct must be 64 bytes"
+;		fin
+

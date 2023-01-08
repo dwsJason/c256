@@ -159,6 +159,8 @@ MT_RUN2         ds 1
 		; Timers
 		use phx/timer_def.asm
 
+		use mixer.i
+
         mx %00
 
 ; Stuff in other modules
@@ -877,7 +879,7 @@ Format    = MF_Format
 ;-----------------------------------------------------------------------------
 ; Text Code to dump an instrument
 
-		do 1
+		do 0
 		ldy #0
 ]loop	phy
 		phd
@@ -921,6 +923,9 @@ Format    = MF_Format
 ]stop	bra ]stop
 		fin
 
+
+;-----------------------------------------------------------------------------
+		jsr ProcessInstruments
 
 
 		ldx #44
@@ -3672,11 +3677,6 @@ InitTrackPointers mx %00
 		rts
 
 ;------------------------------------------------------------------------------
-
-GlobalTemp ds 1024
-
-
-;------------------------------------------------------------------------------
 ;
 ;  Pump Mixer
 ;
@@ -3686,5 +3686,22 @@ GlobalTemp ds 1024
 ;
 ;:enabled
 
+;------------------------------------------------------------------------------
+
+ProcessInstruments mx %00
+		rts
+;------------------------------------------------------------------------------
+; Uninitialized memory, so it doesn't take up space in the exe
+	DUM *
+; Align to page
+	ds \,0
+GlobalTemp ds 1024
+Voices ds {VOICES*sizeof_osc}  ; 8*32
+	DEND
+;------------------------------------------------------------------------------
+
+	DUM $050200
+Patches ds {128*sizeof_inst}   ; 128*64 ; put this in a different bank
+	DEND
 ;------------------------------------------------------------------------------
 

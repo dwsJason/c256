@@ -13,7 +13,6 @@
 
 		mx %00
 
-
 ; Dispatch
 
 MIXstartup    jmp Mstartup
