@@ -2882,16 +2882,20 @@ DumpInstrument mx %00
 		cmp #'sm'
 		beq :good3
 :nosample
+		jsr :put_word
 		ldx #txt_missingsample
 		jsr myPUTS
 		jsr myPRINTCR
 
-		rts
+		jmp :next_block
 :good3
 		jsr :get_word
 		cmp #'pl'
-		bne :nosample
+		beq :goodgood
 
+		jsr :put_word
+		bra :nosample
+:goodgood
 		ldx #txt_samplefound
 		jsr myPUTS
 		jsr myPRINTCR
@@ -2970,7 +2974,7 @@ DumpInstrument mx %00
 		sta <:pInstrument+2
 
 		; xtra expected next
-
+:next_block
 		jsr :get_word
 		cmp #'xt'
 		beq :good4
@@ -3087,6 +3091,11 @@ DumpInstrument mx %00
 
 		jsr myPRINTCR
 
+		rts
+
+:put_word
+		dec <:pInstrument
+		dec <:pInstrument
 		rts
 
 :get_word
