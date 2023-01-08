@@ -50,4 +50,22 @@ osc_set_freq   ds 2
 osc_set_left   ds 2
 osc_set_right  ds 2
 		dend
-		 
+ 
+;
+; An Instrument Data Structure
+; !!NOTE: right now Instrument waves are not allowed to span banks, so are
+; !!NOTE: limited to 65536 bytes / (32768 samples)
+;
+		dum 0
+i_name              ds 32   ; this should be 0 terminated, so max len is 31char
+i_sample_rate       ds 2    ; sample rate of original wave, maps to i_key_center
+i_key_center        ds 2
+i_percussion        ds 2    ; 1 for percussion (this means note # does not matter)
+i_percussion_freq   ds 2    ; freq to play percussion note at
+i_loop              ds 2    ; 1 for loop, 0 for single shot
+i_sample_start_addr ds 4    ; ram start address for sample
+i_sample_length     ds 4    ; length in bytes
+i_sample_loop_start ds 4    ; address
+i_sample_loop_end   ds 4    ; address
+
+		dend
