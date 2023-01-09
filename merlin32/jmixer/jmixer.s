@@ -448,6 +448,16 @@ SkipJiffys
 		lda #sizeof_BSS-3
 		mvn ^GlobalTemp,^GlobalTemp
 
+		; Init Patches BSS
+		phb
+		lda #0
+		sta >Patches
+		ldx #Patches
+		ldy #Patches+2
+		lda #{128*sizeof_inst}-3
+		mvn ^Patches,^Patches
+		plb
+
 		jsr InitTextMode
 
 		; poke in our favorite GS background color
@@ -933,7 +943,16 @@ Format    = MF_Format
 
 
 ;-----------------------------------------------------------------------------
+		; Collect data from the .wav files, and convert it into the internal
+		; instrument format, in mixer.i.s
 		jsr ProcessInstruments
+
+		; Print out and Instrument Summary
+		jsr ShowInstrumentInfo
+
+;]stop   bra ]stop
+
+;-----------------------------------------------------------------------------
 
 
 		ldx #44
@@ -2729,6 +2748,9 @@ txt_cset_missing    cstr '!!ERROR - CSET block is missing'
 txt_list_missing    cstr '!!ERROR - LIST block is missing'
 txt_missingname cstr '!!ERROR - Missing INFOINAME/Instrument name'
 txt_instname    cstr 'Instrument Name='
+txt_loop   cstr 'LOOP   '
+txt_single cstr 'SINGLE '
+
 
 
 ;------------------------------------------------------------------------------
@@ -3695,9 +3717,563 @@ InitTrackPointers mx %00
 ;:enabled
 
 ;------------------------------------------------------------------------------
-
+; Process Instruments
+;
+; Go through the list of GlobalInstruments, collecting all the instrument
+; playback information, into the Patches Array
+;
+; Also, process each instrument (convert the 16 bit sample data into volume
+; indices for the mixer)
+;
 ProcessInstruments mx %00
+
+:InstrumentNum  = temp0
+:pInstrumentOut = temp1
+
+		stz <:InstrumentNum
+]loop
+		lda <:InstrumentNum
+		asl
+		asl
+		tay  ; For the lookup table
+		lda <:InstrumentNum
+		xba
+		lsr
+		lsr
+		adc #Patches
+		sta <:pInstrumentOut
+		lda #^Patches
+		sta <:pInstrumentOut+2
+
+
+		lda |GlobalInstruments,y
+		ora |GlobalInstruments+2,y
+		beq :finished
+
+		lda |GlobalInstruments,y
+		ldx |GlobalInstruments+2,y
+
+		jsr GetInstrumentData
+
+		inc <:InstrumentNum
+
+		bra ]loop
+
+:finished
+
 		rts
+
+;------------------------------------------------------------------------------
+; I'd like this to be nice, but right now, I just want it to work, and do
+; something else, so first pass is not Nice
+GetInstrumentData mx %00
+:InstrumentNum  = temp0
+:pInstrumentOut = temp1
+:pWaveFile      = temp2
+
+:length         = temp3
+
+:inst_temp = GlobalTemp
+
+		sta <:pWaveFile
+		stx <:pWaveFile+2
+
+; Zero out the Instrument Data, so anything we don't fill in, is just 0
+; probably not needed
+		phb
+		lda #0
+		sta [:pInstrumentOut],y
+
+		ldx <:pInstrumentOut
+		txy
+		iny
+		iny
+
+		lda <:pInstrumentOut+2
+		xba
+		ora <:pInstrumentOut+2
+		sta |:mvn+1
+
+		lda #sizeof_inst-3
+:mvn	mvn 0,0
+
+		plb
+
+		; Zero temp instrument
+		stz |:inst_temp
+		ldx #:inst_temp
+		ldy #:inst_temp+2
+		lda #sizeof_inst-3
+		mvn ^:inst_temp,^:inst_temp
+
+;-- ugly cut paste
+ 
+		lda [:pWaveFile]
+		cmp #'RI'
+		beq :good0
+:invalid_wave
+:too_large
+		rts
+:good0
+		ldy #2
+		lda [:pWaveFile],y
+		cmp #'FF'
+		bne :invalid_wave
+
+		ldy #4
+		lda [:pWaveFile],y
+		sta <:length
+		ldy #6
+		lda [:pWaveFile],y
+		sta <:length+2
+
+		lda <:length+2
+		bne :too_large
+
+; So far so good
+
+; next block, I expect 8 bytes, 'WAVEfmt '
+		; skip forward
+		clc
+		lda <:pWaveFile
+		adc #8
+		sta <:pWaveFile
+		lda <:pWaveFile+2
+		adc #0
+		sta <:pWaveFile+2
+
+		jsr :get_word
+		cmp #'WA'
+		bne :invalid_wave
+		jsr :get_word
+		cmp #'VE'
+		bne :invalid_wave
+		jsr :get_word
+		cmp #'fm'
+		bne :invalid_wave
+		jsr :get_word
+		cmp #'t '
+		bne :invalid_wave
+
+		; output length of WAVEfmt block, should be 16
+		jsr :get_word
+		jsr :get_word
+
+		; type, 1 = PCM
+		jsr :get_word
+
+		; channels - needs to be 1
+		jsr :get_word
+
+		jsr :get_word
+		sta |:inst_temp+i_sample_rate
+		jsr :get_word  ; high part of sample rate $$JGA TODO, might need to support this
+		sta |:inst_temp+i_sample_rate+2
+
+		jsr :get_word  ; sample rate * bits ber sample * channels / 8
+		jsr :get_word
+
+		jsr :get_word ; bytes per sample (better be 2)
+
+		jsr :get_word ; bits per sample (should be 16)
+
+		; I expect 'data' to be next
+		; this is out actual wave!
+		jsr :get_word
+		cmp #'da'
+		beq :good2
+:missing
+		rts
+
+:good2
+		jsr :get_word
+		cmp #'ta'
+		bne :missing
+
+		jsr :get_word
+		sta <:length
+		sta |:inst_temp+i_sample_length
+		jsr :get_word
+		sta <:length+2
+		sta |:inst_temp+i_sample_length+2
+
+		lda <:pWaveFile
+		sta |:inst_temp+i_sample_start_addr
+		lda <:pWaveFile+2
+		sta |:inst_temp+i_sample_start_addr+2
+
+
+		; skip ove the wave data
+		clc
+		lda <:pWaveFile
+		adc <:length
+		sta <:pWaveFile
+		lda <:pWaveFile+2
+		adc <:length+2
+		sta <:pWaveFile+2
+
+		jsr :get_word
+		cmp #'sm'
+		beq :good3
+:nosample
+		jsr :put_word
+
+		jmp :next_block
+:good3
+		jsr :get_word
+		cmp #'pl'
+		beq :goodgood
+
+		jsr :put_word
+		bra :nosample
+:goodgood
+		jsr :get_word ; 3C
+		jsr :get_word ; 00
+
+		pei :pWaveFile
+		pei :pWaveFile+2
+
+; extra important instrument info here
+
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+
+		jsr :get_word
+		sta |:inst_temp+i_key_center
+
+		jsr :get_word ; ??
+
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+
+		jsr :get_word ; loop type or mode?
+		sta |:inst_temp+i_loop
+
+		jsr :get_word ; ??
+
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+
+		jsr :get_word 	; loop start low
+		sta |:inst_temp+i_sample_loop_start
+		jsr :get_word   ; loop start high
+		sta |:inst_temp+i_sample_loop_start+2
+
+		asl |:inst_temp+i_sample_loop_start
+		rol |:inst_temp+i_sample_loop_start+2
+
+		clc
+		lda |:inst_temp+i_sample_loop_start
+		adc |:inst_temp+i_sample_start_addr
+		sta |:inst_temp+i_sample_loop_start
+		lda |:inst_temp+i_sample_loop_start+2
+		adc |:inst_temp+i_sample_start_addr+2
+		sta |:inst_temp+i_sample_loop_start+2
+
+
+		jsr :get_word 	; loop end low
+		sta |:inst_temp+i_sample_loop_end
+		jsr :get_word   ; loop end high
+		sta |:inst_temp+i_sample_loop_end+2
+
+		asl |:inst_temp+i_sample_loop_end
+		rol |:inst_temp+i_sample_loop_end+2
+
+		clc
+		lda |:inst_temp+i_sample_loop_end
+		adc |:inst_temp+i_sample_start_addr
+		sta |:inst_temp+i_sample_loop_end
+		lda |:inst_temp+i_sample_loop_end+2
+		adc |:inst_temp+i_sample_start_addr+2
+		sta |:inst_temp+i_sample_loop_end+2
+
+
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+		jsr :get_word ; ??
+
+		pla
+		sta <:pWaveFile+2
+		pla
+		sta <:pWaveFile
+		clc
+		adc #$3C
+		sta <:pWaveFile
+		lda <:pWaveFile+2
+		adc #0
+		sta <:pWaveFile+2
+
+		; xtra expected next
+:next_block
+		jsr :get_word
+		cmp #'xt'
+		beq :good4
+:noextra
+		rts
+:good4
+		jsr :get_word
+		cmp #'ra'
+		bne :noextra
+
+		jsr :skip_block
+
+		; 'cue ' next
+		jsr :get_word
+		cmp #'cu'
+		beq :good5
+:nocue
+		rts
+:good5
+		jsr :get_word
+		cmp #'e '
+		bne :nocue
+
+		jsr :skip_block
+
+		; 'CSET' next
+		jsr :get_word
+		cmp #'CS'
+		beq :good6
+:noCSET
+		rts
+:good6
+		jsr :get_word
+		cmp #'ET'
+		bne :noCSET
+
+		jsr :skip_block
+
+		; 'LIST' next
+		jsr :get_word
+		cmp #'LI'
+		beq :good7
+:nolist
+		rts
+:good7
+		jsr :get_word
+		cmp #'ST'
+		bne :nolist
+
+; at this point I'm just interesting the instrument name
+
+		jsr :get_word ; list size
+		jsr :get_word
+
+; looking for INFOINAM - info instrument name
+
+		jsr :get_word
+		cmp #'IN'
+		beq :good8
+:missingname
+		rts
+:good8
+		jsr :get_word
+		cmp #'FO'
+		bne :missingname
+
+		jsr :get_word
+		cmp #'IN'
+		bne :missingname
+
+		jsr :get_word
+		cmp #'AM'
+		bne :missingname
+
+		jsr :get_word 	; length of the name
+		jsr :get_word
+
+		; now pWaveFile is pointing a the name
+		sep #$20
+		ldx #$FFFF
+		txy
+]lp
+		inx
+		iny
+		cpx #31
+		beq :crop
+		lda [:pWaveFile],y
+		sta |:inst_temp+i_name,x
+		bne ]lp
+:crop
+		rep #$30
+
+; We either get the name, or we get nothing!
+; $$JGA TODO Fix this to work like the 256 bitmap
+; chunk loader, where chunk order won't matter
+; and chunks be optional
+
+		phb
+		ldx #:inst_temp
+		ldy <:pInstrumentOut
+
+		lda <:pInstrumentOut+2
+		sta :mvn2+1
+		lda #sizeof_inst-1
+:mvn2	mvn 0,0
+		plb
+
+		rts
+
+:put_word
+		dec <:pWaveFile
+		dec <:pWaveFile
+		rts
+
+:get_word
+		lda [:pWaveFile]
+		inc <:pWaveFile
+		inc <:pWaveFile
+		rts
+
+:skip_block
+		jsr :get_word ; 16
+		pha
+		jsr :get_word
+		tax
+		clc
+		pla
+		adc <:pWaveFile
+		sta <:pWaveFile
+		txa
+		adc <:pWaveFile+2
+		sta <:pWaveFile+2
+		rts
+
+;------------------------------------------------------------------------------
+ShowInstrumentInfo mx %00
+:pPatch = temp0
+:NAMESIZE = 16
+
+		lda #Patches
+		sta <:pPatch
+		ldx #^Patches
+		stx <:pPatch+2
+
+]lp
+		ldy #i_sample_rate
+		lda [:pPatch],y
+		beq :done
+
+		lda <:pPatch+2
+		xba
+		sta |:mvn+1
+
+		ldy #GlobalTemp
+		ldx <:pPatch
+		lda #sizeof_inst+1
+:mvn    mvn 0,0
+
+; copy stuff into local buffer, so it's easier to use the print functions
+
+		jsr myPRINTCR
+
+		ldy #GlobalTemp
+		jsr :PrintInfo
+
+		clc
+		lda <:pPatch
+		adc #sizeof_inst
+		sta <:pPatch
+		bra ]lp
+
+:done
+		rts
+
+:PrintInfo
+
+		phy
+		tyx
+		jsr myPUTS
+
+		ldy |CURSORY
+		ldx #:NAMESIZE
+		jsr myLOCATE
+
+		lda #' '
+		jsr myPUTC
+
+		ply
+		phy
+
+		lda |i_sample_rate,y
+		jsr myPrintAI
+
+		ply
+		phy
+		ldy |CURSORY
+		ldx #:NAMESIZE+7
+		jsr myLOCATE
+
+		ply
+		phy
+
+		lda |i_key_center,y
+		jsr myPrintAI
+
+		ldy |CURSORY
+		ldx #:NAMESIZE+6+4
+		jsr myLOCATE
+
+		ply
+		phy
+		ldx #txt_loop
+		lda |i_loop,y
+		bne :loop
+		ldx #txt_single
+:loop
+		jsr myPUTS
+
+		lda 1,s
+		clc
+		adc #i_sample_start_addr
+		tax
+		jsr myPRINTAddress
+
+		lda #' '
+		jsr myPUTC
+
+		ply
+		phy
+		lda |i_sample_length,y
+		jsr myPRINTAH
+
+		lda #' '
+		jsr myPUTC
+
+		lda 1,s
+		clc
+		adc #i_sample_loop_start
+		tax
+		jsr myPRINTAddress
+
+		lda #' '
+		jsr myPUTC
+
+		lda 1,s
+		clc
+		adc #i_sample_loop_end
+		tax
+		jsr myPRINTAddress
+
+		ply
+		rts
+
+
+;------------------------------------------------------------------------------
+
 
 ;		do *>#$5000
 ;ERROR   asc "PROGRAM IS TOO LARGE, ADJUST BSS ADDRESS BEYOND $8000"
