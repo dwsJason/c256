@@ -3761,6 +3761,55 @@ ProcessInstruments mx %00
 
 :finished
 
+;------------------------------------------------------------------------------
+; now loop through and fix the Samples so they will work with our mixer
+
+:pPatch = temp0
+:pSample = temp1
+:len     = temp2
+
+		lda #Patches
+		sta <:pPatch
+		ldx #^Patches
+		stx <:pPatch+2
+]lp
+		ldy #i_sample_rate
+		lda [:pPatch],y
+		beq :donedone
+		
+		ldy #i_sample_start_addr
+		lda [:pPatch],y
+		sta <:pSample
+		ldy #i_sample_start_addr+2
+		lda [:pPatch],y
+		sta <:pSample+2
+		
+		ldy #i_sample_length
+		lda [:pPatch],y
+		sta <:len
+		
+		ldy #0
+]modlp
+		lda [:pSample],y
+		cmp #$8000
+		rol
+		xba
+		and #$01FE
+		sta [:pSample],y
+		
+		iny
+		iny
+		cpy <:len
+		bcc ]modlp
+		
+		clc
+		lda <:pPatch
+		adc #sizeof_inst
+		sta <:pPatch
+		bra ]lp
+		
+:donedone		
+
 		rts
 
 ;------------------------------------------------------------------------------
