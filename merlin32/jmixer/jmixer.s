@@ -950,7 +950,7 @@ Format    = MF_Format
 		; Print out and Instrument Summary
 		;jsr ShowInstrumentInfo
 
-		do 1
+		do 0
 again
 		phd
 
