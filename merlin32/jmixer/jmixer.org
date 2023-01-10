@@ -16,6 +16,9 @@ axelf2 org $020200
 axelf3 org $028200
 canon  org $030200
 chess  org $040200
+;$050200 - 127 volume tables
+;$060200 - 127 volume tables
+;$070200 - 2 volume table ; ends at 070600
 insts  org $120000
 insts2 org $130000
 insts3 org $140000
