@@ -49,7 +49,12 @@ GenerateVolumeTables mx %00
 ]in
 		lda <:wave
 		xba
+		asl				; x2 (this is going into the LSB), so LSB goes 0->FF
+						; as the MSB goes from 0->7F
+						; this also works for negative numbers, pushing out
+						; an even spacing accross the entire +/-15 bit range
 		ora <:wave
+		xba
 		sta <SIGNED_MULT_B_LO
 
 		lda <SIGNED_MULT_AL_HI
@@ -77,13 +82,82 @@ GenerateVolumeTables mx %00
 		rts
 ;------------------------------------------------------------------------------
 ;
-; Set Volume 
+; SetVolume - use DMA to copy volume data into channel
 ;
 ; A = Volume
 ; X = Channel #*4 
 ;
+; Initialization order for DMA registers important, due to overlapping
+; registers in the memory map
+;
+; $$TODO - create DMA Manager, and change this up to use it
+;
 SetVolume mx %00
+
+		pha
+
+		sep #$20
+		lda #0
+		sta >SDMA_CTRL_REG0 ; make sure it's off
+		lda #SDMA_CTRL0_Enable
+		sta >SDMA_CTRL_REG0 ; bring it alive
+		rep #$31
+
+		pla
+		asl
+		asl
+		tay
+		lda |volume_table,y
+		sta >SDMA_SRC_ADDY_L
+		lda |volume_table+2,y
+		sta >SDMA_SRC_ADDY_H   ; overlaps with dst address
+
+		; Stick in the address of the target
+		lda |:vol_table,x
+		sta >SDMA_DST_ADDY_L
+		lda |:vol_table+2,x
+		sta >SDMA_DST_ADDY_H   ; overlaps with size
+
+		lda #$200
+		sta >SDMA_SIZE_L
+		lda #$0
+		sta >SDMA_SIZE_H
+
+		sep #$20
+		lda >SDMA_CTRL_REG0
+		ORA #SDMA_CTRL0_Start_TRF
+		sta >SDMA_CTRL_REG0 	   ; Go!
+		nop
+		nop
+		nop
+		nop
+		nop
+		lda #0
+		sta >SDMA_CTRL_REG0
+		rep #$31
+
 		rts		
+
+:vol_table
+	adrl Channel0Left
+	adrl Channel0Right
+	adrl Channel1Left
+	adrl Channel1Right
+	adrl Channel2Left
+	adrl Channel2Right
+	adrl Channel3Left
+	adrl Channel3Right
+				 
+	adrl Channel4Left
+	adrl Channel4Right
+	adrl Channel5Left
+	adrl Channel5Right
+	adrl Channel6Left
+	adrl Channel6Right
+	adrl Channel7Left
+	adrl Channel7Right
+
+
 
 ;------------------------------------------------------------------------------
 

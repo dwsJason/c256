@@ -130,25 +130,6 @@ pMixBuffers  ds 2  ; 17 bit pointer to the mix buffers in bank0
 					
 ;------------------------------------------------------------------------------
 					
-Channel0Left  = $020000
-Channel0Right = $030000
-Channel1Left  = $040000
-Channel1Right = $050000
-Channel2Left  = $060000
-Channel2Right = $070000
-Channel3Left  = $080000
-Channel3Right = $090000
-				 
-Channel4Left  = $0A0000
-Channel4Right = $0B0000
-Channel5Left  = $0C0000
-Channel5Right = $0E0000
-Channel6Left  = $0E0000
-Channel6Right = $0F0000
-Channel7Left  = $100000
-Channel7Right = $110000
-				 
-   
 	do 0
 ; 24Khz + 4 channel   
 MIXFIFO24_start mx %00

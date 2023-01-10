@@ -82,3 +82,21 @@ sizeof_inst ds 0
 ;		ERROR "Instrument Struct must be 64 bytes"
 ;		fin
 
+Channel0Left  = $020000
+Channel0Right = $030000
+Channel1Left  = $040000
+Channel1Right = $050000
+Channel2Left  = $060000
+Channel2Right = $070000
+Channel3Left  = $080000
+Channel3Right = $090000
+				 
+Channel4Left  = $0A0000
+Channel4Right = $0B0000
+Channel5Left  = $0C0000
+Channel5Right = $0E0000
+Channel6Left  = $0E0000
+Channel6Right = $0F0000
+Channel7Left  = $100000
+Channel7Right = $110000
+
