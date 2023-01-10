@@ -77,7 +77,10 @@ GenerateVolumeTables mx %00
 		rts
 ;------------------------------------------------------------------------------
 ;
-; Set Volume
+; Set Volume 
+;
+; A = Volume
+; X = Channel #*4 
 ;
 SetVolume mx %00
 		rts		
