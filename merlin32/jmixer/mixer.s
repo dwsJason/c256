@@ -195,7 +195,7 @@ MIXFIFO24_8_start mx %00
 
 MIXFIFO24_8_end
 
-    rts
+    rtl
 	fin
 
 	do 0
@@ -261,8 +261,9 @@ MIXFIFO24_8_end
 	lda <UNSIGNED_MULT_AL_HI	; 4
 	sta |RESAMPLER  			; 5   ; 11 * 256 = 2816
 ; --^
+	fin	
 	
-	
+	do 0 ; this is implemented with pre-made tables, and uses DMA when volumes are set
 	lda #volume ; 0-255
 	sta <SIGNED_MULT_A_LO
 	
@@ -275,6 +276,82 @@ MIXFIFO24_8_end
 	
 	fin	
 		
-	
+SetChannelFreq mx %00
+	rts		
+		
+ResampleOSC0 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	sta >MIXFIFO24_8_start+1+{]count*45},x
+	sta >MIXFIFO24_8_start+32+{]count*45},x
+]count = ]count+1
+	--^
+	rts
+ResampleOSC1 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	sta >MIXFIFO24_8_start+1+{]count*45},x
+	sta >MIXFIFO24_8_start+32+{]count*45},x
+]count = ]count+1
+	--^
+	rts
+ResampleOSC2 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	sta >MIXFIFO24_8_start+1+{]count*45},x
+	sta >MIXFIFO24_8_start+32+{]count*45},x
+]count = ]count+1
+	--^
+	rts
+ResampleOSC3 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	sta >MIXFIFO24_8_start+1+{]count*45},x
+	sta >MIXFIFO24_8_start+32+{]count*45},x
+]count = ]count+1
+	--^
+	rts
+ResampleOSC4 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	sta >MIXFIFO24_8_start+1+{]count*45},x
+	sta >MIXFIFO24_8_start+32+{]count*45},x
+]count = ]count+1
+	--^
+	rts
+ResampleOSC5 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	sta >MIXFIFO24_8_start+1+{]count*45},x
+	sta >MIXFIFO24_8_start+32+{]count*45},x
+]count = ]count+1
+	--^
+	rts
+ResampleOSC6 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	sta >MIXFIFO24_8_start+1+{]count*45},x
+	sta >MIXFIFO24_8_start+32+{]count*45},x
+]count = ]count+1
+	--^
+	rts
+ResampleOSC7 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	sta >MIXFIFO24_8_start+1+{]count*45},x
+	sta >MIXFIFO24_8_start+32+{]count*45},x
+]count = ]count+1
+	--^
+	rts
+
+		
 	
 
