@@ -948,9 +948,83 @@ Format    = MF_Format
 		jsr ProcessInstruments
 
 		; Print out and Instrument Summary
-		jsr ShowInstrumentInfo
+		;jsr ShowInstrumentInfo
 
-;]stop   bra ]stop
+		do 1
+again
+		phd
+
+		pea #$100
+		pld
+
+		ldx #0
+		txy
+		jsr myLOCATE
+
+		lda #$100
+		sta <SIGNED_MULT_A_LO
+:volume = $80
+]loop
+		stz <:volume
+]in
+		pld
+		phd
+		;jsr WaitVBL
+		pea #$100
+		pld
+
+		lda |CURSORY
+		cmp #73
+		bcc :fine
+		ldx #0
+		txy
+		jsr myLOCATE
+:fine
+
+		lda <:volume
+		xba
+		ora <:volume
+		sta <SIGNED_MULT_B_LO
+
+		lda <SIGNED_MULT_A_LO
+		jsr myPRINTAH
+		lda #'x'
+		jsr myPUTC
+
+		lda <SIGNED_MULT_B_LO
+		jsr myPRINTAH
+
+		lda #'='
+		jsr myPUTC
+
+		lda <SIGNED_MULT_AL_HI
+		cmp #$8000
+		ror
+		cmp #$8000
+		ror
+		cmp #$8000
+		ror
+		cmp #$8000
+		ror
+		jsr myPRINTAH
+
+		jsr myPRINTCR
+
+		lda <:volume
+		inc
+		sta <:volume
+		cmp #$100
+		bcc ]in
+
+		dec <SIGNED_MULT_A_LO
+		bpl ]loop
+
+		pld
+
+		jmp again
+
+]stop   bra ]stop
+		fin
 
 ;-----------------------------------------------------------------------------
 
