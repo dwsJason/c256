@@ -249,19 +249,6 @@ MIXFIFO24_8_end
 ; 3+4+4 = 11 bytes * 256 = 2816/$B00 (so $B01 as minimum, up $17/23 in 64K of RAM)
 ; 128 volume tables in 64K
 
-	do 0
-
-	lda #freq ; 8.8
-	sta <UNSIGNED_MULT_A_LO
-	
-	ldy #0
-; loop 256 times	
-	iny 						; 2
-	sty <UNSIGNED_MULT_B_LO 	; 4
-	lda <UNSIGNED_MULT_AL_HI	; 4
-	sta |RESAMPLER  			; 5   ; 11 * 256 = 2816
-; --^
-	fin	
 	
 	do 0 ; this is implemented with pre-made tables, and uses DMA when volumes are set
 	lda #volume ; 0-255
@@ -275,9 +262,6 @@ MIXFIFO24_8_end
 	sta |volume 			 ; 5   ; 17 * 256 = 4352, with DMA this could be under 600 clocks, so we need to use DMA
 	
 	fin	
-		
-SetChannelFreq mx %00
-	rts		
 		
 ResampleOSC0 mx %00
 ]count = 0
@@ -353,5 +337,51 @@ ResampleOSC7 mx %00
 	rts
 
 		
+;------------------------------------------------------------------------------
+; lda #Freq   ; 8.8
+; ldx #OSC Number
+: 
+SetChannelFreq mx %00
+SetFrequency mx %00
+	phb
+	phk
+	plb
+
+	phd
+	pea $100
+	pld
+
+	;;lda #freq ; 8.8
+	sta <UNSIGNED_MULT_A_LO
+
+	txa
+	asl
+	tax
+	lda |:osc_table,x
+	tax
 	
+	ldy #0
+; loop 256 times
+]offset = 1
+	lup 256
+	sty <UNSIGNED_MULT_B_LO 	; 4
+	iny 						; 2
+	lda <UNSIGNED_MULT_AL_HI	; 4
+	sta |]offset,x  			; 5   ; 11 * 256 = 2816
+]offset = ]offset+11
+	--^
+	pld
+	plb
+	rtl
+		
+:osc_table
+	da ResampleOSC0		
+	da ResampleOSC1		
+	da ResampleOSC2		
+	da ResampleOSC3		
+	da ResampleOSC4		
+	da ResampleOSC5		
+	da ResampleOSC6		
+	da ResampleOSC7
+			
 
