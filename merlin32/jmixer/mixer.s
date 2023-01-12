@@ -360,14 +360,16 @@ SetFrequency mx %00
 	lda |:osc_table,x
 	tax
 	
-	ldy #0
+]input = 0
 ; loop 256 times
 ]offset = 1
 	lup 256
+	ldy #]input 				; 3
 	sty <UNSIGNED_MULT_B_LO 	; 4
-	iny 						; 2
 	lda <UNSIGNED_MULT_AL_HI	; 4
-	sta |]offset,x  			; 5   ; 11 * 256 = 2816
+	and #$FFFE  				; 3
+	sta |]offset,x  			; 5   ; 19 * 256 = 4864
+]input = ]input+2
 ]offset = ]offset+11
 	--^
 	pld
@@ -387,7 +389,7 @@ SetFrequency mx %00
 ;------------------------------------------------------------------------------
 ; 4096
 
-	while FIFO < 3072
+;	while FIFO < 3072
 	  ; run the mixer/FIFO
 	  ; run resamplers
 	
@@ -395,11 +397,23 @@ SetFrequency mx %00
 	; check for vol changes + apply
 	 
 
-
+;------------------------------------------------------------------------------
+;
+; WAVE DATA NOW MUST START ON AN EVEN ADDRESS
+; (so LSB can be used for math)
+; dp,x ; addressing
+;
+osc_update mx %00
+	clc
+	lda <osc_pWave,x
+	adc <osc_frame_size,x
+	sta <osc_pWave,x
+	lda <osc_pWave+2,x
+	adc <osc_frame_size+2,x
+	sta <osc_pWave+2,x	
+	rts
 
 ;------------------------------------------------------------------------------
-
-
 
 ;------------------------------------------------------------------------------
 
