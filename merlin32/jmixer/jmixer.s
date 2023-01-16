@@ -572,7 +572,7 @@ main_loop mx %00
 		jsr myPUTC
 		
 		; set for fixed point and divide
-		lda #$03F3
+		lda #$01F3
 		sta >FP_MATH_CTRL0
 		
 		plx
@@ -656,13 +656,13 @@ numerator
 		dw $0300
 				 
 denominator
-		dw $0100
-		dw $0100
-		dw $0100
-		dw $0100
-		dw $0100
-		dw $0100
-		dw $0100
+		dw $0080
+		dw $0080
+		dw $0080
+		dw $0080
+		dw $0080
+		dw $0080
+		dw $0080
 		
 		
 
