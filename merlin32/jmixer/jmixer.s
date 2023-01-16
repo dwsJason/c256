@@ -152,6 +152,8 @@ MT_RUN2         ds 1
 
 		; Fixed Point Math
 		use phx/Math_def.asm
+		; FPU - which also understand fixed point
+		use phx/Math_Float_def.asm
 
 		; Interrupts
 		use phx/interrupt_def.asm
@@ -550,6 +552,123 @@ main_loop mx %00
 		jsr myPRINTAH
 		jsr myPRINTCR
 
+;------------------------------------------------------------------------------
+		do 1
+		ldx #6*2
+]loop
+		phx
+		jsr myPRINTCR
+		plx
+		phx
+		lda |numerator,x
+		jsr myPRINTAH
+		lda #'/'
+		jsr myPUTC
+		plx
+		phx
+		lda |denominator,x
+		jsr myPRINTAH
+		lda #'='
+		jsr myPUTC
+		
+		; set for fixed point and divide
+		lda #$03F3
+		sta >FP_MATH_CTRL0
+		
+		plx
+		phx
+		lda |numerator,x
+		jsr :to2012 
+		
+		lda <temp0
+		sta >FP_MATH_INPUT0_LL
+		lda <temp0+2
+		sta >FP_MATH_INPUT0_HL
+		
+		lda |denominator,x
+		jsr :to2012
+	
+		lda <temp0
+		sta >FP_MATH_INPUT1_LL
+		lda <temp0+2
+		sta >FP_MATH_INPUT1_HL
+	
+		lda >FP_MATH_OUTPUT_FIXED_LL
+		sta <temp0
+		lda >FP_MATH_OUTPUT_FIXED_HL
+		sta <temp0+2
+		
+		jsr :to88	
+		
+		lda <temp0+2
+		jsr myPRINTAH
+		lda <temp0
+		jsr myPRINTAH
+		plx
+		dex
+		dex
+		bmi :ddd
+	    jmp ]loop 
+:ddd
+	
+		
+]stop 	bra ]stop
+; input 8.8
+; output 20.12 fixed point in temp0		
+:to2012
+		stz <temp0+2
+		asl
+		rol <temp0+2		
+		asl
+		rol <temp0+2		
+		asl
+		rol <temp0+2		
+		asl
+		rol <temp0+2		
+		sta <temp0
+		rts
+
+:to88
+		lda <temp0+2
+		cmp #$8000
+		ror
+		ror <temp0
+		cmp #$8000
+		ror
+		ror <temp0
+		cmp #$8000
+		ror
+		ror <temp0
+		cmp #$8000
+		ror
+		ror <temp0
+		sta <temp0+2
+		rts
+		
+; 8.8 numbers		
+numerator
+		dw $0040
+		dw $0080
+		dw $0100
+		dw $0180
+		dw $0200
+		dw $0280
+		dw $0300
+				 
+denominator
+		dw $0100
+		dw $0100
+		dw $0100
+		dw $0100
+		dw $0100
+		dw $0100
+		dw $0100
+		
+		
+
+		fin
+;------------------------------------------------------------------------------
+				
 		;lda #45123
 		;jsr myPrintAI
 		;jsr myPRINTCR
