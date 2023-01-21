@@ -2543,13 +2543,31 @@ ght_table
 
 
 ;------------------------------------------------------------------------------
-;$$JGA HORRIBLE TEMP RNG
-;$$JGA FIXME
+;Cheap RNG
+;
 RANDOM mx %00
-		lda <dpJiffy
-		xba
-		eor <dpJiffy
-		rts
+
+	lda	|rcurrent
+	clc
+	adc	#$9248
+	lsr
+	bcc	:1
+	ora	#$8000
+:1	
+	lsr
+	bcc	:2
+	ora	#$8000
+:2	
+	lsr
+	bcc	:3
+	ora	#$8000
+:3	
+	sta	|rcurrent
+	rts
+
+rcurrent dw $1234
+
+
 ;------------------------------------------------------------------------------
 
 JasonTestStuff
@@ -11789,6 +11807,22 @@ yx_to_screen mx %00
 		sec
 		lda <temp1
 		sbc #$20
+
+		do 0
+		; $$JGA
+		; NOTE this RANGE Trapping is not in the original
+		; code, I added it to try and fix tunnels
+		bmi :zero
+		cmp #28
+		bcc :in_range
+		lda #27
+		bra :in_range
+:zero
+		lda #0
+:in_range
+		; end range checking
+		fin
+
 		asl
 		asl
 		asl
@@ -11873,8 +11907,8 @@ check_slow mx %00
 	    jsr yx_to_color_addy
 ;205d  7e        ld      a,(hl)		; load A with the color of the ghost's location
 	    ;lda |0,y
-		sta <temp0
-		lda (temp0)
+	    sta <temp0
+	    lda (temp0)
 	    and #$FF
 ;205e  fe1b      cp      #1b		; == #1b ? (code for no change of direction, eg above the ghost home in pac-man)
  ;           cmp #$1B
