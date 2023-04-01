@@ -1157,6 +1157,11 @@ SCR_OFFSET_Y equ {{{600-{256*2}}/2}+16}
 	rep #$30
 
 ;
+; 	LED Light Show for the U/U+
+;
+	jsr LightShow
+
+;
 ; Restore the temp variables, that might have been stomped on, that
 ; the foreground tasks might be using
 ;
@@ -17547,6 +17552,142 @@ getparity8 mx %10
 ]var = ]var+1
 			--^
 
+
+;------------------------------------------------------------------------------
+;
+; Do an LED Light Show on the case of the U/U+
+;
+;       	   9       0
+;       	   8       1
+;       	   7       2
+;       	    6 5 4 3
+;   C   2   5   6    X
+;    28  26  24       10
+;  29  27  25  23   11
+;
+;
+
+LEDCOLORS = $AF4400
+
+sled mac
+     sta |LEDCOLORS+{]1*4}
+     sty |LEDCOLORS+{]1*4}+2
+     <<<
+
+dim mac
+    tax
+    tya
+    lsr
+    lsr
+    lsr
+    lsr
+    and #$0F0F
+    tay
+    txa
+    lsr
+    lsr
+    lsr
+    lsr
+    and #$0F0F
+    <<<
+
+LightShow mx %00
+	phkb ^GRPH_LUT0_PTR
+	plb
+	phd
+	lda #allsprite
+	tcd
+
+	lda <{redghostcolor-allsprite}
+	asl
+	asl
+	asl
+	asl
+	tax
+	lda >color_table+14,x
+	tay
+	lda >color_table+12,x
+
+	dim
+	sled 29
+	sled 28
+	sled 27
+	sled 26
+
+	lda <{pinkghostcolor-allsprite}
+	asl
+	asl
+	asl
+	asl
+	tax
+	lda >color_table+14,x
+	tay
+	lda >color_table+12,x
+
+	dim
+	sled 24
+	sled 23
+	sled 22
+	sled 21
+
+	lda <{blueghostcolor-allsprite}
+	asl
+	asl
+	asl
+	asl
+	tax
+	lda >color_table+14,x
+	tay
+	lda >color_table+12,x
+
+	dim
+	sled 19
+	sled 18
+	sled 17
+	sled 16
+
+	lda <{orangeghostcolor-allsprite}
+	asl
+	asl
+	asl
+	asl
+	tax
+	lda >color_table+14,x
+	;lsr
+	;lsr
+	;and #$3F3F
+	tay
+	lda >color_table+12,x
+	lsr
+	lsr
+	and #$FF00
+
+	dim
+	sled 14
+	sled 13
+	sled 12
+	sled 11
+
+	lda <{pacmancolor-allsprite}
+	asl
+	asl
+	asl
+	asl
+	tax
+	lda >color_table+14,x
+	tay
+	lda >color_table+12,x
+
+	dim
+	sled 0
+	sled 2
+	sled 4
+	sled 6
+	sled 8
+
+	pld
+	plb
+	rts
 
 ;------------------------------------------------------------------------------
 
