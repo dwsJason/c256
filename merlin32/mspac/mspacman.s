@@ -17604,10 +17604,20 @@ LightShow mx %00
 	asl
 	asl
 	tax
+
+	lda >redghost_blue 		; if we're blue we need a different color index
+	beq :red_not_blue
+	
+	lda >color_table+10,x
+	tay
+	lda >color_table+8,x
+	bra :goredgo
+
+:red_not_blue
 	lda >color_table+14,x
 	tay
 	lda >color_table+12,x
-
+:goredgo
 	dim
 	sled 29
 	sled 28
@@ -17620,10 +17630,21 @@ LightShow mx %00
 	asl
 	asl
 	tax
+
+	lda >pinkghost_blue  	  	; if we're blue we need a different color index
+	beq :pink_not_blue
+
+	lda >color_table+10,x
+	tay
+	lda >color_table+8,x
+
+	bra :go_pink_go
+
+:pink_not_blue
 	lda >color_table+14,x
 	tay
 	lda >color_table+12,x
-
+:go_pink_go
 	dim
 	sled 24
 	sled 23
@@ -17636,10 +17657,21 @@ LightShow mx %00
 	asl
 	asl
 	tax
+
+	lda >blueghost_blue    		; a different color index when blue
+	beq :blue_not_blue
+
+	lda >color_table+10,x
+	tay
+	lda >color_table+8,x
+
+	bra :go_blue_go
+
+:blue_not_blue
 	lda >color_table+14,x
 	tay
 	lda >color_table+12,x
-
+:go_blue_go
 	dim
 	sled 19
 	sled 18
@@ -17652,6 +17684,17 @@ LightShow mx %00
 	asl
 	asl
 	tax
+
+	lda >orangeghost_blue
+	beq :orange_not_blue
+
+	lda >color_table+10,x
+	tay
+	lda >color_table+8,x
+
+	bra :go_orange_go
+
+:orange_not_blue
 	lda >color_table+14,x
 	;lsr
 	;lsr
@@ -17661,7 +17704,7 @@ LightShow mx %00
 	lsr
 	lsr
 	and #$FF00
-
+:go_orange_go
 	dim
 	sled 14
 	sled 13
