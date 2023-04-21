@@ -8,7 +8,9 @@
 
         use Util.Macs
 		put phx\vicky_ii_def.asm
-
+		put phx\VKYII_CFP9553_BITMAP_def.asm
+		put phx\VKYII_CFP9553_TILEMAP_def.asm
+		
 		ext background_pic,mouse_tiles,mouse_map
 		ext decompress_lzsa
 
@@ -51,39 +53,10 @@ pixel_buffer = $100000	; need about 480k, put it in memory at 1.25MB mark
 PUTS = $00101C         ; Print a string to the currently selected channel
 
 ; Some HW Addresses - Defines
-BM_Enable             = $01
-
-BM_LUT0               = $00 ;
-BM_LUT1               = $02 ;
-BM_LUT2               = $04 ;
-BM_LUT3               = $06 ;
-BM_LUT4               = $08 ;
-BM_LUT5               = $0A ;
-BM_LUT6               = $0C ;
-BM_LUT7               = $0E ;
-
-BM_Collision_On       = $40 ; 
-
-; First BitMap Plane
-BM0_CONTROL_REG     = $AF0100
-BM0_START_ADDY_L    = $AF0101
-BM0_START_ADDY_M    = $AF0102
-BM0_START_ADDY_H    = $AF0103
-BM0_X_OFFSET        = $AF0104   ; Not Implemented
-BM0_Y_OFFSET        = $AF0105   ; Not Implemented
-BM0_RESERVED_6      = $AF0106
-BM0_RESERVED_7      = $AF0107
-; Second BitMap Plane
-BM1_CONTROL_REG     = $AF0108
-BM1_START_ADDY_L    = $AF0109
-BM1_START_ADDY_M    = $AF010A
-BM1_START_ADDY_H    = $AF010B
-BM1_X_OFFSET        = $AF010C   ; Not Implemented
-BM1_Y_OFFSET        = $AF010D   ; Not Implemented
-BM1_RESERVED_6      = $AF010E
-BM1_RESERVED_7      = $AF010F
 
 VRAM = $B00000
+VRAM_TILE_MAP = $B80000  ; tile map
+VRAM_TILE_CAT = $B90000  ; tile catalog
 
 ;------------------------------------------------------------------------------
 ; I like having my own Direct Page
@@ -104,7 +77,9 @@ start   ent             ; make sure start is visible outside the file
         lda #MyDP
         tcd
 
-		lda #$014C  		  	; 800x600 + Gamma + Bitmap_en
+		;lda #$014C  		  	; 800x600 + Gamma + Bitmap_en
+;		lda #$100+Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_Bitmap_En+Mstr_Ctrl_GAMMA_En+Mstr_Ctrl_TileMap_En
+		lda #$100+Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_GAMMA_En+Mstr_Ctrl_TileMap_En
 		sta >MASTER_CTRL_REG_L
 
 		lda #BM_Enable
@@ -122,9 +97,36 @@ start   ent             ; make sure start is visible outside the file
 		lda #0
 		sta >BM0_X_OFFSET
 		sta >BM0_Y_OFFSET
-		sta >BM1_CONTROL_REG
+		sta >BM1_CONTROL_REG  ; disable bitmap 1
 		sta >BORDER_X_SIZE    ; also sets the BORDER_Y_SIZE
-
+		
+		; Tile maps off
+		sta >TL0_CONTROL_REG
+		sta >TL1_CONTROL_REG
+		sta >TL2_CONTROL_REG
+		sta >TL3_CONTROL_REG
+		
+		; turn on tile map 0, and see what happens
+		lda #TILE_Enable
+		sta >TL0_CONTROL_REG
+		lda #<VRAM_TILE_MAP
+		sta >TL0_START_ADDY_L
+		lda #^{VRAM_TILE_MAP-VRAM}
+		sta >TL0_START_ADDY_H
+		
+		lda #400
+		sta >TL0_WINDOW_X_POS_L
+		lda #600
+		sta >TL0_WINDOW_Y_POS_L
+		
+		lda #VRAM_TILE_CAT
+		sta >TILESET0_ADDY_L
+		sta >TILESET1_ADDY_L
+		lda #^{VRAM_TILE_CAT-VRAM}
+		sta >TILESET0_ADDY_H
+		inc
+		sta >TILESET1_ADDY_H
+		
 ;
 ; Extract CLUT data from the title image
 ;
@@ -170,7 +172,18 @@ start   ent             ; make sure start is visible outside the file
 		pea pixel_buffer
 
 		jsl decompress_pixels
+		
+        ; Copy over the LUT
+        ldy     #GRPH_LUT1_PTR  ; dest
+        ldx     #pal_buffer  	; src
+        lda     #1024-1			; length
+        mvn     ^pal_buffer,^GRPH_LUT0_PTR    ; src,dest
 
+		phk
+		plb
+
+
+		; copy to VRAM
 ]count = 0
 		lup 8
 ]source = pixel_buffer+{]count*$10000}
@@ -185,90 +198,126 @@ start   ent             ; make sure start is visible outside the file
 
 		phk
 		plb
+;
+; Extract the CLUT from the tile catalog
+;
+		; source picture
+		pea ^mouse_tiles
+		pea mouse_tiles
+
+		; destination address
+		pea ^pal_buffer
+		pea pal_buffer
+
+		jsl decompress_clut
+
+		
+;
+; Extract Pixels from the tile catalog
+;
+		; source
+		pea ^mouse_tiles
+		pea mouse_tiles
+		; dest
+		pea ^pixel_buffer
+		pea pixel_buffer
+		
+		jsl decompress_pixels
+		
+		; copy to VRAM		
+]count = 0
+		lup 2
+]source = pixel_buffer+{]count*$10000}
+]dest   = VRAM_TILE_CAT+{]count*$10000}
+		lda #0
+		tax
+		tay
+		dec
+		mvn ^]source,^]dest
+]count = ]count+1
+		--^
+		
+		phk
+		plb		
+
+;
+; Decompress STM
+;		
+		; lzsa2 compressed shit
+		pea ^mouse_map
+		pea mouse_map
+		; decompress address
+		pea ^pixel_buffer
+		pea pixel_buffer
+		
+		jsl decompress_lzsa
+		
+;
+; Copy the STM data into vram
+; lives at VRAM_TILE_MAP
+;
+; just hard code this, for now, but eventually
+; make this part of the .256 picture format
+;
+; STMP seems to be using 32 bit indices into the catalog
+; we need to tone this down to 16 bit
+;		
+:pSrc = temp0
+:pDst = temp1
+:width = temp2
+:height = temp2+2
+:count = temp3
+			
+	lda #<pixel_buffer
+	sta <:pSrc
+	lda #^pixel_buffer+2
+	sta <:pSrc+2
+	
+	lda #<VRAM_TILE_MAP
+	sta <:pDst
+	lda #^VRAM_TILE_MAP
+	sta <:pDst+2
+	
+	jsr :read16	 ; ST
+	jsr :read16  ; MP
+	
+	; fetch width, height
+	jsr :read16
+	sta <:width
+	sta >TL0_TOTAL_X_SIZE_L
+	jsr :read16
+	sta <:height
+	sta >TL0_TOTAL_Y_SIZE_L
+]outloop
+	lda <:width
+	sta <:count
+]line_loop	
+	jsr :read16
+	ora #$0800  ; LUT1
+	jsr :write16
+	jsr :read16 ; discard
+	
+	dec <:count
+	bne ]line_loop
+	
+	dec <:height
+	bne ]outloop
 
 :stop   bra :stop
 
+:read16
+	lda [:pSrc]
+	inc <:pSrc
+	inc <:pSrc
+	rts
+:write16
+	sta [:pDst]
+	inc <:pDst
+	inc <:pDst
+	rts
+
 
 ;-------------------------------------------------------------------------------
-
-
-        ; Set Background Color
-        lda     #$00FF
-        stal    $AF0008 ; back
-        stal    $AF0005 ; border
-        lda     #$0000
-        stal    $AF000A ; back
-        stal    $AF0007 ; border       
-
-
-        ; graphics + bitmap on
-        lda     #$C     ; graph + bitmap
-        stal    $AF0000
-
-;        lda     #$00FF  ; blue
-;        lda     #$FF00  ; green
-		lda		#0
-        stal    $AF2004
-        lda     #$00FF ; red
-;        lda     #$0000
-        stal    $AF2006
-
-        ; Clear 4 Palettes worth of colors
-        ldy     #<$AF2004  ; Destination
-        ldx     #<$AF2000
-        lda     #{1023*4}-1
-        ;mvn     ^$AF2000,^$AF2004    ; src,dest
-
-        phk
-        plb
-
-        ; no border
-        lda     #0
-        stal    $AF0004  ; border control
-
-        ; bitmap on
-        lda     #1
-        stal    $AF0140
-        ; bitmap at address 0 (0xB00000)
-        lda     #0
-        stal    $AF0142
-
-        lda     #640
-        stal    $AF0144
-        lda     #480
-        stal    $AF0146
-
-        ; Fill Frame Buffer with Color index 1
-        lda     #$0101
-        ldx     #0
-]lp
-        stal    $B00000,x
-        stal    $B10000,x
-        stal    $B20000,x
-        stal    $B30000,x
-        stal    $B40000,x
-        inx
-        inx
-        bne ]lp
-
-        ;ldx     #$0000 ;src
-        ;ldy     #$0002 ;dst
-        ;da     #$fffd
-        ;vn     $B0,$B0
-
-        ;lda #$ffff
-        ;mvn     $B1,$B1
-        ;lda #$ffff
-        ;mvn     $B2,$B2
-        ;lda #$ffff
-        ;mvn     $B3,$B3
-        ;lda #$ffff
-        ;mvn     $B4,$B4
-
-        phk
-        plb
-
-
 
 end
         bra     end
