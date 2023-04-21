@@ -7,6 +7,7 @@
         lnk     Main.l
 
         use Util.Macs
+		put phx\vicky_ii_def.asm
 
 		ext background_pic,mouse_tiles,mouse_map
 		ext decompress_lzsa
@@ -50,9 +51,6 @@ pixel_buffer = $100000	; need about 480k, put it in memory at 1.25MB mark
 PUTS = $00101C         ; Print a string to the currently selected channel
 
 ; Some HW Addresses - Defines
-MASTER_CTRL_REG_L	    = $AF0000
-GRPH_LUT0_PTR		    = $AF2000
-
 BM_Enable             = $01
 
 BM_LUT0               = $00 ;
@@ -84,11 +82,6 @@ BM1_X_OFFSET        = $AF010C   ; Not Implemented
 BM1_Y_OFFSET        = $AF010D   ; Not Implemented
 BM1_RESERVED_6      = $AF010E
 BM1_RESERVED_7      = $AF010F
-
-BACKGROUND_COLOR_B      = $AF000D ; When in Graphic Mode, if a pixel is "0" then the Background pixel is chosen
-BACKGROUND_COLOR_G      = $AF000E
-BACKGROUND_COLOR_R      = $AF000F ;
-
 
 VRAM = $B00000
 
@@ -130,6 +123,7 @@ start   ent             ; make sure start is visible outside the file
 		sta >BM0_X_OFFSET
 		sta >BM0_Y_OFFSET
 		sta >BM1_CONTROL_REG
+		sta >BORDER_X_SIZE    ; also sets the BORDER_Y_SIZE
 
 ;
 ; Extract CLUT data from the title image
