@@ -43,6 +43,13 @@ temp5          = 46
 temp6		   = 50
 temp7          = 54
 			  
+
+MOUSE_PTR        = $0000E0
+MOUSE_POS_X_LO   = $0000E1
+MOUSE_POS_X_HI   = $0000E2
+MOUSE_POS_Y_LO   = $0000E3
+MOUSE_POS_Y_HI   = $0000E4
+
 ;
 ; Decompress to this address
 ;
@@ -78,26 +85,26 @@ start   ent             ; make sure start is visible outside the file
         tcd
 
 		;lda #$014C  		  	; 800x600 + Gamma + Bitmap_en
-;		lda #$100+Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_Bitmap_En+Mstr_Ctrl_GAMMA_En+Mstr_Ctrl_TileMap_En
-		lda #$100+Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_GAMMA_En+Mstr_Ctrl_TileMap_En
+		lda #$100+Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_Bitmap_En+Mstr_Ctrl_GAMMA_En+Mstr_Ctrl_TileMap_En
+;		lda #$100+Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_GAMMA_En+Mstr_Ctrl_TileMap_En
 		sta >MASTER_CTRL_REG_L
 
 		lda #BM_Enable
-		sta >BM0_CONTROL_REG
+		sta >BM1_CONTROL_REG
 
 		lda	#VRAM
-		sta >BM0_START_ADDY_L
+		sta >BM1_START_ADDY_L
 		lda #0
 		;lda #>VRAM
-		sta >BM0_START_ADDY_M
+		sta >BM1_START_ADDY_M
 		;lda #^VRAM
 		lda #0
-		sta >BM0_START_ADDY_H
+		sta >BM1_START_ADDY_H
 
 		lda #0
-		sta >BM0_X_OFFSET
-		sta >BM0_Y_OFFSET
-		sta >BM1_CONTROL_REG  ; disable bitmap 1
+		sta >BM1_X_OFFSET
+		sta >BM1_Y_OFFSET
+		sta >BM0_CONTROL_REG  ; disable bitmap 1
 		sta >BORDER_X_SIZE    ; also sets the BORDER_Y_SIZE
 		
 		; Tile maps off
@@ -173,11 +180,24 @@ start   ent             ; make sure start is visible outside the file
 
 		jsl decompress_pixels
 		
+;
+; Extract the CLUT from the tile catalog
+;
+		; source picture
+		pea ^mouse_tiles
+		pea mouse_tiles
+
+		; destination address
+		pea ^pal_buffer
+		pea pal_buffer
+
+		jsl decompress_clut
+		
         ; Copy over the LUT
         ldy     #GRPH_LUT1_PTR  ; dest
         ldx     #pal_buffer  	; src
         lda     #1024-1			; length
-        mvn     ^pal_buffer,^GRPH_LUT0_PTR    ; src,dest
+        mvn     ^pal_buffer,^GRPH_LUT1_PTR    ; src,dest
 
 		phk
 		plb
@@ -198,18 +218,6 @@ start   ent             ; make sure start is visible outside the file
 
 		phk
 		plb
-;
-; Extract the CLUT from the tile catalog
-;
-		; source picture
-		pea ^mouse_tiles
-		pea mouse_tiles
-
-		; destination address
-		pea ^pal_buffer
-		pea pal_buffer
-
-		jsl decompress_clut
 
 		
 ;
@@ -244,13 +252,13 @@ start   ent             ; make sure start is visible outside the file
 ; Decompress STM
 ;		
 		; lzsa2 compressed shit
-		pea ^mouse_map
-		pea mouse_map
-		; decompress address
-		pea ^pixel_buffer
-		pea pixel_buffer
-		
-		jsl decompress_lzsa
+;		pea ^mouse_map
+;		pea mouse_map
+;		; decompress address
+;		pea ^pixel_buffer
+;		pea pixel_buffer
+;		
+;		jsl decompress_lzsa
 		
 ;
 ; Copy the STM data into vram
@@ -268,9 +276,9 @@ start   ent             ; make sure start is visible outside the file
 :height = temp2+2
 :count = temp3
 			
-	lda #<pixel_buffer
+	lda #<mouse_map
 	sta <:pSrc
-	lda #^pixel_buffer+2
+	lda #^mouse_map+2
 	sta <:pSrc+2
 	
 	lda #<VRAM_TILE_MAP
@@ -303,7 +311,7 @@ start   ent             ; make sure start is visible outside the file
 	dec <:height
 	bne ]outloop
 
-:stop   bra :stop
+	bra :continue
 
 :read16
 	lda [:pSrc]
@@ -316,6 +324,21 @@ start   ent             ; make sure start is visible outside the file
 	inc <:pDst
 	rts
 
+:continue
+
+	lda #0
+	sta >MOUSE_PTR_CTRL_REG_L	
+
+	sec
+	lda #800
+	sbc >MOUSE_PTR_X_POS_L
+	sta >TL0_WINDOW_X_POS_L
+	sec
+	lda #600
+	sbc >MOUSE_PTR_Y_POS_L
+	sta >TL0_WINDOW_Y_POS_L
+	
+	bra :continue
 
 ;-------------------------------------------------------------------------------
 

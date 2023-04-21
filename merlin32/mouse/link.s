@@ -61,6 +61,15 @@
         lna     mouse.s16       ; Load Name ('bitmap.s16') 
         sna     data0           ; Segment Name ('data0')
 
+; Segment 6
+
+        asm     data1.s         ; sourcefile
+        ds      0               ; extra 0's to add to the segment
+        knd     $0001           ; Type and Attr ($00=Static,$01=Data)
+        ali     none            ; Boundary Alignment
+        lna     mouse.s16       ; Load Name ('bitmap.s16') 
+        sna     data1           ; Segment Name ('data0')
+				
 
  
 
