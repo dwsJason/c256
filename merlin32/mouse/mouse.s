@@ -252,13 +252,13 @@ start   ent             ; make sure start is visible outside the file
 ; Decompress STM
 ;		
 		; lzsa2 compressed shit
-;		pea ^mouse_map
-;		pea mouse_map
+		pea ^mouse_map
+		pea mouse_map
 ;		; decompress address
-;		pea ^pixel_buffer
-;		pea pixel_buffer
+		pea ^pixel_buffer
+		pea pixel_buffer
 ;		
-;		jsl decompress_lzsa
+		jsl decompress_lzsa
 		
 ;
 ; Copy the STM data into vram
@@ -276,9 +276,9 @@ start   ent             ; make sure start is visible outside the file
 :height = temp2+2
 :count = temp3
 			
-	lda #<mouse_map
+	lda #<pixel_buffer
 	sta <:pSrc
-	lda #^mouse_map+2
+	lda #^pixel_buffer
 	sta <:pSrc+2
 	
 	lda #<VRAM_TILE_MAP
