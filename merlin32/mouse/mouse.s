@@ -68,6 +68,7 @@ VRAM_TILE_CAT = $B90000  ; tile catalog
 ;------------------------------------------------------------------------------
 ; I like having my own Direct Page
 MyDP = $2000
+dpJiffy       = 128
 
 start   ent             ; make sure start is visible outside the file
 		  
@@ -326,9 +327,13 @@ start   ent             ; make sure start is visible outside the file
 
 :continue
 
+	cli
 	lda #0
 	sta >MOUSE_PTR_CTRL_REG_L	
 
+;	jsr InstallJiffy
+
+:mouse_loop
 	sec
 	lda #800
 	sbc >MOUSE_PTR_X_POS_L
@@ -338,7 +343,7 @@ start   ent             ; make sure start is visible outside the file
 	sbc >MOUSE_PTR_Y_POS_L
 	sta >TL0_WINDOW_Y_POS_L
 	
-	bra :continue
+	bra :mouse_loop
 
 ;-------------------------------------------------------------------------------
 
