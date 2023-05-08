@@ -106,15 +106,14 @@ XRES = 800
 YRES = 600
 
 	do XRES=640
-VIDEO_MODE = $004F
+VIDEO_MODE = $007F
 	else
-VIDEO_MODE = $014F
+VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
 	fin
 
 
 
 start   ent             ; make sure start is visible outside the file
-		sei 			; try to make things more stable, when iterating
         clc
         xce
         rep $31         ; long MX, and CLC
@@ -222,6 +221,7 @@ start   ent             ; make sure start is visible outside the file
 		;lda #BM_Enable
 		lda #0
 		sta >BM0_CONTROL_REG
+		sta >BM1_CONTROL_REG
 
 		lda #<VICKY_DISPLAY_BUFFER
 		sta >BM0_START_ADDY_L
@@ -239,14 +239,31 @@ start   ent             ; make sure start is visible outside the file
 		sta >MOUSE_PTR_CTRL_REG_L
 
 		rep #$31
+;------------------------------------------------------------------------------
+; 		Disable Sprites
+
+		sec
+		lda #0
+		ldx #8*63  ; sprite offset
+]lp		sta >SP00_CONTROL_REG,x
+		txa
+		sbc #8
+		tax
+		bpl ]lp
+
+;------------------------------------------------------------------------------
 
 		jsr InitTextMode
 
 		lda #0
 		sta >BM0_X_OFFSET
 		sta >BM0_Y_OFFSET
-		sta >BM1_CONTROL_REG
-
+		sta >BM1_X_OFFSET
+		sta >BM1_Y_OFFSET
+		sta >TL0_CONTROL_REG
+		sta >TL1_CONTROL_REG
+		sta >TL2_CONTROL_REG
+		sta >TL3_CONTROL_REG
 
 ;
 ; Extract CLUT data from the title image
