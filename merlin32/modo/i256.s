@@ -436,3 +436,14 @@ c256ParseHeader mx %00
 
 ;------------------------------------------------------------------------------
 
+InvalidHeader asc 'Invalid C256 Header Block'
+        db 13,0
+
+MissingClut asc 'No CLUT found'
+        db 13,0
+
+MissingPixl asc 'No PIXL found'
+        db 13,0
+
+;------------------------------------------------------------------------------
+
