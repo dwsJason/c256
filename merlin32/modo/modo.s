@@ -22,6 +22,7 @@
 		; Kernel
 		use phx/page_00_inc.asm
 		use phx/kernel_inc.asm
+		use phx/rtc_def.asm
 
 		; Fixed Point Math
 		use phx/Math_def.asm
@@ -42,7 +43,7 @@
 		ext MIXER_INIT
 		ext MIXER_PUMP
 
-		ext shaston
+		ext FontInit
 
         mx %00
 
@@ -69,7 +70,7 @@ AUDIO_RAM = $E00000
 ;------------------------------------------------------------------------------
 ; I like having my own Direct Page
 MyDP  = $2000
-MySTACK = $EFFF
+MySTACK = STACK_END ;$FEFF $EFFF
 
 ;------------------------------------------------------------------------------
 ; Direct Page Equates
@@ -113,6 +114,7 @@ VIDEO_MODE = $014F
 
 
 start   ent             ; make sure start is visible outside the file
+		sei 			; try to make things more stable, when iterating
         clc
         xce
         rep $31         ; long MX, and CLC
@@ -123,6 +125,63 @@ start   ent             ; make sure start is visible outside the file
         lda #MySTACK
         tcs
 
+		phk
+		plb
+
+		do 0
+		sep #$30
+        ; Setup the Interrupt Controller
+        ; For Now all Interrupt are Falling Edge Detection (IRQ)
+        LDA #$FF
+        STA >INT_EDGE_REG0
+        STA >INT_EDGE_REG1
+        STA >INT_EDGE_REG2
+        STA >INT_EDGE_REG3
+        ; Mask all Interrupt @ This Point
+        STA >INT_MASK_REG0
+        STA >INT_MASK_REG1
+        STA >INT_MASK_REG2
+        STA >INT_MASK_REG3
+
+		;JSL INITRTC
+;INITRTC         PHA
+;                PHP
+;                setas				        ; Just make sure we are in 8bit mode
+
+                LDA #0
+                STA >RTC_RATES    ; Set watch dog timer and periodic interrupt rates to 0
+                STA >RTC_ENABLE   ; Disable all the alarms and interrupts
+                
+                LDA >RTC_CTRL      ; Make sure the RTC will continue to tick in battery mode
+                ORA #%00000100
+                STA >RTC_CTRL
+
+;                PLP
+;                PLA
+;                RTL
+
+
+		rep #$30
+		fin
+
+
+
+		lda #0
+		tcd
+		;jsl $10AC ;INITCHLUT	    
+		;jsl $10B0 ;INITSUPERIO	    
+		;jsl $10B4 ;INITKEYBOARD    
+		;jsl $10B8 ;INITMOUSE       
+		;jsl $10BC ;INITCURSOR      
+		;jsl $10C0 ;INITFONTSET     
+		;jsl $10C4 ;INITGAMMATABLE  
+		;jsl $10C8 ;INITALLLUT      
+		;jsl $10CC ;INITVKYTXTMODE  
+		;jsl $10D0 ;INITVKYGRPMODE  
+		;jsl $10DC ;INITCODEC
+
+		stz <MOUSE_PTR
+
         lda #MyDP
         tcd
 
@@ -130,45 +189,22 @@ start   ent             ; make sure start is visible outside the file
 		plb
 
 ;------------------------------------------------------------------------------
-
-		stz |$00E0 ; this is fix the mouse MOUSE_IDX or MOUSE_PTR, depending kernel version
-
+; So the user doesn't have to press a key to make the mouse work
+;		stz |MOUSE_PTR ; this is fix the mouse MOUSE_IDX or MOUSE_PTR, depending kernel version
 ;------------------------------------------------------------------------------
 
-		; copy up a font
+		jsl FontInit
 
 		phk
 		plb
-		lda #0
-		ldx #0
-]clear  sta >$AF8000,x		; clear font
-		inx
-		inx
-		cpx #$1000
-		bcc ]clear
-
-		ldx #0
-]copy   ;lda >nicefont,x    ; copy up new glyphs
-		lda >shaston,x
-		sta >$AF8100,x
-		inx
-		inx
-		cpx #1152
-		bcc ]copy
-
-		; set cursor to the Apple IIgs cursor glyph
-		sep #$30
-		lda #{32+95}
-		sta >VKY_TXT_CURSOR_CHAR_REG
-		rep #$30
 
 ;------------------------------------------------------------------------------
-
 ;
 ; Setup a Jiffy Timer, using Kernel Jump Table
 ; Trying to be friendly, in case we can friendly exit
 ;
 		jsr InstallJiffy
+		jsr	WaitVBL
 
 ;------------------------------------------------------------------------------
 ;
@@ -176,7 +212,6 @@ start   ent             ; make sure start is visible outside the file
 ;
 ;------------------------------------------------------------------------------
 
-		jsr		WaitVBL
 
 		lda #VIDEO_MODE  		  	; 800x600 + Gamma + Bitmap_en
 		sep #$30
@@ -343,7 +378,7 @@ start   ent             ; make sure start is visible outside the file
 
 ]pump
 		jsr WaitVBL
-		jsr MIXER_PUMP
+;		jsr MIXER_PUMP
 		bra ]pump
 
 
@@ -610,441 +645,6 @@ myLOCATE mx %00
 		pld
 		rts 
 
-;------------------------------------------------------------------------------
-; void decompress_pixels(void* pDestBuffer, void* pC256Bitmap
-;
-; pea ^p256Image
-; pea #p256Image
-;
-; pea ^pDestBuffer
-; pea pDestBuffer
-;
-; jsl decompress_pixels
-;
-decompress_pixels mx %00
-:pImage = 10
-:pDest  = 6
-:blobCount = temp5
-:zpDest    = temp6
-:size      = temp7
-
-		phd 			; preserver DP
-
-		tsc
-
-		sec
-		sbc	#256 		; A temporary DP on the stack
-						; which is fine, as long as I stick
-						; to the bottom, and don't call too deep
-
-		tcd
-
-		; Destination Buffer Address
-		; copy to Direct Page
-		lda :pDest,s
-		sta <:zpDest
-		lda :pDest+2,s
-		sta <:zpDest+2
-
-		; Parse Header, Init Chunk Crawler
-		lda	:pImage+2,s
-		tax
-		lda :pImage,s
-		jsr	c256Init
-		bcs :error
-
-		ldy #8
-		lda [pPIXL],y
-		sta <:blobCount
-
-		; pPIXL, is the pointer to the PIXL structure
-		lda <pPIXL
-		adc #10
-		sta <pPIXL
-		lda <pPIXL+2
-		adc #0
-		sta <pPIXL+2
-]loop
-		lda [pPIXL]
-		sta <:size	  ; decompressed size
-		bne :compressed
-
-		; Raw Data copy of 65636 bytes
-		ldy #0
-]rawlp
-		lda [pPIXL],y
-		sta [:zpDest],y
-		iny
-		iny
-		bne ]rawlp
-
-		inc :zpDest+2
-		inc <pPIXL+2
-
-		bra :blob
-
-:compressed
-		jsr :incpPIXL
-
-		pei <pPIXL+2
-		pei <pPIXL
-		pei <:zpDest+2
-		pei <:zpDest
-		jsl decompress_lzsa
-:blob
-		dec <:blobCount
-		beq :done
-
-		inc <:zpDest+2
-
-		clc
-		lda <pPIXL
-		adc	<:size
-		sta <pPIXL
-		lda <pPIXL+2
-		adc #0
-		sta <pPIXL+2
-		bra ]loop
-
-:done
-:error
-	; Copy the Return address + D
-		lda 1,s
-		sta 9,s
-		lda 3,s
-		sta 11,s
-		lda 4,s
-		sta 12,s
-
-		tsc 		   	; pop args off stack
-		sec
-		sbc #-8
-		tcs
-
-		pld 			; restore DP
-		rtl
-:incpPIXL
-		clc
-		lda <pPIXL
-		adc #2
-		sta <pPIXL
-		lda <pPIXL+2
-		adc #0
-		sta <pPIXL+2
-		rts
-
-
-;------------------------------------------------------------------------------
-; void decompress_clut(void* pDestBuffer, void* pC256Bitmap
-;
-; pea ^p256Image
-; pea #p256Image
-;
-; pea ^pDestBuffer
-; pea pDestBuffer
-;
-; jsl decompress_clut
-;
-decompress_clut mx %00
-:pImage = 10
-:pDest  = 6
-:colorCount = temp5
-:zpDest    = temp6
-:size      = temp7
-
-		phd 			; preserver DP
-
-		tsc
-
-		sec
-		sbc	#256 		; A temporary DP on the stack
-						; which is fine, as long as I stick
-						; to the bottom, and don't call too deep
-
-		tcd
-
-		; Destination Buffer Address
-		; copy to Direct Page
-		lda :pDest,s
-		sta <:zpDest
-		lda :pDest+2,s
-		sta <:zpDest+2
-
-		; Parse Header, Init Chunk Crawler
-		lda	:pImage+2,s
-		tax
-		lda :pImage,s
-		jsr	c256Init
-		bcs :error
-
-		ldy #8
-		lda [pCLUT],y
-		sta <:colorCount
-
-		; pCLUT, is the pointer to the CLUT structure
-		lda <pCLUT
-		adc #10
-		sta <pCLUT
-		lda <pCLUT+2
-		adc #0
-		sta <pCLUT+2
-
-		lda <:colorCount
-		bmi :compressed
-
-		; raw
-		asl
-		asl
-		;sta <:size  ; size of raw data in bytes
-		tay
-		beq :done
-		dey
-		dey
-]rawlp
-		lda [pCLUT],y
-		sta [:zpDest],y
-		dey
-		dey
-		bpl ]rawlp
-		bra :done
-
-:compressed
-
-		pei <pCLUT+2
-		pei <pCLUT
-		pei <:zpDest+2
-		pei <:zpDest
-		jsl decompress_lzsa
-
-:done
-:error
-
-	; Copy the Return address + D
-		lda 1,s
-		sta 9,s
-		lda 3,s
-		sta 11,s
-		lda 4,s
-		sta 12,s
-
-		tsc 		   	; pop args off stack
-		sec
-		sbc #-8
-		tcs
-
-		pld 			; restore DP
-
-		rtl
-
-;------------------------------------------------------------------------------
-;
-;  FindChunk
-;       Inputs:  pData            (pointer to first chunk in the file)
-;                i32EOF_Address   (first RAM address past the end of the file)
-;
-;        AX     'ABCD' - Chunk Name to Find
-;
-;  Return:  AX   - Pointer to the Chunk
-;
-FindChunk mx    %00
-
-:pWork  = temp0
-:pName  = temp1
-:EOF    = i32EOF_Address
-:size   = temp2
-
-        sta <:pName
-        stx <:pName+2
-
-        lda <pData
-        sta <:pWork
-        lda <pData+2
-        sta <:pWork+2
-
-;  while :pWork < :EOF
-]loop
-        lda <:pWork+2
-        cmp <:EOF+2
-        bcc :continue  ; blt
-        bne :nullptr   ; bgt
-        lda <:pWork
-        cmp <:EOF
-        bcs :nullptr   ; bge
-:continue
-        lda [<:pWork]
-        cmp <:pName
-        bne :nextChunk
-        ldy #2
-        lda [<:pWork],y
-        cmp <:pName+2
-        bne :nextChunk
-
-        ; Match found, return with the address
-        lda <:pWork
-        ldx <:pWork+2
-        rts
-
-:nextChunk
-        ldy #4
-        lda [<:pWork],y
-        sta <:size
-        iny
-        iny
-        lda [<:pWork],y
-        sta <:size+2
-
-        ; Move pWork to the next Chunk
-        clc
-        lda <:pWork
-        adc <:size
-        sta <:pWork
-        lda <:pWork+2
-        adc <:size+2
-        sta <:pWork+2
-        
-        bra ]loop
-
-:nullptr
-        ; Return nullptr
-        lda #0
-        tax
-
-        rts
-
-;-------------------------------------------------------------------------------
-;
-;  AX = Pointer to the compressed C256 Image file
-;
-;  For the Chunk Finder, alignment doesn't matter
-;
-c256Init mx %00
-        sta     <pData
-        stx     <pData+2
-
-        jsr     c256ParseHeader
-        bcc     :isGood
-        ldx     #InvalidHeader
-        rts
-
-:isGood
-        ; Now pData is supposed to be pointed at the first chunk
-        ; And data should be moved out of the header and into the DP
-        lda     #'CL'
-        ldx     #'UT'
-        jsr     FindChunk
-        sta     <pCLUT
-        stx     <pCLUT+2
-
-        ora     <pCLUT+2
-        bne     :hasClut
-
-        ldx     #MissingClut
-        sec
-        rts
-
-:hasClut
-        lda     #'PI'
-        ldx     #'XL'
-        jsr     FindChunk
-        sta     <pPIXL
-        stx     <pPIXL+2
-
-        ora     pPIXL+2
-        bne     :hasPixl
-
-        ldx     #MissingPixl
-        sec
-        rts
-
-:hasPixl
-        ; c=0 everything is good
-        clc
-        rts
-
-;-------------------------------------------------------------------------------
-; Direct Page Location
-; pData should be pointing at the Header
-;
-;	char 			i,2,5,6;  // 'I','2','5','6'
-;
-;	unsigned int 	file_length;  // In bytes, including the 16 byte header
-;
-;	short			version;  // 0x0000 for now
-;	short			width;	  // In pixels
-;	short			height;	  // In pixels
-;   short           reserved;
-;
-c256ParseHeader mx %00
-
-        ; Check for 'I256'
-        lda [pData]
-        cmp #'I2'
-        bne :BadHeader
-        ldy #2
-
-        lda [pData],y
-        cmp #'56' 
-        bne :BadHeader
-        iny
-        iny
-
-        ; Copy out FileLength
-        lda [pData],y
-        sta <i32FileLength
-        iny
-        iny
-        lda [pData],y
-        sta <i32FileLength+2
-        iny
-        iny
-
-        ; Compute the end of file address
-        clc
-        lda <pData
-        adc <i32FileLength
-        sta <i32EOF_Address
-        lda pData+2
-        adc <i32FileLength+2
-        sta <i32EOF_Address+2
-        bcs :BadHeader          ; overflow on memory address
-
-
-        ; Look at the File Version
-        lda [pData],y
-        iny
-		iny
-        sta <i16Version
-		and #$FFFF
-        bne :BadHeader  ; only version zero is acceptable
-
-        ; Get the width and height
-        lda [pData],y
-        sta <i16Width
-        iny
-        iny
-        lda [pData],y
-        sta <i16Height
-        iny
-        iny
-
-        ; Reserved
-        iny
-        iny
-
-        ; c=0
-        tya
-        adc <pData
-        sta <pData
-        lda #0
-        adc <pData+2
-        sta <pData+2
-        ; c=0 mean's there's no error
-        rts
-
-:BadHeader
-        sec     ; c=1 means there's an error
-        rts
-
 
 ;------------------------------------------------------------------------------
 ;
@@ -1058,10 +658,14 @@ InstallJiffy mx %00
 		sei
 
 		lda #$4C	; JMP
+;		lda #$5C    ; JML
 		sta |VEC_INT00_SOF
 
 		lda #:JiffyTimer
 		sta |VEC_INT00_SOF+1
+
+		lda #>:JiffyTimer
+		sta |VEC_INT00_SOF+2
 
 ; Enable the SOF interrupt
 
@@ -1133,9 +737,9 @@ InstallJiffy mx %00
 ;
 WaitVBL
 		pha
-		stz <dpJiffy
-]lp
 		lda <dpJiffy
+]lp
+		cmp <dpJiffy
 		beq ]lp
 		pla
 		rts
@@ -2065,4 +1669,5 @@ mt_PeriodTable
 
 	put mixer.s
 	put colors.s
+	put i256.s
 

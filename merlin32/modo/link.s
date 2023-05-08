@@ -75,7 +75,7 @@
 
 		asm	font.s
 		ds 0
-		knd $0001
+		knd $1001
 		ali none
 		lna modo.s16
 		sna font
