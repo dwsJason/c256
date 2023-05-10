@@ -426,9 +426,6 @@ myPUTS  mx %00
         pld
         rts
 
-HelloText asc 'Hello from Merlin32!'
-        db 13,0
-
 ;------------------------------------------------------------------------------
 ;
 ; Put DP back at 0, for Kernel call
@@ -1206,7 +1203,7 @@ InitMod mx %00
 	lda [:pSamp]
 	tay
 	and #$FF
-	asl
+	asl 				; c=0
 	sta [:pVRAM]
 
 	lda <:pVRAM			; pVRAM+=2
@@ -1218,7 +1215,7 @@ InitMod mx %00
 	tya
 	xba
 	and #$FF
-	asl
+	asl 				; c=0
 	sta [:pVRAM]
 
 	lda <:pVRAM			; VRAM+=2
