@@ -7,6 +7,7 @@
         lnk     Main.l
 
         use Util.Macs
+		put macros.s
 
 ; Phoenix Machine includes - Merlin32 doesn't support nested includes
 ; (SHAME!)
@@ -1234,9 +1235,12 @@ InitMod mx %00
 	lda #0
 	adc <:pSamp+2
 	sta <:pSamp+2
-
+	dex
+	beq :wavedone
 	dex
 	bne ]waveloop
+
+:wavedone
 
 
 :skip_empty
@@ -1251,7 +1255,7 @@ InitMod mx %00
 	sta <:pInst+2
 
 	dec <:loopCount ; loop count
-	bne ]copyloop
+	bnel ]copyloop
 
 ; Restore Cursor
 

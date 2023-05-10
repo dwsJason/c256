@@ -55,8 +55,8 @@ KickVRAM2SRAM mx %00
 
 		sep #$30
 
-		lda #DMA_CTRL_Start_TRF
-		tsb |VDMA_CTRL_REG
+		lda #VDMA_CTRL_Start_TRF
+		tsb |VDMA_CONTROL_REG
 		tsb |SDMA_CTRL_REG0
 			 ; Sample code does this, with this comment, $$TODO -> change this to poll
 		nop  ; When the transfer is started the CPU will be put on Hold (RDYn)...                                         
