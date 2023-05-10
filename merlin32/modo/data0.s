@@ -9,7 +9,8 @@
 ;-------------------------------------------------------------------------------
 
 title_pic ent             ; make sure start is visible outside the file
-	putbin data\boombox0.256
+;	putbin data\boombox0.256
+		db 0
 
 
 

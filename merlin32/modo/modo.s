@@ -23,6 +23,7 @@
 		use phx/page_00_inc.asm
 		use phx/kernel_inc.asm
 		use phx/rtc_def.asm
+		use phx/timer_def.asm
 
 		; Fixed Point Math
 		use phx/Math_def.asm
@@ -49,10 +50,9 @@
 
 ;
 ; Decompress to this address
+; Temp Buffer for decompressing stuff ~512K here
 ;
-pixel_buffer = $100000	; need about 480k, put it in memory at 1.25MB mark
-						; try to leave room for kernel on a U
-
+pixel_buffer = $080000	; need about 480k, put it in memory at 512K mark
 
 VICKY_DISPLAY_BUFFER  = $100000
 ; 512k for my copy
@@ -99,14 +99,17 @@ temp5          = 46
 temp6		   = 50
 temp7          = 54
 
-dpJiffy       = 128
+dpJiffy        = 128
+dpAudioJiffy   = 130
+
+SongIsPlaying = 150
 
 
 XRES = 800
 YRES = 600
 
 	do XRES=640
-VIDEO_MODE = $007F
+VIDEO_MODE = $007F  ; -- all the things enabled, 640x480
 	else
 VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
 	fin
@@ -117,6 +120,13 @@ start   ent             ; make sure start is visible outside the file
         clc
         xce
         rep $31         ; long MX, and CLC
+
+		; I added this here, to allow iteration to be more stable
+		; so when cli happens, we can avoid crashing
+		lda #$6B  ; RTL
+		sta >VEC_INT00_SOF
+		sta >VEC_INT02_TMR0
+
 
 ; Default Stack is on top of System Multiply Registers
 ; So move the stack before proceeding
@@ -184,6 +194,8 @@ start   ent             ; make sure start is visible outside the file
         lda #MyDP
         tcd
 
+		stz <SongIsPlaying
+
 		phk
 		plb
 
@@ -202,7 +214,9 @@ start   ent             ; make sure start is visible outside the file
 ; Setup a Jiffy Timer, using Kernel Jump Table
 ; Trying to be friendly, in case we can friendly exit
 ;
-		jsr InstallJiffy
+		jsr InstallJiffy		; SOF timer
+		jsr InstallAudioJiffy   ; 50hz timer
+
 		jsr	WaitVBL
 
 ;------------------------------------------------------------------------------
@@ -397,124 +411,6 @@ start   ent             ; make sure start is visible outside the file
 		jsr WaitVBL
 ;		jsr MIXER_PUMP
 		bra ]pump
-
-
-
-;-------------------------------------------------------------------------------
-; Kick2DVDMA
-;
-; PushL Source VRAM Address
-; PushL Dest VRAM Address
-; PushW width  in Pixels
-; PushW Height in Pixels
-;
-; PushW Source Stride, in pixels
-; PushW Dest Stride
-;
-; jsr Kick2DVDMA
-;
-Kick2DVDMA mx %00
-
-; 1,s is the return address-1
-
-]dest_stride   = 3
-]source_stride = 5
-]height_pixels = 7
-]width_pixels  = 9
-]dest_addr     = 11
-]src_addr      = 15
-
-		; Switch into the VDMA Bank
-		pea	{VDMA_CONTROL_REG}/256
-		plb
-		plb
-
-		do 1
-		lda ]src_addr,s
-		sta |VDMA_SRC_ADDY_L
-		lda ]src_addr+1,s
-		sta |VDMA_SRC_ADDY_L+1
-
-		lda ]dest_addr,s
-		sta |VDMA_DST_ADDY_L
-		lda ]dest_addr+1,s
-		sta |VDMA_DST_ADDY_L+1
-
-		lda ]width_pixels,s
-		sta |VDMA_X_SIZE_L
-		lda ]height_pixels,s
-		sta |VDMA_Y_SIZE_L
-
-		lda ]source_stride,s
-		sta |VDMA_SRC_STRIDE_L
-		lda ]dest_stride,s
-		sta |VDMA_DST_STRIDE_L
-		sep #$20
-
-		else
-		sep #$20
-		lda ]src_addr,s
-		sta |VDMA_SRC_ADDY_L
-		lda ]src_addr+1,s
-		sta |VDMA_SRC_ADDY_L+1
-		lda ]src-addr+2.s
-		sta |VDMA_SRC_ADDY_L+2
-
-		lda ]dest_addr,s
-		sta |VDMA_DST_ADDY_L
-		lda ]dest_addr+1,s
-		sta |VDMA_DST_ADDY_L+1
-		lda ]dest_addr+2,s
-		sta |VDMA_DST_ADDY_L+2
-
-		lda ]width_pixels,s
-		sta |VDMA_X_SIZE_L
-		lda ]width_pixels+1,s
-		sta |VDMA_X_SIZE_L+1
-		 
-		lda ]height_pixels,s
-		sta |VDMA_Y_SIZE_L
-		lda ]height_pixels+1,s
-		sta ]VDMA_Y_SIZE_L+1
-
-		lda ]source_stride,s
-		sta |VDMA_SRC_STRIDE_L
-		lda ]source_stride+1,s
-		sta ]VDMA_SRC_STRIDE_L+1
-
-		lda ]dest_stride,s
-		sta |VDMA_DST_STRIDE_L
-		lda ]dest_stride+1,s
-		sta |VDMA_DST_STRIDE_L+1
-		fin
-
-		stz |VDMA_CONTROL_REG  ; Clear the TRF
-
-		; Begin 2D DMA
-		lda #VDMA_CTRL_Enable+VDMA_CTRL_1D_2D+VDMA_CTRL_Start_TRF
-		sta |VDMA_CONTROL_REG
-
-		;rep #$31	; mxc=000
-
-		; Wait for Completion
-]wait_dma
-		lda |VDMA_STATUS_REG
-		bmi	]wait_dma
-
-		rep #$31	; mxc=000
-
-		; fix up stack
-		lda 1,s
-		sta 17,s
-
-		tsc
-		adc #16
-		tcs
-
-		; Back to our program bank
-		phk
-		plb
-		rts
 
 
 ;------------------------------------------------------------------------------
@@ -738,6 +634,117 @@ InstallJiffy mx %00
 ;;:hook
 ;;		jml $000000
 
+
+;------------------------------------------------------------------------------
+;
+; Audio Jiffy Timer Installer, Enabler
+; Depends on the Kernel Interrupt Handler
+;
+; Currently hijack timer 0, but could work on timer 1
+;
+;C pseudo code for counting up
+;TIMER1_CHARGE_L = 0x00;
+;TIMER1_CHARGE_M = 0x00;
+;TIMER1_CHARGE_H = 0x00;
+;TIMER1_CMP_L = clockValue & 0xFF;
+;TIMER1_CMP_M = (clockValue >> 8) & 0xFF;
+;TIMER1_CMP_H = (clockValue >> 16) & 0xFF;
+;
+;TIMER1_CMP_REG = TMR_CMP_RECLR;
+;TIMER1_CTRL_REG = TMR_EN | TMR_UPDWN | TMR_SCLR;
+;
+;C pseudo code for counting down
+;TIMER1_CHARGE_L = (clockValue >> 0) & 0xFF;
+;TIMER1_CHARGE_M = (clockValue >> 8) & 0xFF;
+;TIMER1_CHARGE_H = (clockValue >> 16) & 0xFF;
+;TIMER1_CMP_L = 0x00;
+;TIMER1_CMP_M = 0x00;
+;TIMER1_CMP_H = 0x00;
+;
+;TIMER1_CMP_REG = TMR_CMP_RELOAD;
+;TIMER1_CTRL_REG = TMR_EN | TMR_SLOAD;
+;
+InstallAudioJiffy mx %00
+
+; Trying for 50 hz here
+
+:RATE equ {14318180/50}
+
+; Fuck over the vector
+
+		sei
+
+		lda #$4C	; JMP
+		sta |VEC_INT02_TMR0
+
+		lda #:AudioJiffyTimer
+		sta |VEC_INT02_TMR0+1
+
+		; Configuring for count up
+		sep #$30
+
+		stz |TIMER0_CHARGE_L
+		stz |TIMER0_CHARGE_M
+		stz |TIMER0_CHARGE_H
+
+		lda #<:RATE
+		sta |TIMER0_CMP_L
+		lda #>:RATE
+		sta |TIMER0_CMP_M
+		lda #^:RATE
+		sta |TIMER0_CMP_H
+
+		lda #TMR0_CMP_RECLR
+		sta |TIMER0_CMP_REG
+		lda #TMR0_EN+TMR0_UPDWN+TMR0_SCLR
+		sta |TIMER0_CTRL_REG
+
+; Enable the TIME0 interrupt
+
+		lda	#FNX0_INT02_TMR0
+		trb |INT_MASK_REG0
+
+		rep #$35  ;mx-i-c = 0
+
+		rts
+
+:AudioJiffyTimer
+		phb
+		phd
+		pha
+		phx
+		phy
+		php
+
+		phk
+		plb
+		rep #$30
+		lda #MyDP
+		tcd
+		inc <dpAudioJiffy
+
+		jsr AudioTick
+
+
+		plp
+		ply
+		plx
+		pla
+		pld
+		plb
+		rtl
+;------------------------------------------------------------------------------
+
+AudioTick mx %00
+
+		lda <SongIsPlaying
+		beq :notPlaying
+
+:notPlaying
+
+		; Pump the mixer
+
+		rts
 
 ;------------------------------------------------------------------------------
 ; WaitVBL
@@ -1678,4 +1685,5 @@ mt_PeriodTable
 	put mixer.s
 	put colors.s
 	put i256.s
+	put dma.s
 
