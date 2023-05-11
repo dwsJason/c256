@@ -101,6 +101,8 @@ temp5          = 46
 temp6		   = 50
 temp7          = 54
 
+last_row       = 100
+
 dpJiffy        = 128
 dpAudioJiffy   = 130
 
@@ -113,7 +115,7 @@ mod_p_pattern_dir     = 160		; pointer to directory of patterns
 mod_current_row       = 164     ; current row #
 mod_pattern_index     = 166 	; current index into pattern directory
 mod_num_patterns      = 168     ; total number of patterns
-
+mod_jiffy             = 170     ; mod player jiffy
 
 
 XRES = 800
@@ -371,7 +373,7 @@ start   ent             ; make sure start is visible outside the file
 		pea toms_diner
 		jsl	ModInit
 
-		jsl MIXER_INIT
+;		jsl MIXER_INIT
 
 ;-------------------------------------------------------------
 ;
@@ -417,10 +419,58 @@ start   ent             ; make sure start is visible outside the file
 ;
 ;		bra	dump
 
-
+		jsr ModPlay
 ]pump
 		jsr WaitVBL
 ;		jsr MIXER_PUMP
+		sei
+; grab information, I need so I can update the tracker pattern text
+		pei mod_p_current_pattern
+		pei mod_p_current_pattern+2
+		pei mod_current_row
+		pei mod_pattern_index
+		cli
+; update the tracker pattern text
+
+		ldy #43
+		ldx #0
+		jsr myLOCATE
+
+		pla ; pattern_index -- use to highlight the "block"
+		pla ; current_row   - would be nice for this to be illustrated, to the left of the notes
+		cmp <last_row
+		bne :print 			; only print if it needs it, clean up refresh
+
+		plx
+		pla
+		bra ]pump
+
+:print
+		sta <last_row
+
+		plx ; pointer to current row, of 4 commands
+		pla
+
+:pBlockAddress = 44
+
+		sta <:pBlockAddress
+		stx <:pBlockAddress+2
+
+		lda #15
+		sta <:tCount
+]lp
+		jsr PrintPatternRow
+		jsr myPRINTCR
+		clc
+		lda <:pBlockAddress
+		adc #{4*4}			; add rowsize
+		sta <:pBlockAddress
+		bne :cntu
+		inc <:pBlockAddress+2
+:cntu
+		dec <:tCount
+		bpl ]lp
+
 		bra ]pump
 
 
@@ -750,6 +800,8 @@ AudioTick mx %00
 		lda <SongIsPlaying
 		beq :notPlaying
 
+		jsr ModPlayerTick
+
 :notPlaying
 
 		; Pump the mixer
@@ -827,14 +879,81 @@ sizeof_sample      ds 0
 	dend
 
 ;------------------------------------------------------------------------------
+ModPlayerTick mx %00
+		lda <mod_jiffy
+		inc
+		cmp <mod_speed
+		bcs :next_row
+		sta <mod_jiffy
+		rts
+:next_row
+		stz <mod_jiffy
+
+		lda <mod_current_row
+		inc
+		cmp #64
+		bcs :next_pattern
+		sta <mod_current_row
+		;c=0
+		lda <mod_p_current_pattern
+		adc #4*4
+		sta <mod_p_current_pattern
+		bcc :no_carry
+		inc <mod_p_current_pattern+2
+:no_carry
+		rts
+
+:next_pattern
+		stz <mod_current_row
+
+		lda <mod_pattern_index
+		inc
+		cmp <mod_song_length
+		bcs :song_done
+		sta <mod_pattern_index
+
+		bra ModSetPatternPtr
+
+:song_done
+		stz <SongIsPlaying
+		rts
+
+
+
+;------------------------------------------------------------------------------
 ; ModPlay (play the current Mod)
 ;
 ModPlay mx %00
+; stop existing song
+	stz <SongIsPlaying
+
+; Initialize song stuff
+
 	lda #6  ; default speed
-	sta mod_speed
+	sta <mod_speed
+	stz <mod_jiffy
+
+	stz <mod_current_row
+	stz <mod_pattern_index
+	jsr ModSetPatternPtr
 
 	lda #1
-	sta SongIsPlaying
+	sta <SongIsPlaying
+	rts
+
+;------------------------------------------------------------------------------
+ModSetPatternPtr mx %00
+	ldy <mod_pattern_index
+	lda [mod_p_pattern_dir],y
+	and #$7F
+	asl
+	asl
+	tax
+	lda |mod_patterns,x
+	sta <mod_p_current_pattern
+	lda |mod_patterns+2,x
+	sta <mod_p_current_pattern+2
+
 	rts
 
 ;------------------------------------------------------------------------------
@@ -1331,7 +1450,7 @@ ModInit mx %00
 
 ; -----------------------------------------------------------------------------
 ; Print out the contents of a Pattern Block
-
+	do 0
 :pBlockAddress = 44
 
 	lda <:pPatterns
@@ -1353,6 +1472,7 @@ ModInit mx %00
 :cntu
 	dec <:tCount
 	bpl ]lp
+	fin
 
 ; -----------------------------------------------------------------------------
 
