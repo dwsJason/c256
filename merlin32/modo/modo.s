@@ -66,7 +66,8 @@ VICKY_WORK_BUFFER     = $180000
 VRAM = $B00000
 
 ; Base Address for Audio
-AUDIO_RAM = $E00000
+AUDIO_RAM = $80000
+;AUDIO_RAM = $E00000
 
 ;------------------------------------------------------------------------------
 ; I like having my own Direct Page
@@ -104,6 +105,15 @@ dpJiffy        = 128
 dpAudioJiffy   = 130
 
 SongIsPlaying = 150
+
+mod_speed             = 152     ; default speed is 6
+mod_song_length       = 154     ; length in patterns
+mod_p_current_pattern = 156     ; pointer to the current pattern
+mod_p_pattern_dir     = 160		; pointer to directory of patterns
+mod_current_row       = 164     ; current row #
+mod_pattern_index     = 166 	; current index into pattern directory
+mod_num_patterns      = 168     ; total number of patterns
+
 
 
 XRES = 800
@@ -359,7 +369,7 @@ start   ent             ; make sure start is visible outside the file
 
 		pea ^toms_diner
 		pea toms_diner
-		jsl	InitMod
+		jsl	ModInit
 
 		jsl MIXER_INIT
 
@@ -672,6 +682,8 @@ InstallAudioJiffy mx %00
 
 		sei
 
+		stz <SongIsPlaying
+
 		lda #$4C	; JMP
 		sta |VEC_INT02_TMR0
 
@@ -815,14 +827,25 @@ sizeof_sample      ds 0
 	dend
 
 ;------------------------------------------------------------------------------
-; void InitMod(void* pModFile)
+; ModPlay (play the current Mod)
+;
+ModPlay mx %00
+	lda #6  ; default speed
+	sta mod_speed
+
+	lda #1
+	sta SongIsPlaying
+	rts
+
+;------------------------------------------------------------------------------
+; void ModInit(void* pModFile)
 ;
 ; pea ^pModFile
 ; pea #pModFile
 ;
-; jsl InitMod
+; jsl ModInit
 ;
-InitMod mx %00
+ModInit mx %00
 ; Stack
 :pModInput = 4
 
@@ -836,6 +859,8 @@ InitMod mx %00
 :num_patterns = 20
 
 ;:pTemp equ 128
+
+	stz <SongIsPlaying
 
 	lda :pModInput,s
 	sta <:pMod
@@ -1011,11 +1036,24 @@ InitMod mx %00
 	ldy <:current_y
 	lda [:pMod],y
 	and #$FF
+	inc
+	sta <mod_song_length
 	iny
 	iny
 	sty <:current_y
 	jsr myHEXBYTE
 	jsr myPRINTCR
+
+	;save off the pointer to pattern directory
+	clc
+	lda <:pMod
+	adc <:current_y
+	sta <mod_p_pattern_dir
+	lda <:pMod+2
+	adc #0
+	sta <mod_p_pattern_dir+2
+	; initialize our index
+	stz <mod_pattern_index
 
 	; Patterns
 	stz <:num_patterns
@@ -1232,12 +1270,12 @@ InitMod mx %00
 	lda #0
 	adc <:pSamp+2
 	sta <:pSamp+2
-	dex
-	beq :wavedone
-	dex
+;	dex
+;	beq :wavedone
+	dex 			; via mod spec, the actual length is 2x the recorded length
 	bne ]waveloop
 
-:wavedone
+;:wavedone
 
 
 :skip_empty
@@ -1252,7 +1290,7 @@ InitMod mx %00
 	sta <:pInst+2
 
 	dec <:loopCount ; loop count
-	bnel ]copyloop
+	bne ]copyloop
 
 ; Restore Cursor
 
@@ -1260,6 +1298,36 @@ InitMod mx %00
 	plx
 	jsr myLOCATE
 	jsr myPRINTCR
+
+; -----------------------------------------------------------------------------
+; init the mod_patterns table
+:pCurPattern = 44
+
+	lda <:pPatterns
+	sta <:pCurPattern
+	lda <:pPatterns+2
+	sta <:pCurPattern+2
+
+	clc
+
+	ldx #127
+	ldy #0
+]lp
+	lda <:pCurPattern
+	sta |mod_patterns,y
+	adc #1024  ; 64*4*4
+	sta <:pCurPattern
+
+	lda <:pCurPattern+2
+	sta |mod_patterns+2,y
+	adc #0
+	sta <:pCurPattern+2
+
+	tya
+	adc #4
+	tay
+	dex
+	bpl ]lp
 
 ; -----------------------------------------------------------------------------
 ; Print out the contents of a Pattern Block
@@ -1412,8 +1480,14 @@ PrintNoteInfo mx %00
 	stx <:note+2
 
 	; Decode the Period
+	;sep #$20
+	;lsr
+	;lsr
+	;lsr
+	;lsr
+	rep #$30
 	xba
-	and #$FFF
+	and #$0FFF
 	sta <:period
 
 	; Convert into Note!
@@ -1436,8 +1510,8 @@ PrintNoteInfo mx %00
 
 ; Find the period index
 
-	;ldx #{12*2*6}-2
-	ldx #{12*2*3}-2
+	ldx #{12*2*6}-2
+	;ldx #{12*2*3}-2
 ]lp
 	cmp |:tuning,x
 	beq :stop
@@ -1598,9 +1672,9 @@ PrintNoteInfo mx %00
 	dw 856,808,762,720,678,640,604,570,538,508,480,453 ; C-1 to B-1
 	dw 428,404,381,360,339,320,302,285,269,254,240,226 ; C-2 to B-2
 	dw 214,202,190,180,170,160,151,143,135,127,120,113 ; C-3 to B-3
-;	dw 214/2,202/2,190/2,180/2,170/2,160/2,151/2,143/2,135/2,127/2,120/2,113/2 ; C-4 to B-4
-;	dw 214/4,202/4,190/4,180/4,170/4,160/4,151/4,143/4,135/4,127/4,120/4,113/4 ; C-5 to B-5
-;	dw 214/8,202/8,190/8,180/8,170/8,160/8,151/8,143/8,135/8,127/8,120/8,113/8 ; C-6 to B-6
+	dw 214/2,202/2,190/2,180/2,170/2,160/2,151/2,143/2,135/2,127/2,120/2,113/2 ; C-4 to B-4
+	dw 214/4,202/4,190/4,180/4,170/4,160/4,151/4,143/4,135/4,127/4,120/4,113/4 ; C-5 to B-5
+	dw 214/8,202/8,190/8,180/8,170/8,160/8,151/8,143/8,135/8,127/8,120/8,113/8 ; C-6 to B-6
 
 :tuning_str
 	asc 'C-1 C#1 D-1 D#1 E-1 F-1 F#1 G-1 G#1 A-1 A#1 B-1 '
@@ -1682,6 +1756,11 @@ mt_PeriodTable
 	dw 407,384,363,342,323,305,288,272,256,242,228,216
 	dw 204,192,181,171,161,152,144,136,128,121,114,108
 
+;
+; Precomputed pointers to patterns
+;
+mod_patterns
+	ds 128*4
 
 	put mixer.s
 	put colors.s
