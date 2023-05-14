@@ -68,6 +68,7 @@ VRAM = $B00000
 ; Base Address for Audio
 AUDIO_RAM = $80000
 ;AUDIO_RAM = $E00000
+;source tree weirdness
 
 ;------------------------------------------------------------------------------
 ; I like having my own Direct Page

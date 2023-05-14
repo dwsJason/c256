@@ -9,7 +9,7 @@ Main  org $2100
 lzsa  org $10200
 ; 02 has the MIXFIFO
 ; 03 has Volume tables
-magic org $40200
+magic org $40200     ; Magic DMA Resampler Tables
 data0 org $90000
-data1 org $100000
+data1 org $100000    ; put the mod file here
 
