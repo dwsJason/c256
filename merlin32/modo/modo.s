@@ -74,6 +74,12 @@ AUDIO_RAM = $80000
 MyDP  = $2000
 MySTACK = STACK_END ;$FEFF $EFFF
 
+fastPUTC mac
+		sta [pFastPut]
+		inc <pFastPut
+		<<<
+
+
 ;------------------------------------------------------------------------------
 ; Direct Page Equates
 lzsa_sourcePtr = 0
@@ -102,6 +108,8 @@ temp6		   = 50
 temp7          = 54
 
 last_row       = 100
+
+pFastPut = 124
 
 dpJiffy        = 128
 dpAudioJiffy   = 130
@@ -420,6 +428,11 @@ start   ent             ; make sure start is visible outside the file
 ;		bra	dump
 
 		jsr ModPlay
+
+		ldy #42			; cursor blink someplace harmless
+		ldx #0
+		jsr myLOCATE
+
 ]pump
 		jsr WaitVBL
 ;		jsr MIXER_PUMP
@@ -432,9 +445,10 @@ start   ent             ; make sure start is visible outside the file
 		cli
 ; update the tracker pattern text
 
+
 		ldy #43
 		ldx #0
-		jsr myLOCATE
+		jsr fastLOCATE
 
 		pla ; pattern_index -- use to highlight the "block"
 		pla ; current_row   - would be nice for this to be illustrated, to the left of the notes
@@ -446,21 +460,30 @@ start   ent             ; make sure start is visible outside the file
 		bra ]pump
 
 :print
+:pBlockAddress = temp5
+:curRow = temp6
+
 		sta <last_row
+		sta <:curRow
 
 		plx ; pointer to current row, of 4 commands
 		pla
 
-:pBlockAddress = 44
-
 		sta <:pBlockAddress
 		stx <:pBlockAddress+2
 
+		ldy #43
 		lda #15
 		sta <:tCount
+		phy
 ]lp
 		jsr PrintPatternRow
-		jsr myPRINTCR
+		inc <:curRow
+		ldx #0
+		ply
+		iny
+		phy
+		jsr fastLOCATE
 		clc
 		lda <:pBlockAddress
 		adc #{4*4}			; add rowsize
@@ -470,7 +493,7 @@ start   ent             ; make sure start is visible outside the file
 :cntu
 		dec <:tCount
 		bpl ]lp
-
+		ply
 		bra ]pump
 
 
@@ -485,6 +508,28 @@ myPUTS  mx %00
         jsl PUTS
         pld
         rts
+
+;------------------------------------------------------------------------------
+;
+; Put DP back at zero while calling out to PUTS
+;
+fastPUTS  mx %00
+		sep #$20
+		ldy <pFastPut
+
+		lda |0,x
+		beq :done
+]lp
+		inx
+		sta [pFastPut]
+		iny
+		sty <pFastPut
+		lda |0,x
+		bne ]lp
+:done 
+		rep #$30
+        rts
+
 
 ;------------------------------------------------------------------------------
 ;
@@ -1531,10 +1576,15 @@ ModInit mx %00
 ; Place Row Pointer in Location 44
 ;
 PrintPatternRow mx %00
-:pRow = 44
+:pRow = temp5
+:cur_row = temp6
 
-	ldx #:div
-	jsr myPUTS
+	lda <:cur_row
+	and #$3F
+	jsr fastHEXBYTE
+
+	lda #'|'
+	fastPUTC
 
 	ldy #2
 	lda [:pRow],y
@@ -1542,8 +1592,8 @@ PrintPatternRow mx %00
 	lda [:pRow]
 	jsr PrintNoteInfo
 
-	ldx #:div
-	jsr myPUTS
+	lda #'|'
+	fastPUTC
 
 	ldy #6
 	lda [:pRow],y
@@ -1552,8 +1602,8 @@ PrintPatternRow mx %00
 	lda [:pRow],y
 	jsr PrintNoteInfo
 
-	ldx #:div
-	jsr myPUTS
+	lda #'|'
+	fastPUTC
 
 	ldy #10
 	lda [:pRow],y
@@ -1562,8 +1612,8 @@ PrintPatternRow mx %00
 	lda [:pRow],y
 	jsr PrintNoteInfo
 
-	ldx #:div
-	jsr myPUTS
+	lda #'|'
+	fastPUTC
 
 	ldy #14
 	lda [:pRow],y
@@ -1572,12 +1622,10 @@ PrintPatternRow mx %00
 	lda [:pRow],y
 	jsr PrintNoteInfo
 
-	ldx #:div
-	jmp myPUTS
-	;rts
-
-:div asc '|'
-	 db 0
+	lda #'| '
+	fastPUTC
+	inc <pFastPut
+	rts
 
 ;------------------------------------------------------------------------------
 ;
@@ -1630,8 +1678,8 @@ PrintNoteInfo mx %00
 
 ; Find the period index
 
-	ldx #{12*2*6}-2
-	;ldx #{12*2*3}-2
+	;ldx #{12*2*6}-2
+	ldx #{12*2*3}-2
 ]lp
 	cmp |:tuning,x
 	beq :stop
@@ -1767,7 +1815,7 @@ PrintNoteInfo mx %00
 
 
 	ldx #:note_string
-	jsr myPUTS
+	jsr fastPUTS
 
 	; Restore DP Locations
 	pla
@@ -1886,4 +1934,52 @@ mod_patterns
 	put colors.s
 	put i256.s
 	put dma.s
+
+;------------------------------------------------------------------------------
+fastLOCATE mx %00
+	tya
+	asl  ; c=0
+	tay
+	txa
+	adc |screen_table,y
+	sta <pFastPut
+	lda #^CS_TEXT_MEM_PTR
+	sta <pFastPut+2
+	rts
+
+screen_table
+]var = CS_TEXT_MEM_PTR
+	lup 75
+	da ]var
+]var = ]var+100
+	--^
+;------------------------------------------------------------------------------
+fastHEXBYTE mx %00
+		; Kernel function doesn't work
+
+		sep #$30
+		pha
+		and #$F0
+		lsr
+		lsr
+		lsr
+		lsr
+		tax
+		pla
+		and #$0F
+		tay
+		lda |:chars,x
+		sta |:temp
+		lda |:chars,y
+		sta |:temp+1
+		rep #$30
+
+		lda |:temp
+		fastPUTC
+		inc <pFastPut
+		rts
+
+:chars  ASC '0123456789ABCDEF'
+
+:temp	ds  3
 
