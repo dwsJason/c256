@@ -276,8 +276,8 @@ ResampleOSC1 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45},x
-	sta >MIXFIFO24_8_start+32+{]count*45},x
+	sta >MIXFIFO24_8_start+1+{]count*45}+4,x
+	sta >MIXFIFO24_8_start+32+{]count*45}+4,x
 ]count = ]count+1
 	--^
 	rts
@@ -285,8 +285,8 @@ ResampleOSC2 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45},x
-	sta >MIXFIFO24_8_start+32+{]count*45},x
+	sta >MIXFIFO24_8_start+1+{]count*45}+8,x
+	sta >MIXFIFO24_8_start+32+{]count*45}+8,x
 ]count = ]count+1
 	--^
 	rts
@@ -294,8 +294,8 @@ ResampleOSC3 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45},x
-	sta >MIXFIFO24_8_start+32+{]count*45},x
+	sta >MIXFIFO24_8_start+1+{]count*45}+12,x
+	sta >MIXFIFO24_8_start+32+{]count*45}+12,x
 ]count = ]count+1
 	--^
 	rts
@@ -303,8 +303,8 @@ ResampleOSC4 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45},x
-	sta >MIXFIFO24_8_start+32+{]count*45},x
+	sta >MIXFIFO24_8_start+1+{]count*45}+16,x
+	sta >MIXFIFO24_8_start+32+{]count*45}+16,x
 ]count = ]count+1
 	--^
 	rts
@@ -312,8 +312,8 @@ ResampleOSC5 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45},x
-	sta >MIXFIFO24_8_start+32+{]count*45},x
+	sta >MIXFIFO24_8_start+1+{]count*45}+20,x
+	sta >MIXFIFO24_8_start+32+{]count*45}+20,x
 ]count = ]count+1
 	--^
 	rts
@@ -321,8 +321,8 @@ ResampleOSC6 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45},x
-	sta >MIXFIFO24_8_start+32+{]count*45},x
+	sta >MIXFIFO24_8_start+1+{]count*45}+24,x
+	sta >MIXFIFO24_8_start+32+{]count*45}+24,x
 ]count = ]count+1
 	--^
 	rts
@@ -330,8 +330,8 @@ ResampleOSC7 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45},x
-	sta >MIXFIFO24_8_start+32+{]count*45},x
+	sta >MIXFIFO24_8_start+1+{]count*45}+28,x
+	sta >MIXFIFO24_8_start+32+{]count*45}+28,x
 ]count = ]count+1
 	--^
 	rts

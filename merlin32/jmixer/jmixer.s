@@ -262,6 +262,10 @@ start ent       ; make sure start is visible outside the file
         lda #MySTACK
         tcs
 
+		lda #0
+		tcd
+		jsl INITKEYBOARD
+
         lda #MyDP
         tcd
 
@@ -553,8 +557,8 @@ main_loop mx %00
 		jsr myPRINTCR
 
 ;------------------------------------------------------------------------------
-		do 1
-		ldx #6*2
+		do 0
+		ldx #14*2
 ]loop
 		phx
 		jsr myPRINTCR
@@ -654,6 +658,14 @@ numerator
 		dw $0200
 		dw $0280
 		dw $0300
+		dw $0040
+		dw $0080
+		dw $0100
+		dw $0180
+		dw $0200
+		dw $0280
+		dw $0300
+		dw $0300
 				 
 denominator
 		dw $0080
@@ -663,6 +675,14 @@ denominator
 		dw $0080
 		dw $0080
 		dw $0080
+		dw $0300
+		dw $0300
+		dw $0300
+		dw $0300
+		dw $0300
+		dw $0300
+		dw $0300
+		dw $0300
 		
 		
 
