@@ -267,74 +267,74 @@ ResampleOSC0 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45},x
-	sta >MIXFIFO24_8_start+32+{]count*45},x
+	sta >MIXFIFO24_8_start+1+{]count*45}
+	sta >MIXFIFO24_8_start+32+{]count*45}
 ]count = ]count+1
 	--^
-	rts
+	rtl
 ResampleOSC1 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45}+4,x
-	sta >MIXFIFO24_8_start+32+{]count*45}+4,x
+	sta >MIXFIFO24_8_start+1+{]count*45}+4
+	sta >MIXFIFO24_8_start+32+{]count*45}+4
 ]count = ]count+1
 	--^
-	rts
+	rtl
 ResampleOSC2 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45}+8,x
-	sta >MIXFIFO24_8_start+32+{]count*45}+8,x
+	sta >MIXFIFO24_8_start+1+{]count*45}+8
+	sta >MIXFIFO24_8_start+32+{]count*45}+8
 ]count = ]count+1
 	--^
-	rts
+	rtl
 ResampleOSC3 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45}+12,x
-	sta >MIXFIFO24_8_start+32+{]count*45}+12,x
+	sta >MIXFIFO24_8_start+1+{]count*45}+12
+	sta >MIXFIFO24_8_start+32+{]count*45}+12
 ]count = ]count+1
 	--^
-	rts
+	rtl
 ResampleOSC4 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45}+16,x
-	sta >MIXFIFO24_8_start+32+{]count*45}+16,x
+	sta >MIXFIFO24_8_start+1+{]count*45}+16
+	sta >MIXFIFO24_8_start+32+{]count*45}+16
 ]count = ]count+1
 	--^
-	rts
+	rtl
 ResampleOSC5 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45}+20,x
-	sta >MIXFIFO24_8_start+32+{]count*45}+20,x
+	sta >MIXFIFO24_8_start+1+{]count*45}+20
+	sta >MIXFIFO24_8_start+32+{]count*45}+20
 ]count = ]count+1
 	--^
-	rts
+	rtl
 ResampleOSC6 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45}+24,x
-	sta >MIXFIFO24_8_start+32+{]count*45}+24,x
+	sta >MIXFIFO24_8_start+1+{]count*45}+24
+	sta >MIXFIFO24_8_start+32+{]count*45}+24
 ]count = ]count+1
 	--^
-	rts
+	rtl
 ResampleOSC7 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45}+28,x
-	sta >MIXFIFO24_8_start+32+{]count*45}+28,x
+	sta >MIXFIFO24_8_start+1+{]count*45}+28
+	sta >MIXFIFO24_8_start+32+{]count*45}+28
 ]count = ]count+1
 	--^
-	rts
+	rtl
 
 		
 ;------------------------------------------------------------------------------
@@ -368,7 +368,7 @@ SetFrequency mx %00
 	sty <UNSIGNED_MULT_B_LO 	; 4
 	lda <UNSIGNED_MULT_AL_HI	; 4
 	and #$FFFE  				; 3
-	sta |]offset,x  			; 5   ; 19 * 256 = 4864
+	sta |]offset+1,x  			; 5   ; 19 * 256 = 4864
 ]input = ]input+2
 ]offset = ]offset+11
 	--^
@@ -387,8 +387,8 @@ SetFrequency mx %00
 	da ResampleOSC7
 			
 ;------------------------------------------------------------------------------
-; 4096
-
+; 4096 - bytes   - for the 24Khz mixer, we push 2048 bytes at a time (for 48khz mixer, we push 1024)
+;												(8*256)(256 samples), (need 400 every 16.6ms) (256 every 10.6ms, so probably need 5ms interrupts or 4ms)
 ;	while FIFO < 3072
 	  ; run the mixer/FIFO
 	  ; run resamplers
@@ -399,18 +399,48 @@ SetFrequency mx %00
 
 ;------------------------------------------------------------------------------
 ;
-; WAVE DATA NOW MUST START ON AN EVEN ADDRESS
-; (so LSB can be used for math)
-; dp,x ; addressing
+; Call the ResampleCode (get wave data into the mixer)
 ;
 osc_update mx %00
+
+	pei osc_pWave+2
+	plb
+	plb
+	lda <osc_pWave+1
+	and #$FFFE
+	tay
+	jsl ResampleOSC0
+
 	clc
-	lda <osc_pWave,x
-	adc <osc_frame_size,x
-	sta <osc_pWave,x
-	lda <osc_pWave+2,x
-	adc <osc_frame_size+2,x
-	sta <osc_pWave+2,x	
+	lda <osc_pWave
+	adc <osc_frame_size
+	sta <osc_pWave
+	lda <osc_pWave+2
+	adc <osc_frame_size+2
+	sta <osc_pWave+2
+
+	; if pWave >= pWaveEnd
+	;    pWave = pLoop + (pWave-pWaveEnd)
+	sec
+	lda <osc_pWave
+	sbc <osc_pWaveEnd
+	sta <osc_delta
+	lda <osc_pWave+2
+	sbc <osc_pWaveEnd+2
+	sta <osc_delta
+	bmi :next_osc
+
+	clc
+	lda <osc_pWaveLoop
+	adc <osc_delta
+	sta <osc_pWave
+	lda <osc_pWaveLoop+2
+	adc <osc_delta+2
+	sta <osc_pWave+2
+
+:next_osc
+	
+
 	rts
 
 ;------------------------------------------------------------------------------

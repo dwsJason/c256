@@ -36,8 +36,8 @@ os_playing_looped     ds 1
 ;
 ; 
 		dum 0
-osc_type      ds 2
-osc_state     ds 2
+;osc_type      ds 2
+;osc_state     ds 2
 osc_pWave     ds 4 ; 24.8 current wave pointer
 osc_pWaveLoop ds 4 ; 24.8 location in the wave, to loop too
 osc_pWaveEnd  ds 4 ; 24.8 end of wave
@@ -51,6 +51,9 @@ osc_set_left   ds 2
 osc_set_right  ds 2
 
 sizeof_osc ds 0
+
+osc_delta ds 4
+
 		dend
 
 ;		do sizeof_osc#32

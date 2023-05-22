@@ -3755,7 +3755,10 @@ HISTORY_SIZE = 15
 	; print out the history buffer onto the screen
 	; for the world to see
 ]key_loop
+		;php
+		;sei
 		jsl GETSCANCODE
+		;plp
 		and #$FF
 		beq :exit
 		cmp |:last_code
