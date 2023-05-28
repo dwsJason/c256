@@ -878,6 +878,21 @@ UpdatePianoKeys mx %00
 	CheckKey $0E;$17
 	CheckKey $2B;$18
 
+	CheckKey $2C;$19
+	CheckKey $1F;$1A
+	CheckKey $2D;$1B
+	CheckKey $20;$1C
+	CheckKey $2E;$1D
+	CheckKey $2F;$1E
+	CheckKey $22;$1F
+	CheckKey $30;$20
+	CheckKey $23;$21
+	CheckKey $31;$22
+	CheckKey $24;$23
+	CheckKey $32;$24
+
+	CheckKey $33;$25
+
 
 
 	rep #$31
