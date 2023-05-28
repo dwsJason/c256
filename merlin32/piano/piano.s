@@ -22,6 +22,7 @@
 		ext decompress_lzsa
 		ext piano_pic
 		ext stars_pic
+		ext jr_font_lz
 
         mx %00
 
@@ -63,10 +64,27 @@ start   ent             ; make sure start is visible outside the file
 
 		jsr video_init
 
+		jsr font_init
+
 		jsr stars_pic_init
 		jsr piano_pic_init
 
 		jsr InstallJiffy
+
+;------------------------------------------------------------------------------
+		ldx #0
+		txy
+		jsr fastLOCATE
+
+		ldx #txt_version
+		jsr fastPUTS
+
+		ldx #1
+		ldy #70
+		jsr fastLOCATE
+		
+		ldx #txt_test
+		jsr fastPUTS
 
 ;
 ;------------------------------------------------------------------------------
@@ -211,7 +229,7 @@ video_init mx %00
 
 		; 800x600
 		;lda #$100+Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_Bitmap_En+Mstr_Ctrl_GAMMA_En+Mstr_Ctrl_TileMap_En
-		lda #$100+Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_GAMMA_En+Mstr_Ctrl_TileMap_En
+		lda #$100+Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_GAMMA_En+Mstr_Ctrl_TileMap_En+Mstr_Ctrl_Text_Mode_En+Mstr_Ctrl_Text_Overlay
 		sta >MASTER_CTRL_REG_L
 
 		; No Border
@@ -482,5 +500,163 @@ piano_pic_init mx %00
 
 
 		rts
+;------------------------------------------------------------------------------
+;
+; Load Nicer font in to character memory, clear the TEXT screen, etc.
+;
+font_init mx %00
+
+		; Decompress the Font
+		pea ^jr_font_lz
+		pea jr_font_lz
+
+		pea ^work_buffer
+		pea work_buffer
+
+		jsl decompress_lzsa
+
+		; Copy the Font into the font glyph area
+		ldx #2048-2
+]lp
+		lda >work_buffer,x
+		sta >FONT_MEMORY_BANK0,x
+		sta >FONT_MEMORY_BANK1,x
+		dex
+		dex
+		bpl ]lp
+
+		; cursor, and other text buffer "stuff"
+		lda #0
+		sta >VKY_TXT_CURSOR_CTRL_REG  ; I don't want flashing cursor
+		sta >VKY_TXT_START_ADD_PTR    ; I don't understand how this works
+
+		phkb ^CS_TEXT_MEM_PTR
+		plb
+		; setup colors
+		; Copy GS colors into the Text Color Memory
+		ldx #{16*4}-4
+]lp
+		lda >gs_colors,x
+		sta |BG_CHAR_LUT_PTR,x
+		sta |FG_CHAR_LUT_PTR,x
+		lda >gs_colors+2,x
+		sta |BG_CHAR_LUT_PTR+2,x
+		sta |FG_CHAR_LUT_PTR+2,x
+		dex
+		dex
+		dex
+		dex
+		bpl ]lp
+
+
+		; clear out the text memory, and the color memory
+
+		ldx #$2000-2
+]lp
+		lda #'  '    ; clear with spaces
+		sta |CS_TEXT_MEM_PTR,x
+		lda #$F6F6   ; white on medium blue
+		sta |CS_COLOR_MEM_PTR,x
+		dex
+		dex
+		bpl ]lp
+
+		plb
+		rts
+
+;------------------------------------------------------------------------------
+;GS Border Colors
+border_colors
+ dw $0,$d03,$9,$d2d,$72,$555,$22f,$6af ; Border Colors
+ dw $850,$f60,$aaa,$f98,$d0,$ff0,$5f9,$fff
+;------------------------------------------------------------------------------
+gs_colors
+	adrl $ff000000  ;0 Black
+	adrl $ffdd0033	;1 Deep Red
+	adrl $ff000099	;2 Dark Blue
+	adrl $ffdd22dd	;3 Purple
+	adrl $ff007722	;4 Dark Green
+	adrl $ff555555	;5 Dark Gray
+	adrl $ff2222ff	;6 Medium Blue
+	adrl $ff66aaff	;7 Light Blue
+	adrl $ff885500	;8 Brown
+	adrl $ffff6600	;9 Orange
+	adrl $ffaaaaaa	;A Light Gray
+	adrl $ffff9988	;B Pink
+	adrl $ff00dd00	;C Light Green
+	adrl $ffffff00	;D Yellow
+	adrl $ff55ff99	;E Aquamarine
+	adrl $ffffffff	;F White
+
+;------------------------------------------------------------------------------
+; fast text crap
+;------------------------------------------------------------------------------
+fastLOCATE mx %00
+	tya
+	asl  ; c=0
+	tay
+	txa
+	adc |screen_table,y
+	sta <pFastPut
+	lda #^CS_TEXT_MEM_PTR
+	sta <pFastPut+2
+	rts
+
+screen_table
+]var = CS_TEXT_MEM_PTR
+	lup 75
+	da ]var
+]var = ]var+100
+	--^
+;------------------------------------------------------------------------------
+fastHEXBYTE mx %00
+		; Kernel function doesn't work
+
+		sep #$30
+		pha
+		and #$F0
+		lsr
+		lsr
+		lsr
+		lsr
+		tax
+		pla
+		and #$0F
+		tay
+		lda |:chars,x
+		sta |:temp
+		lda |:chars,y
+		sta |:temp+1
+		rep #$30
+
+		lda |:temp
+		fastPUTC
+		inc <pFastPut
+		rts
+
+:chars  ASC '0123456789ABCDEF'
+
+:temp	ds  3
+
+;------------------------------------------------------------------------------
+fastPUTS  mx %00
+		sep #$20
+		ldy <pFastPut
+
+		lda |0,x
+		beq :done
+]lp
+		inx
+		sta [pFastPut]
+		iny
+		sty <pFastPut
+		lda |0,x
+		bne ]lp
+:done 
+		rep #$30
+        rts
+;------------------------------------------------------------------------------
+txt_version cstr 'Virtual Piano v0.0.0'
+txt_test cstr 'Text'
 ;------------------------------------------------------------------------------
 

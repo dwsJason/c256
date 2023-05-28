@@ -38,5 +38,13 @@ pTMAP          ds 4  ; pointer to TMAP Structure
 
 dpJiffy ds 2
 
+pFastPut ds 4 ; pointer to the current text buffer address
+
 		dend
+
+; needed for "quick-ish" print functions
+fastPUTC mac
+		sta [pFastPut]
+		inc <pFastPut
+		<<<
 

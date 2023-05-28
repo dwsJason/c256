@@ -70,4 +70,7 @@ k@
 	db ^k@ ; k bank
 	<<<
 
-
+cstr mac
+	asc ]1
+	db 0
+	<<<
