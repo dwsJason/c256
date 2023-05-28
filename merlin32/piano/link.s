@@ -48,10 +48,17 @@
         ds      0               ; extra 0's to add to the segment
         knd     $0001           ; Type and Attr ($11=Static+Bank Relative,$01=Data)
         ali     none            ; Boundary Alignment
-        lna     piano.S16       ; Load Name
+        lna     piano.s16       ; Load Name
         sna     graphics        ; Segment Name
 
- 
+		asm		fonts.s
+        ds      0               ; extra 0's to add to the segment
+        knd     $0001           ; Type and Attr ($11=Static+Bank Relative,$01=Data)
+        ali     none            ; Boundary Alignment
+        lna     piano.s16       ; Load Name
+        sna     fonts           ; Segment Name
+
+		 
 
 
 
