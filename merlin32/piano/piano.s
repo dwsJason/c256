@@ -16,13 +16,19 @@
 		put ..\phx\kernel_inc.asm
 
 		; my conventient long branch macros
-		put macs.i.s
+		use macs.i
 		
 		; linked data, and routines
 		ext decompress_lzsa
+		ext sprites_pic  ; 32x32 nyan cat sprite frames
 		ext piano_pic
 		ext stars_pic
 		ext jr_font_lz
+
+		; instruments
+		ext piano_inst
+		ext basspull_inst
+		ext bassdrum_inst
 
         mx %00
 
@@ -72,7 +78,7 @@ start   ent             ; make sure start is visible outside the file
 		jsr InstallJiffy
 
 ;------------------------------------------------------------------------------
-		ldx #0
+		ldx #1
 		txy
 		jsr fastLOCATE
 
@@ -80,10 +86,22 @@ start   ent             ; make sure start is visible outside the file
 		jsr fastPUTS
 
 		ldx #1
+		ldy #3
+		jsr fastLOCATE
+		ldx #txt_f1
+		jsr fastPUTS
+
+		ldx #1
 		ldy #73
 		jsr fastLOCATE
 		
 		ldx #txt_lower_notes
+		jsr fastPUTS
+
+		ldx #0
+		ldy #47
+		jsr fastLOCATE
+		ldx #txt_instrument
 		jsr fastPUTS
 
 ;
@@ -692,8 +710,13 @@ fastPUTS  mx %00
 		rep #$30
         rts
 ;------------------------------------------------------------------------------
-txt_version cstr 'Virtual Piano v0.0.0'
-txt_lower_notes cstr 'C2'
+txt_version cstr 'Virtual Piano v0.0.0    Try pressing some keys, QWERTY..ZXC :)'
+txt_lower_notes cstr 'C2                              C3                              C4                             C5'
+txt_f1 cstr 'F1: Toggle Instrument'
+txt_instrument cstr 'INSTRUMENT:'
+txt_piano    cstr 'Piano G5    '
+txt_basspull cstr 'Bass Pull E2'
+txt_bassdrum cstr 'Bass Drum   '
 ;------------------------------------------------------------------------------
 
 ;Keyboard things
@@ -892,8 +915,6 @@ UpdatePianoKeys mx %00
 	CheckKey $32;$24
 
 	CheckKey $33;$25
-
-
 
 	rep #$31
 	pla 		; keydown color

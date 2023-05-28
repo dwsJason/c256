@@ -40,7 +40,16 @@
         ali     none            ; Boundary Alignment
         lna     piano.s16       ; Load Name
         sna     lzsa            ; Segment Name ('lzsa')
-				
+
+; Segment 4
+
+        asm     mixer.s         ; sourcefile
+        ds      0               ; extra 0's to add to the segment
+        knd     $1100           ; Type and Attr ($11=Static+Bank Relative,$00=Code)
+        ali     none            ; Boundary Alignment
+        lna     piano.s16       ; Load Name
+        sna     mixer           ; Segment Name
+
 				
 ; Data Segments
 
@@ -58,7 +67,26 @@
         lna     piano.s16       ; Load Name
         sna     fonts           ; Segment Name
 
-		 
+		asm		inst0.s
+        ds      0               ; extra 0's to add to the segment
+        knd     $0001           ; Type and Attr ($11=Static+Bank Relative,$01=Data)
+        ali     none            ; Boundary Alignment
+        lna     piano.s16       ; Load Name
+        sna     inst0        	; Segment Name
+
+		asm		inst1.s
+        ds      0               ; extra 0's to add to the segment
+        knd     $0001           ; Type and Attr ($11=Static+Bank Relative,$01=Data)
+        ali     none            ; Boundary Alignment
+        lna     piano.s16       ; Load Name
+        sna     inst1        	; Segment Name
+
+		asm		inst2.s
+        ds      0               ; extra 0's to add to the segment
+        knd     $0001           ; Type and Attr ($11=Static+Bank Relative,$01=Data)
+        ali     none            ; Boundary Alignment
+        lna     piano.s16       ; Load Name
+        sna     inst2        	; Segment Name
 
 
 

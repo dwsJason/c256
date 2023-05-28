@@ -13,3 +13,7 @@ piano_pic ent
 
 stars_pic ent
 		putbin data\stars800.256
+
+sprites_pic ent
+		putbin data\sprites.256
+
