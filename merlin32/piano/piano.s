@@ -470,7 +470,7 @@ piano_pic_init mx %00
 
 		; 50x38 tilemap
 		; copy map, and fix it
-		ldx #{50*38*2}-2
+		ldx #{52*40*2}-2
 		clc
 ]lp
 		lda >work_buffer,x
