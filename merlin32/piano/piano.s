@@ -80,18 +80,32 @@ start   ent             ; make sure start is visible outside the file
 		jsr fastPUTS
 
 		ldx #1
-		ldy #70
+		ldy #73
 		jsr fastLOCATE
 		
-		ldx #txt_test
+		ldx #txt_lower_notes
 		jsr fastPUTS
 
 ;
 ;------------------------------------------------------------------------------
 ;
 UpdateLoop
-		jsr WaitJiffy   ; wait for vblank
+		jsr WaitJiffy    ; wait for vblank
+		jsr UpdateScroll ; video register updates, things work better during vblank
 
+
+;----- stuff where VBlank does not matter
+
+		jsr ReadKeyboard
+
+		; needs to happen before the keys are rendered, at the top 2/3rds of the frame
+		jsr UpdatePianoKeys
+
+		bra UpdateLoop
+
+
+;------------------------------------------------------------------------------
+UpdateScroll mx %00
 		; Scroll Horizontal, at 60FPS (silky)
 		lda |BG0_SCROLL_X
 		inc
@@ -126,7 +140,7 @@ UpdateLoop
 		sta >TL0_WINDOW_Y_POS_L
 
 :anim_done
-		bra UpdateLoop
+		rts
 
 BG0_SCROLL_X      dw 0
 ANIM_TIMER        dw 0
@@ -420,7 +434,7 @@ piano_pic_init mx %00
 
 
 ;
-; Extract CLUT data from the stars image
+; Extract CLUT data from the piano image
 ;
 		; source picture
 		pea ^piano_pic
@@ -431,6 +445,13 @@ piano_pic_init mx %00
 		pea pal_buffer
 
 		jsl decompress_clut
+
+		; Update colors in the LUT with piano keys, so it doesn't look
+		; like a rainbow
+		ldy #pal_buffer+4
+		ldx #piano_colors
+		lda #{37*4}-1
+		mvn ^piano_colors,^pal_buffer
 
         ; Copy the LUT up into the HW
         ldy     #GRPH_LUT1_PTR  ; dest
@@ -556,6 +577,10 @@ font_init mx %00
 		lda #'  '    ; clear with spaces
 		sta |CS_TEXT_MEM_PTR,x
 		lda #$F6F6   ; white on medium blue
+		cpx #100*50  ; top 50 lines are white, below that dark grey
+		bcc :white
+		lda #$5656   ; dark grey
+:white
 		sta |CS_COLOR_MEM_PTR,x
 		dex
 		dex
@@ -587,6 +612,17 @@ gs_colors
 	adrl $ffffff00	;D Yellow
 	adrl $ff55ff99	;E Aquamarine
 	adrl $ffffffff	;F White
+
+;------------------------------------------------------------------------------
+; 37 keys, so 37 entries here
+]WHITE = $fff0f0f0
+]BLACK = $ff101010
+
+piano_colors
+	lup 3
+	adrl ]WHITE,]BLACK,]WHITE,]BLACK,]WHITE,]WHITE,]BLACK,]WHITE,]BLACK,]WHITE,]BLACK,]WHITE
+	--^
+	adrl ]WHITE
 
 ;------------------------------------------------------------------------------
 ; fast text crap
@@ -657,6 +693,204 @@ fastPUTS  mx %00
         rts
 ;------------------------------------------------------------------------------
 txt_version cstr 'Virtual Piano v0.0.0'
-txt_test cstr 'Text'
+txt_lower_notes cstr 'C2'
 ;------------------------------------------------------------------------------
+
+;Keyboard things
+;------------------------------------------------------------------------------
+; The status of up to 128 keys on the keyboard
+;
+;		ds \              ; 256 byte align, for quicker piano update
+keyboard ds 128
+piano_keys ds 128
+
+;------------------------------------------------------------------------------
+ReadKeyboard mx %00
+		phd
+		pea 0
+		pld
+
+HISTORY_SIZE = 15
+
+	; Collect Scancodes, but only when they change
+	; place into a history buffer
+	; print out the history buffer onto the screen
+	; for the world to see
+]key_loop
+		jsl GETSCANCODE
+		and #$FF
+		beq :exit
+		cmp |:last_code
+		beq :exit       	; duplicate code, so ignore
+
+		sta |:last_code		; last code, for the duplicate check
+
+	; this is he actual keyboard driver, just reflects keystatus
+	; into the keyboard array
+
+		sep #$30
+		tay
+		and #$7F
+		tax
+		tya
+		bpl :keydown
+		lda #$00  		; key-up
+:keydown
+		sta |keyboard,x
+		
+		tya
+		rep #$30
+
+	; end keyboard driver
+
+	; I keep history here, for debugging
+		do 1
+		ldx |:index     	; current index
+		sta |:history,x 	; save in history
+		dex
+		dex     		; next index
+		bpl :continue
+		ldx #{HISTORY_SIZE*2}-2 ; index wrap
+:continue
+		stx |:index     	; save index for next time
+		fin
+
+		bra ]key_loop
+
+:exit
+		pld
+
+; print out the current history
+		do 1
+:x = temp0
+:y = temp0+2
+
+		ldx #97
+		ldy #2
+		stx <:x
+		sty <:y
+
+		ldy |:index
+]loop
+		phy
+		ldx <:x
+		ldy <:y
+		jsr fastLOCATE
+
+		ply
+		iny
+		iny
+		cpy #HISTORY_SIZE*2
+		bcc :cont2
+		ldy #0
+:cont2
+		cpy |:index
+		beq :xit
+
+		lda |:history,y
+		phy
+		jsr fastHEXBYTE
+		ply
+		inc <:y
+
+		bra ]loop
+:xit
+
+		fin
+		rts
+
+
+:index		dw 0
+:last_code	dw 0
+
+:history	ds HISTORY_SIZE*2
+
+;------------------------------------------------------------------------------
+;
+; For now, reflect appropriate color into the CLUT based on the keys that are
+; down.  We do need to know if the key is going up or down, to emit an "event"
+; that will be used to start/stop the note for the key
+;
+
+
+CheckKey mac
+	mx %01
+	ldx <]1
+	cpx <{]1+128}
+	beq next@
+	stx <{]1+128}
+	txy
+	bne keydown@
+	; else keyup
+	lda >piano_colors+{]2*4}-4+2
+	tay
+	lda >piano_colors+{]2*4}-4
+	bra store@
+keydown@
+	lda 3,s
+	tay
+	lda 1,s
+store@
+	sta |{GRPH_LUT1_PTR+{]2*4}+0}
+	sty |{GRPH_LUT1_PTR+{]2*4}+2}
+next@
+	<<<
+
+UpdatePianoKeys mx %00
+	phd
+
+	pea keyboard
+	pld
+
+	phkb ^GRPH_LUT1_PTR
+	plb
+
+	pea $FFFF
+	pea $6600
+
+	; key index, clut index
+
+	sep #$10  ; a long, m short
+
+	CheckKey $0f;$01
+	CheckKey $02;$02
+	CheckKey $10;$03
+	CheckKey $03;$04
+	CheckKey $11;$05
+	CheckKey $12;$06
+	CheckKey $05;$07
+	CheckKey $13;$08
+	CheckKey $06;$09
+	CheckKey $14;$0A
+	CheckKey $07;$0B
+	CheckKey $15;$0C
+
+	CheckKey $16;$0D
+	CheckKey $09;$0E
+	CheckKey $17;$0F
+	CheckKey $0A;$10
+	CheckKey $18;$11
+	CheckKey $19;$12
+	CheckKey $0C;$13
+	CheckKey $1A;$14
+	CheckKey $0D;$15
+	CheckKey $1B;$16
+	CheckKey $0E;$17
+	CheckKey $2B;$18
+
+
+
+	rep #$31
+	pla 		; keydown color
+	pla
+
+	plb			; b restore
+	pld			; d restore
+	rts
+
+;------------------------------------------------------------------------------
+
+
+
+
 
