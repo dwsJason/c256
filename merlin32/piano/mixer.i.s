@@ -107,9 +107,11 @@ Channel5Right ds 512
 Channel6Left  ds 512
 Channel6Right ds 512
 Channel7Left  ds 512
-Channel7Right ds 512
+Channel7Right ds 512   ; 8k
 
-VolumeTables ds 32768  ; 64 volumes * 512 bytes each
+VolumeTables ds 32768  ; 64 volumes * 512 bytes each, 32k
+
+silence ds 4096        ; silent wave data (default osc instrument)
 		dend
 
 ; jmixer struct

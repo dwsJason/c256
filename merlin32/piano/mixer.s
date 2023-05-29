@@ -15,10 +15,16 @@
 
 ; Dispatch
 
-MIXstartup    jmp Mstartup
-MIXshutdown   jmp Mshutdown
-MIXplaysample jmp Mplaysample
-MIXsetvolume  jmp Msetvolume
+MIXstartup ent
+		jmp Mstartup
+
+MIXshutdown ent 
+		jmp Mshutdown
+
+MIXplaysample ent
+		jmp Mplaysample
+MIXsetvolume ent
+		jmp Msetvolume
 
 Mstartup mx %00
 		rtl
@@ -34,7 +40,7 @@ Msetvolume mx %00
 ; We want to be able to use the math coprocessor in page $100 as well
 ;
 pOscillators ds 2  ; 16 bit pointer to the array of oscillators in bank0 
-pMixBuffers  ds 2  ; 17 bit pointer to the mix buffers in bank0
+pMixBuffers  ds 2  ; 16 bit pointer to the mix buffers in bank0
    	
 ; each oscillator needs 512 bytes of sample space, I want this in bank 0
 ; also (256 samples)

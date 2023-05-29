@@ -59,6 +59,15 @@ start   ent             ; make sure start is visible outside the file
         rep $31         ; long MX, and CLC
 		sei				; keep interrupts off, until we're ready for them
 
+		; I added this here, to allow iteration to be more stable
+		; (if my code had overritten any of these, and now has shifted)
+		lda #$6B  ; RTL
+		sta >VEC_INT00_SOF
+		sta >VEC_INT01_SOL
+		sta >VEC_INT02_TMR0
+		sta >VEC_INT03_TMR1
+		sta >VEC_INT04_TMR2
+
 ; Default Stack is on top of System DMA Registers
 ; So move the stack before proceeding
 
@@ -67,6 +76,18 @@ start   ent             ; make sure start is visible outside the file
 
         lda #MyDP
         tcd
+
+		phk
+		plb
+
+		; Initialize the uninitialized RAM
+		stz |uninitialized_start
+		ldx #uninitialized_start
+		ldy #uninitialized_start+2
+		lda #{uninitialized_end-uninitialized_start}-3
+		mvn ^uninitialized_start,^uninitialized_start
+
+
 
 		jsr video_init
 
@@ -78,6 +99,7 @@ start   ent             ; make sure start is visible outside the file
 		jsr InstallJiffy
 
 ;------------------------------------------------------------------------------
+; Initial Static Text
 		ldx #1
 		txy
 		jsr fastLOCATE
@@ -103,8 +125,17 @@ start   ent             ; make sure start is visible outside the file
 		jsr fastLOCATE
 		ldx #txt_instrument
 		jsr fastPUTS
+;------------------------------------------------------------------------------
+; Mixer things
 
-;
+		ext MIXstartup
+		ext MIXshutdown
+		ext MIXplaysample
+		ext MIXsetvolume
+
+
+		jsl MIXstartup
+
 ;------------------------------------------------------------------------------
 ;
 UpdateLoop
@@ -243,13 +274,6 @@ WaitJiffy
 		pla
 		rts
 
-
-;------------------------------------------------------------------------------
-;
-; Clut Buffer
-;
-pal_buffer
-		ds 1024
 
 ;------------------------------------------------------------------------------
 
@@ -721,16 +745,6 @@ txt_piano    cstr 'Piano G5    '
 txt_basspull cstr 'Bass Pull E2'
 txt_bassdrum cstr 'Bass Drum   '
 ;------------------------------------------------------------------------------
-
-;Keyboard things
-;------------------------------------------------------------------------------
-; The status of up to 128 keys on the keyboard
-;
-;		ds \              ; 256 byte align, for quicker piano update
-keyboard ds 128
-piano_keys ds 128
-
-;------------------------------------------------------------------------------
 ReadKeyboard mx %00
 		phd
 		pea 0
@@ -929,7 +943,30 @@ UpdatePianoKeys mx %00
 
 ;------------------------------------------------------------------------------
 
+; Non Initialized spaced
+
+	dum *+$2100  ; pirate! (this is cheating, these addresses are not relocatable)
+	             ; so org of this file has to be $2100, and if anyone trys to
+				 ; move the location, this will break
+uninitialized_start ds 0
+;------------------------------------------------------------------------------
+;
+; Clut Buffer
+;
+pal_buffer
+		ds 1024
 
 
+;Keyboard things
+;------------------------------------------------------------------------------
+; The status of up to 128 keys on the keyboard
+;
+		   ds \              ; 256 byte align, for quicker piano update
+keyboard   ds 128
+piano_keys ds 128
+
+
+uninitialized_end ds 0
+	dend
 
 
