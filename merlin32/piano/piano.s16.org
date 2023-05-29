@@ -2,7 +2,9 @@
 ; This ORG File tells omf2hex where in memory to load each segment
 ;
 .alignment org $100
-.autopack  org $10000
+
+; If we start packing in bank 2, this reserves bank 1
+.autopack  org $20000
 
 RESET org $FFFC
 Main  org $2100
