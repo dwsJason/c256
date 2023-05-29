@@ -8,6 +8,7 @@
         lnk     mixer.l
 
         use Util.Macs
+		use macs.i
 		use mixer.i
 		use ../phx/Math_def.asm
 
@@ -26,14 +27,58 @@ MIXplaysample ent
 MIXsetvolume ent
 		jmp Msetvolume
 
+;------------------------------------------------------------------------------
+;
+; Initialize all the things
+;
+; Create Volume Tables
+; Set initial volumes on each channel
+;
+; Initialize silence buffer
+; Initialize all oscillators to be playing silence
+;
+; Load FIFO with silence
+;
+; Enable DAC
+; Pump Data into DAC
+;
+; Enable the MIXER interrupt, with a 4ms interval (250 interrupts per second)
+;
 Mstartup mx %00
+		phb
+; clear the silence
+
+		lda #0
+		sta >silence
+		ldx #silence
+		ldy #silence+2
+		lda #{silence_end-silence}-3
+		mvn ^silence,^silence
+
+		phk
+		plb
+
+		jsr InitVolumeTables
+
+
+
+
+		plb
 		rtl
+;------------------------------------------------------------------------------
+;
+; Unhook/disable the MIXER interrupt
+; Disable the DAC
+;
 Mshutdown mx %00
 		rtl
+;------------------------------------------------------------------------------
 Mplaysample mx %00
 		rtl
+;------------------------------------------------------------------------------
 Msetvolume mx %00
 		rtl
+;------------------------------------------------------------------------------
 		
 ; Unlike NTP, I need / want some bank 0 space		
 ;------------------------------------------------------------------------------
@@ -423,6 +468,102 @@ osc_update mx %00
 	rts
 
 ;------------------------------------------------------------------------------
+;
+; Setup 64 pre-made volume tables
+;
+InitVolumeTables mx %00
+:temp equ 0
+		pei :temp
 
+		phkb ^VolumeTables
+		plb
+
+; Initialize the full volume Table
+
+		ldx #510
+		lda #$FF
+		sta <:temp
+]lp
+		lda <:temp
+		cmp #$0080
+		bcc :pos
+		ora #$FF00
+:pos
+		sta |VolumeTables,x
+		dex
+		dex
+		dec <:temp
+		bpl ]lp
+
+; Initialize all 65 entries of the volume tables
+; to full Volume
+
+		; Overlap copy to make 64 more
+		ldx #VolumeTables
+		ldy #{VolumeTables+512}
+		lda #{63*512}-1        ; length, uses overlapping copy
+		mvn ^VolumeTables,^VolumeTables
+		; leaves B where we want
+
+; ----------------------------
+;
+;  Now Generate Volumes 0-64
+; (which should work our great, because 4*64 = 256)
+; I actually want the highest volume to be 1F.FF, so the 8 values mixed
+; End up at FFF8, (I hopefully won't have to worry about overflow)
+
+	phd
+	lda #$100  ; Put the DPage on Top of the Maths co-processor
+	tcd
+
+
+	ldy #0	; y = Volume Table #
+	tyx     ; x = Volume Table Index offset
+	tya
+
+]outer_loop
+
+	sta <SIGNED_MULT_A_LO
+	;pha
+
+	ldy #255
+
+]inner_loop
+
+	;lda 1,s
+	;sta <SIGNED_MULT_A_LO
+
+	lda |VolumeTables,x   		; Existing 16 bit SEXT Volume
+	sta <SIGNED_MULT_B_LO
+
+	lda <SIGNED_MULT_AL_LO		; Assumes I don't have to keep reseting input
+	cmp #$8000
+	lsr
+	sta |VolumeTables,x
+
+	inx
+	inx
+
+	dey
+	bpl ]inner_loop
+
+	;pla
+	lda <SIGNED_MULT_A_LO
+	inc
+	cmp #64
+	bcc ]outer_loop
+
+	phk		; restore Data Bank
+	plb
+
+	pld		; restore D-Page
+
+;-----------------------
+; restore stuff
+
+		plb
+		pla
+		sta <:temp
+		rts
 ;------------------------------------------------------------------------------
 

@@ -112,6 +112,7 @@ Channel7Right ds 512   ; 8k
 VolumeTables ds 32768  ; 64 volumes * 512 bytes each, 32k
 
 silence ds 4096        ; silent wave data (default osc instrument)
+silence_end ds 0
 		dend
 
 ; jmixer struct
