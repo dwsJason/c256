@@ -130,33 +130,6 @@ pMixBuffers  ds 2  ; 17 bit pointer to the mix buffers in bank0
 					
 ;------------------------------------------------------------------------------
 					
-	do 0
-; 24Khz + 4 channel   
-MIXFIFO24_start mx %00
-
-	lup 256								  ; 291 (48Khz), 583 (24Khz),875(16Khz)
-
-	lda >Channel0Left  ;6        
-	adc >Channel1Left  ;6        
-	adc >Channel2Left  ;6        
-	adc >Channel3Left  ;6
-	tax 			   ;2   ; 26
-
-	lda >Channel0Right ;6
-	adc >Channel1Right ;6
-	adc >Channel2Right ;6
-	adc >Channel3Right ;6   ; 24
-
-	stx |$1908  	   ;5  
-	sta |$1908         ;5  
-	stx |$1908  	   ;5  
-	sta |$1908         ;5   ; 20 = total 70
-
-	--^
-MIXFIFO24_end
-	rts
-	fin
-
 	do 1
 ; 24Khz + 8 channel
 MIXFIFO24_8_start mx %00

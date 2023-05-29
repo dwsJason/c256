@@ -13,6 +13,10 @@
 ; to handle the complexity
 ;
 
+; Reserve 64k, mixer work ram, first 8k is the volume tables
+MIXER_WORKRAM = $010000
+
+
 VOICES   equ 8
 DAC_RATE equ 24000
 
@@ -56,6 +60,7 @@ osc_delta ds 4
 
 		dend
 
+
 ;		do sizeof_osc#32
 ;		ERROR "Oscillator Struct must be 32 bytes"
 ;		fin
@@ -85,21 +90,38 @@ sizeof_inst ds 0
 ;		ERROR "Instrument Struct must be 64 bytes"
 ;		fin
 
-Channel0Left  = $020000
-Channel0Right = $030000
-Channel1Left  = $040000
-Channel1Right = $050000
-Channel2Left  = $060000
-Channel2Right = $070000
-Channel3Left  = $080000
-Channel3Right = $090000
+		dum MIXER_WORKRAM
+Channel0Left  ds 512
+Channel0Right ds 512
+Channel1Left  ds 512
+Channel1Right ds 512
+Channel2Left  ds 512
+Channel2Right ds 512
+Channel3Left  ds 512
+Channel3Right ds 512
 				 
-Channel4Left  = $0A0000
-Channel4Right = $0B0000
-Channel5Left  = $0C0000
-Channel5Right = $0E0000
-Channel6Left  = $0E0000
-Channel6Right = $0F0000
-Channel7Left  = $100000
-Channel7Right = $110000
+Channel4Left  ds 512
+Channel4Right ds 512
+Channel5Left  ds 512
+Channel5Right ds 512
+Channel6Left  ds 512
+Channel6Right ds 512
+Channel7Left  ds 512
+Channel7Right ds 512
+
+VolumeTables ds 32768  ; 64 volumes * 512 bytes each
+		dend
+
+; jmixer struct
+		dum 0
+jmix_jmix        ds 4
+jmix_file_length ds 4
+jmix_version     ds 2
+jmix_freq        ds 2
+jmix_note        ds 2
+jmix_maxrate     ds 2
+jmix_loop_point  ds 4
+jmix_end_point   ds 4
+jmix_audio_data  ds 0  ; variable length data to fills into the mixer
+		dend
 
