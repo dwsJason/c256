@@ -294,6 +294,9 @@ video_init mx %00
 		sta >TL0_WINDOW_Y_POS_L
 		sta >TL1_WINDOW_X_POS_L
 		sta >TL1_WINDOW_Y_POS_L
+
+; Hide the Mouse
+		sta >MOUSE_PTR_CTRL_REG_L
 		
 		lda #{VRAM_TILE_CAT-VRAM}
 		sta >TILESET0_ADDY_L
