@@ -415,11 +415,19 @@ MIXFIFO24_8_end
 	
 	fin	
 		
+;
+; These all store sample data into the mixer
+; I know it could be quicker, by placing all the volume tables into different banks
+; could save 6 clocks per OSC, per sample (Which adds up really fast)
+;
+		
 ResampleOSC0 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
+	ora #Channel0Left    ; left
 	sta >MIXFIFO24_8_start+1+{]count*45}
+	ora #Channel0Right    ; right
 	sta >MIXFIFO24_8_start+32+{]count*45}
 ]count = ]count+1
 	--^
@@ -428,7 +436,9 @@ ResampleOSC1 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
+	ora #Channel1Left    ; left
 	sta >MIXFIFO24_8_start+1+{]count*45}+4
+	ora #Channel1Right    ; right
 	sta >MIXFIFO24_8_start+32+{]count*45}+4
 ]count = ]count+1
 	--^
@@ -437,7 +447,9 @@ ResampleOSC2 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
+	ora #Channel2Left    ; left
 	sta >MIXFIFO24_8_start+1+{]count*45}+8
+	ora #Channel2Right    ; right
 	sta >MIXFIFO24_8_start+32+{]count*45}+8
 ]count = ]count+1
 	--^
@@ -446,7 +458,9 @@ ResampleOSC3 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
+	ora #Channel3Left    ; left
 	sta >MIXFIFO24_8_start+1+{]count*45}+12
+	ora #Channel3Right    ; right
 	sta >MIXFIFO24_8_start+32+{]count*45}+12
 ]count = ]count+1
 	--^
@@ -455,7 +469,9 @@ ResampleOSC4 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
+	ora #Channel4Left    ; left
 	sta >MIXFIFO24_8_start+1+{]count*45}+16
+	ora #Channel4Right    ; right
 	sta >MIXFIFO24_8_start+32+{]count*45}+16
 ]count = ]count+1
 	--^
@@ -464,7 +480,9 @@ ResampleOSC5 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
+	ora #Channel5Left    ; left
 	sta >MIXFIFO24_8_start+1+{]count*45}+20
+	ora #Channel5Right    ; right
 	sta >MIXFIFO24_8_start+32+{]count*45}+20
 ]count = ]count+1
 	--^
@@ -473,7 +491,9 @@ ResampleOSC6 mx %00
 ]count = 0
 	lup 256
 	lda |{0+{]count*2}},y
+	ora #Channel6Left    ; left
 	sta >MIXFIFO24_8_start+1+{]count*45}+24
+	ora #Channel6Right    ; right
 	sta >MIXFIFO24_8_start+32+{]count*45}+24
 ]count = ]count+1
 	--^
@@ -481,9 +501,11 @@ ResampleOSC6 mx %00
 ResampleOSC7 mx %00
 ]count = 0
 	lup 256
-	lda |{0+{]count*2}},y
-	sta >MIXFIFO24_8_start+1+{]count*45}+28
-	sta >MIXFIFO24_8_start+32+{]count*45}+28
+	lda |{0+{]count*2}},y   					   ; 3
+	ora #Channel7Left    ; left 				   ; 3
+	sta >MIXFIFO24_8_start+1+{]count*45}+28 	   ; 4
+	ora #Channel7Right    ; right   			   ; 3
+	sta >MIXFIFO24_8_start+32+{]count*45}+28	   ; 4
 ]count = ]count+1
 	--^
 	rtl
@@ -492,7 +514,7 @@ ResampleOSC7 mx %00
 ;------------------------------------------------------------------------------
 ; lda #Freq   ; 8.8
 ; ldx #OSC Number
-: 
+; 
 SetChannelFreq mx %00
 SetFrequency mx %00
 	phb
@@ -504,6 +526,7 @@ SetFrequency mx %00
 	pld
 
 	;;lda #freq ; 8.8
+	asl
 	sta <UNSIGNED_MULT_A_LO
 
 	txa
@@ -511,18 +534,19 @@ SetFrequency mx %00
 	tax
 	lda |:osc_table,x
 	tax
+
+	ldy #$FFFF
 	
-]input = 0
 ; loop 256 times
 ]offset = 1
 	lup 256
-	ldy #]input 				; 3
+	iny 						; 2
 	sty <UNSIGNED_MULT_B_LO 	; 4
 	lda <UNSIGNED_MULT_AL_HI	; 4
 	and #$FFFE  				; 3
 	sta |]offset+1,x  			; 5   ; 19 * 256 = 4864
 ]input = ]input+2
-]offset = ]offset+11
+]offset = ]offset+17
 	--^
 	pld
 	plb
