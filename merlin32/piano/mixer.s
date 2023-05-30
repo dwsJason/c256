@@ -11,6 +11,8 @@
 		use macs.i
 		use mixer.i
 		use ../phx/Math_def.asm
+		use ../phx/VKYII_CFP9553_SDMA_def.asm
+
 
 		mx %00
 
@@ -24,6 +26,7 @@ MIXshutdown ent
 
 MIXplaysample ent
 		jmp Mplaysample
+
 MIXsetvolume ent
 		jmp Msetvolume
 
@@ -46,6 +49,7 @@ MIXsetvolume ent
 ;
 Mstartup mx %00
 		phb
+
 ; clear the silence
 
 		lda #0
@@ -58,10 +62,29 @@ Mstartup mx %00
 		phk
 		plb
 
+; Initialize Volume Tables
 		jsr InitVolumeTables
 
+; Set Initial volumes
+
+		lda #7
+		ldx #32 ; left + right channels set to medium
+]lp
+		jsl Msetvolume
+		dec
+		bpl ]lp
+
+; Set OSC to default values, playing silence
 
 
+
+; Load FIFO
+
+; Enable DAC
+
+; Pump Data into DAC
+
+; Enable the 4ms interrupts used to service the OSC + DAC
 
 		plb
 		rtl
@@ -76,7 +99,36 @@ Mshutdown mx %00
 Mplaysample mx %00
 		rtl
 ;------------------------------------------------------------------------------
+; MIXsetvolume
+;
+; Use DMA to change the volume table on an oscillator
+;
+; A = OSC # 0-7
+; X = Left Volume (0-63)
+; Y = Right Volume (0-63)
+;
 Msetvolume mx %00
+		pha
+		phx
+		phy
+
+		; set B into the same bank as registers
+		phkb ^SDMA_CTRL0_Enable
+		plb
+
+		stz |SDMA_CTRL_REG0   ; disable the DMA
+
+		lda #SDMA_CTRL0_Enable
+		sta |SDMA_CTRL_REG0   ; enable the circuit
+
+
+
+
+		plb
+
+		ply
+		plx
+		pla
 		rtl
 ;------------------------------------------------------------------------------
 		
@@ -507,56 +559,54 @@ InitVolumeTables mx %00
 
 ; ----------------------------
 ;
-;  Now Generate Volumes 0-64
-; (which should work our great, because 4*64 = 256)
-; I actually want the highest volume to be 1F.FF, so the 8 values mixed
-; End up at FFF8, (I hopefully won't have to worry about overflow)
-
-	phd
-	lda #$100  ; Put the DPage on Top of the Maths co-processor
-	tcd
+; Now Generate Volumes 0-64
+; I actually want the highest volume to be FFF, so the 8 values mixed
+; End up at 7FF8, (I hopefully won't have to worry about overflow)
+		phd
+		lda #$100  ; Put the DPage on Top of the Maths co-processor
+		tcd
 
 
-	ldy #0	; y = Volume Table #
-	tyx     ; x = Volume Table Index offset
-	tya
+		ldy #0	; y = Volume Table #
+		tyx     ; x = Volume Table Index offset
+		tya
 
 ]outer_loop
 
-	sta <SIGNED_MULT_A_LO
-	;pha
+		sta <SIGNED_MULT_A_LO
+		;pha
 
-	ldy #255
+		ldy #255
 
 ]inner_loop
 
-	;lda 1,s
-	;sta <SIGNED_MULT_A_LO
+		;lda 1,s
+		;sta <SIGNED_MULT_A_LO
 
-	lda |VolumeTables,x   		; Existing 16 bit SEXT Volume
-	sta <SIGNED_MULT_B_LO
+		lda |VolumeTables,x   		; Existing 16 bit SEXT Volume
+		sta <SIGNED_MULT_B_LO
 
-	lda <SIGNED_MULT_AL_LO		; Assumes I don't have to keep reseting input
-	cmp #$8000
-	lsr
-	sta |VolumeTables,x
+		lda <SIGNED_MULT_AL_LO		; Assumes I don't have to keep reseting input
+		cmp #$8000  				; scale down, so we can mix 8 of them at full blast
+		ror
+		sta |VolumeTables,x
 
-	inx
-	inx
+		inx
+		inx
 
-	dey
-	bpl ]inner_loop
+		dey
+		bpl ]inner_loop
 
-	;pla
-	lda <SIGNED_MULT_A_LO
-	inc
-	cmp #64
-	bcc ]outer_loop
+		;pla
+		lda <SIGNED_MULT_A_LO
+		inc
+		cmp #64
+		bcc ]outer_loop
 
-	phk		; restore Data Bank
-	plb
+		phk		; restore Data Bank
+		plb
 
-	pld		; restore D-Page
+		pld		; restore D-Page
 
 ;-----------------------
 ; restore stuff
