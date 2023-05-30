@@ -69,6 +69,7 @@ Mstartup mx %00
 
 		lda #7
 		ldx #32 ; left + right channels set to medium
+		txy
 ]lp
 		jsl Msetvolume
 		dec
@@ -108,21 +109,96 @@ Mplaysample mx %00
 ; Y = Right Volume (0-63)
 ;
 Msetvolume mx %00
+:osc   = 6
+:left  = 4
+:right = 2
 		pha
 		phx
 		phy
 
 		; set B into the same bank as registers
-		phkb ^SDMA_CTRL0_Enable
+		phkb ^SDMA_CTRL_REG0
 		plb
+
+		sep #$10  ; mx=01
 
 		stz |SDMA_CTRL_REG0   ; disable the DMA
 
-		lda #SDMA_CTRL0_Enable
-		sta |SDMA_CTRL_REG0   ; enable the circuit
+		ldx #SDMA_CTRL0_Enable
+		stx |SDMA_CTRL_REG0   ; enable the circuit
 
+		; destination address
+		;lda :osc,s   A already has the osc#
+		xba
+		asl
+		asl   				   ; x1024
 
+		sta |SDMA_DST_ADDY_L   ; left destination
 
+		lda :left,s            ; volume value
+
+		; need to multiply by 512
+		xba
+		asl
+		adc #VolumeTables
+		sta |SDMA_SRC_ADDY_L
+
+		ldx #^VolumeTables
+		stx |SDMA_SRC_ADDY_H
+		stx |SDMA_DST_ADDY_H
+
+		lda #512
+		sta |SDMA_SIZE_L
+		stz |SDMA_SIZE_H
+
+		ldx #SDMA_CTRL0_Enable+SDMA_CTRL0_Start_TRF
+		stx |SDMA_CTRL_REG0
+
+		nop	; this pains me
+		nop
+		nop
+		nop
+		nop
+
+		stz |SDMA_CTRL_REG0   ; disable the DMA
+
+		ldx #SDMA_CTRL0_Enable
+		stx |SDMA_CTRL_REG0   ; enable the circuit
+
+		lda :osc,s   ; OSC #
+		xba
+		asl
+		asl   				   ; x1024
+		adc #512
+		sta |SDMA_DST_ADDY_L   ; 1024 * osc # + 512 for right channel
+
+		lda :right,s           ; right volume
+		; need to multiply by 512
+		xba
+		asl
+		adc #VolumeTables
+		sta |SDMA_SRC_ADDY_L
+
+		ldx #^VolumeTables
+		stx |SDMA_SRC_ADDY_H
+		stx |SDMA_DST_ADDY_H
+
+		lda #512
+		sta |SDMA_SIZE_L
+		stz |SDMA_SIZE_H
+
+		ldx #SDMA_CTRL0_Enable+SDMA_CTRL0_Start_TRF
+		stx |SDMA_CTRL_REG0
+
+		nop
+		nop
+		nop
+		nop
+		nop
+
+		stz |SDMA_CTRL_REG0
+
+		rep #$31
 
 		plb
 
