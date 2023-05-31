@@ -75,9 +75,19 @@ Mstartup mx %00
 		dec
 		bpl ]lp
 
+; Set Default Freq on each of the 8 channels (to 1.0)
+;		nop
+;]wait   bra ]wait
+;        nop
+;
+		ldx #7
+		lda #$0100  ; 1.0
+]lp
+		jsl SetChannelFreq
+		dex
+		bpl ]lp
+
 ; Set OSC to default values, playing silence
-
-
 
 ; Load FIFO
 
@@ -517,6 +527,11 @@ ResampleOSC7 mx %00
 ; 
 SetChannelFreq mx %00
 SetFrequency mx %00
+
+	pha
+	phx
+	phy
+
 	phb
 	phk
 	plb
@@ -538,18 +553,21 @@ SetFrequency mx %00
 	ldy #$FFFF
 	
 ; loop 256 times
-]offset = 1
+]offset = 0
 	lup 256
 	iny 						; 2
 	sty <UNSIGNED_MULT_B_LO 	; 4
 	lda <UNSIGNED_MULT_AL_HI	; 4
 	and #$FFFE  				; 3
 	sta |]offset+1,x  			; 5   ; 19 * 256 = 4864
-]input = ]input+2
 ]offset = ]offset+17
 	--^
 	pld
 	plb
+
+	ply
+	plx
+	pla
 	rtl
 		
 :osc_table
