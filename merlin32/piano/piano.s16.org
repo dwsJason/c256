@@ -8,5 +8,5 @@
 
 RESET org $FFFC
 Main  org $2100  ; if adjusting this, must all adjust the dum for the uninitialized data start
-
+mixer org $20000 ; work around bug in allocator
 
