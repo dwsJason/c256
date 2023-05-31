@@ -134,6 +134,7 @@ start   ent             ; make sure start is visible outside the file
 		ext MIXsetvolume
 
 
+		lda #mixer_dpage	; pass in location of DP memory
 		jsl MIXstartup
 
 ;------------------------------------------------------------------------------
@@ -737,7 +738,7 @@ fastPUTS  mx %00
 		rep #$30
         rts
 ;------------------------------------------------------------------------------
-txt_version cstr 'Virtual Piano v0.0.0    Try pressing some keys, QWERTY..ZXC :)'
+txt_version cstr 'Virtual Piano v0.0.1    Try pressing some keys, QWERTY..ZXC :)'
 txt_lower_notes cstr 'C2                              C3                              C4                             C5'
 txt_f1 cstr 'F1: Toggle Instrument'
 txt_instrument cstr 'INSTRUMENT:'
@@ -964,6 +965,8 @@ pal_buffer
 		   ds \              ; 256 byte align, for quicker piano update
 keyboard   ds 128
 piano_keys ds 128
+
+mixer_dpage ds 256		  	 ; mixer gets it's own DP
 
 
 uninitialized_end ds 0

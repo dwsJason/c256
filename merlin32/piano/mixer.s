@@ -18,6 +18,10 @@
 
 ; Dispatch
 
+;
+; Be to set A= to an address in bank 0
+; for 256 bytes of work memory
+;
 MIXstartup ent
 		jmp Mstartup
 
@@ -48,6 +52,9 @@ MIXsetvolume ent
 ; Enable the MIXER interrupt, with a 4ms interval (250 interrupts per second)
 ;
 Mstartup mx %00
+
+		sta >pOscillators ; pointer to the work memory
+
 		phb
 
 ; clear the silence
@@ -58,6 +65,19 @@ Mstartup mx %00
 		ldy #silence+2
 		lda #{silence_end-silence}-3
 		mvn ^silence,^silence
+
+		phk
+		plb
+
+; zero clear out direct page, oscillators
+
+		ldx |pOscillators
+		stz |0,x
+		txy
+		iny
+		iny
+		lda #256-3
+		mvn 0,0
 
 		phk
 		plb
@@ -89,7 +109,48 @@ Mstartup mx %00
 
 ; Set OSC to default values, playing silence
 
-; Load FIFO
+		phd
+
+		lda |pOscillators
+		tcd
+
+		ldx #0	; osc #0
+]lp
+		lda #silence
+		sta <osc_pWave+1,x
+		sta <osc_pWaveLoop+1,x
+		sta <osc_pWaveEnd+1,x
+
+		lda #^MIXER_WORKRAM
+		sta <osc_pWave+3,x
+		sta <osc_pWaveLoop+3,x
+		sta <osc_pWaveEnd+3,x
+
+		lda #$0100 ; 1.0
+		sta <osc_frequency,x
+		sta <osc_set_freq,x
+		asl
+		sta <osc_frame_size,x
+
+		lda #32
+		sta <osc_left_vol,x
+		sta <osc_right_vol,x
+		sta <osc_set_left,x
+		sta <osc_set_right,x
+
+		txa
+		clc
+		adc #sizeof_osc
+		tax
+		cpx #sizeof_osc*VOICES
+		bcc ]lp
+
+
+; Load Software FIFO
+
+		jsr osc_update
+
+		pld
 
 ; Enable DAC
 
@@ -223,7 +284,7 @@ Msetvolume mx %00
 ; We want to be able to use the math coprocessor in page $100 as well
 ;
 pOscillators ds 2  ; 16 bit pointer to the array of oscillators in bank0 
-pMixBuffers  ds 2  ; 16 bit pointer to the mix buffers in bank0
+;pMixBuffers  ds 2  ; 16 bit pointer to the mix buffers in bank0
    	
 ; each oscillator needs 512 bytes of sample space, I want this in bank 0
 ; also (256 samples)
@@ -511,11 +572,11 @@ ResampleOSC6 mx %00
 ResampleOSC7 mx %00
 ]count = 0
 	lup 256
-	lda |{0+{]count*2}},y   					   ; 3
-	ora #Channel7Left    ; left 				   ; 3
-	sta >MIXFIFO24_8_start+1+{]count*45}+28 	   ; 4
-	ora #Channel7Right    ; right   			   ; 3
-	sta >MIXFIFO24_8_start+32+{]count*45}+28	   ; 4
+	lda |{0+{]count*2}},y   					   ; 3b
+	ora #Channel7Left    ; left 				   ; 3b
+	sta >MIXFIFO24_8_start+1+{]count*45}+28 	   ; 4b 
+	ora #Channel7Right    ; right   			   ; 3b
+	sta >MIXFIFO24_8_start+32+{]count*45}+28	   ; 4b
 ]count = ]count+1
 	--^
 	rtl
@@ -597,42 +658,50 @@ SetFrequency mx %00
 ;
 osc_update mx %00
 
-	pei osc_pWave+2
+sizeof_resampler = ResampleOSC1-ResampleOSC0
+]offset = 0
+]osc    = 0
+
+	lup 8
+	pei osc_pWave+2+]offset
 	plb
 	plb
-	lda <osc_pWave+1
+	lda <osc_pWave+1+]offset 
 	and #$FFFE
 	tay
-	jsl ResampleOSC0
+	jsl ResampleOSC0+{]osc*sizeof_resampler}
 
 	clc
-	lda <osc_pWave
-	adc <osc_frame_size
-	sta <osc_pWave
-	lda <osc_pWave+2
-	adc <osc_frame_size+2
-	sta <osc_pWave+2
+	lda <osc_pWave+]offset 
+	adc <osc_frame_size+]offset 
+	sta <osc_pWave+]offset 
+	lda <osc_pWave+2+]offset 
+	adc <osc_frame_size+2+]offset 
+	sta <osc_pWave+2+]offset 
 
 	; if pWave >= pWaveEnd
 	;    pWave = pLoop + (pWave-pWaveEnd)
 	sec
-	lda <osc_pWave
-	sbc <osc_pWaveEnd
+	lda <osc_pWave+]offset 
+	sbc <osc_pWaveEnd+]offset 
 	sta <osc_delta
-	lda <osc_pWave+2
-	sbc <osc_pWaveEnd+2
+	lda <osc_pWave+2+]offset 
+	sbc <osc_pWaveEnd+2+]offset 
 	sta <osc_delta
-	bmi :next_osc
+	bmi next_osc
 
 	clc
-	lda <osc_pWaveLoop
+	lda <osc_pWaveLoop+]offset 
 	adc <osc_delta
-	sta <osc_pWave
-	lda <osc_pWaveLoop+2
+	sta <osc_pWave+]offset 
+	lda <osc_pWaveLoop+2+]offset 
 	adc <osc_delta+2
-	sta <osc_pWave+2
+	sta <osc_pWave+2+]offset 
+next_osc
+]osc = ]osc+1
+]offset = ]offset+28
+	--^
 
-:next_osc
 	
 
 	rts

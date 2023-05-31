@@ -56,8 +56,10 @@ osc_set_right  ds 2
 
 sizeof_osc ds 0
 
-osc_delta ds 4
+		dend
 
+		dum {sizeof_osc*8}
+osc_delta ds 4
 		dend
 
 
