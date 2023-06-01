@@ -156,6 +156,8 @@ Mstartup mx %00
 
 ; Pump Data into DAC
 
+		jsl MIXFIFO24_8_start
+
 ; Enable the 4ms interrupts used to service the OSC + DAC
 
 		plb
@@ -383,6 +385,11 @@ pOscillators ds 2  ; 16 bit pointer to the array of oscillators in bank0
 	do 1
 ; 24Khz + 8 channel
 MIXFIFO24_8_start mx %00
+
+	phkb ^$AF1900
+	plb
+
+
 	; 19733 bytes (this is better than the the one below), because
 	; it can have more bits of resolution in the audio, potentially up to 15 bit
 	; if we want to pay the time to alter 64K of data to adjust the volume 
@@ -417,6 +424,8 @@ MIXFIFO24_8_start mx %00
 	--^
 
 MIXFIFO24_8_end
+
+	plb
 
     rtl
 	fin
