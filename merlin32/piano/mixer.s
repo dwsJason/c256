@@ -148,6 +148,17 @@ Mstartup mx %00
 
 ; Load Software FIFO
 
+;		nop
+;		nop
+;		nop
+;]wait
+;		bra ]wait
+;		nop
+;		nop
+;		nop
+
+
+
 		jsr osc_update
 
 		pld
@@ -506,9 +517,9 @@ ResampleOSC0 mx %00
 	lup 256
 	lda |{0+{]count*2}},y
 	ora #Channel0Left    ; left
-	sta >MIXFIFO24_8_start+1+{]count*45}
+	sta >MIXFIFO24_8_start+5+{]count*77}
 	ora #Channel0Right    ; right
-	sta >MIXFIFO24_8_start+32+{]count*45}
+	sta >MIXFIFO24_8_start+38+{]count*77}
 ]count = ]count+1
 	--^
 	rtl
@@ -517,9 +528,9 @@ ResampleOSC1 mx %00
 	lup 256
 	lda |{0+{]count*2}},y
 	ora #Channel1Left    ; left
-	sta >MIXFIFO24_8_start+1+{]count*45}+4
+	sta >MIXFIFO24_8_start+5+{]count*77}+4
 	ora #Channel1Right    ; right
-	sta >MIXFIFO24_8_start+32+{]count*45}+4
+	sta >MIXFIFO24_8_start+38+{]count*77}+4
 ]count = ]count+1
 	--^
 	rtl
@@ -528,9 +539,9 @@ ResampleOSC2 mx %00
 	lup 256
 	lda |{0+{]count*2}},y
 	ora #Channel2Left    ; left
-	sta >MIXFIFO24_8_start+1+{]count*45}+8
+	sta >MIXFIFO24_8_start+5+{]count*77}+8
 	ora #Channel2Right    ; right
-	sta >MIXFIFO24_8_start+32+{]count*45}+8
+	sta >MIXFIFO24_8_start+38+{]count*77}+8
 ]count = ]count+1
 	--^
 	rtl
@@ -539,9 +550,9 @@ ResampleOSC3 mx %00
 	lup 256
 	lda |{0+{]count*2}},y
 	ora #Channel3Left    ; left
-	sta >MIXFIFO24_8_start+1+{]count*45}+12
+	sta >MIXFIFO24_8_start+5+{]count*77}+12
 	ora #Channel3Right    ; right
-	sta >MIXFIFO24_8_start+32+{]count*45}+12
+	sta >MIXFIFO24_8_start+38+{]count*77}+12
 ]count = ]count+1
 	--^
 	rtl
@@ -550,9 +561,9 @@ ResampleOSC4 mx %00
 	lup 256
 	lda |{0+{]count*2}},y
 	ora #Channel4Left    ; left
-	sta >MIXFIFO24_8_start+1+{]count*45}+16
+	sta >MIXFIFO24_8_start+5+{]count*77}+16
 	ora #Channel4Right    ; right
-	sta >MIXFIFO24_8_start+32+{]count*45}+16
+	sta >MIXFIFO24_8_start+38+{]count*77}+16
 ]count = ]count+1
 	--^
 	rtl
@@ -561,9 +572,9 @@ ResampleOSC5 mx %00
 	lup 256
 	lda |{0+{]count*2}},y
 	ora #Channel5Left    ; left
-	sta >MIXFIFO24_8_start+1+{]count*45}+20
+	sta >MIXFIFO24_8_start+5+{]count*77}+20
 	ora #Channel5Right    ; right
-	sta >MIXFIFO24_8_start+32+{]count*45}+20
+	sta >MIXFIFO24_8_start+38+{]count*77}+20
 ]count = ]count+1
 	--^
 	rtl
@@ -572,9 +583,9 @@ ResampleOSC6 mx %00
 	lup 256
 	lda |{0+{]count*2}},y
 	ora #Channel6Left    ; left
-	sta >MIXFIFO24_8_start+1+{]count*45}+24
+	sta >MIXFIFO24_8_start+5+{]count*77}+24
 	ora #Channel6Right    ; right
-	sta >MIXFIFO24_8_start+32+{]count*45}+24
+	sta >MIXFIFO24_8_start+38+{]count*77}+24
 ]count = ]count+1
 	--^
 	rtl
@@ -583,9 +594,9 @@ ResampleOSC7 mx %00
 	lup 256
 	lda |{0+{]count*2}},y   					   ; 3b
 	ora #Channel7Left    ; left 				   ; 3b
-	sta >MIXFIFO24_8_start+1+{]count*45}+28 	   ; 4b 
+	sta >MIXFIFO24_8_start+5+{]count*77}+28 	   ; 4b 
 	ora #Channel7Right    ; right   			   ; 3b
-	sta >MIXFIFO24_8_start+32+{]count*45}+28	   ; 4b
+	sta >MIXFIFO24_8_start+38+{]count*77}+28	   ; 4b
 ]count = ]count+1
 	--^
 	rtl
@@ -710,9 +721,6 @@ next_osc
 ]osc = ]osc+1
 ]offset = ]offset+28
 	--^
-
-	
-
 	rts
 
 ;------------------------------------------------------------------------------
