@@ -72,7 +72,7 @@ Mstartup mx %00
 ; zero clear out direct page, oscillators
 
 		ldx |pOscillators
-		stz |0,x
+		stz <0,x
 		txy
 		iny
 		iny
