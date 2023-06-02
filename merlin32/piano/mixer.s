@@ -148,28 +148,27 @@ Mstartup mx %00
 
 ; Load Software FIFO
 
-;		nop
-;		nop
-;		nop
-;]wait
-;		bra ]wait
-;		nop
-;		nop
-;		nop
-
-
-
 		jsr osc_update
 
 		pld
 
 ; Enable DAC
 
+
+		;
+		; Ho Boy!
+		;
+
+
 ; Pump Data into DAC
 
 		jsl MIXFIFO24_8_start
 
 ; Enable the 4ms interrupts used to service the OSC + DAC
+
+		;
+		; Errm Gerd
+		; 
 
 		plb
 		rtl
@@ -708,7 +707,7 @@ sizeof_resampler = ResampleOSC1-ResampleOSC0
 	lda <osc_pWave+2+]offset 
 	sbc <osc_pWaveEnd+2+]offset 
 	sta <osc_delta
-	bmi next_osc
+	bpl next_osc
 
 	clc
 	lda <osc_pWaveLoop+]offset 
