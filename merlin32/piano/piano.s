@@ -154,6 +154,7 @@ UpdateLoop
 		; needs to happen before the keys are rendered, at the top 2/3rds of the frame
 		jsr UpdatePianoKeys
 
+		; Check and Dispatch when F1 is pressed
 		ldx #KEY_F1
 		lda #ToggleInstrument
 		jsr OnKeyDown
@@ -914,12 +915,16 @@ CheckKey mac
 	stx <{]1+128}
 	txy
 	bne keydown@
+	lda #]1-1
+	jsr PianoKeyUp
 	; else keyup
 	lda >piano_colors+{]2*4}-4+2
 	tay
 	lda >piano_colors+{]2*4}-4
 	bra store@
 keydown@
+	lda #]1-1
+	jsr PianoKeyDown
 	lda 3,s
 	tay
 	lda 1,s
@@ -995,17 +1000,164 @@ UpdatePianoKeys mx %00
 	rts
 
 ;------------------------------------------------------------------------------
+; stop making noise
+PianoKeyUp mx %00
+		; A = C2 = 0, then contiguous up to C5
+:pInst = temp0
+:flags = temp1
+:freq  = temp1+2
+:note  = temp2
+:maxrate = temp2+2
+:loop  = temp3
+:end   = temp4
+:pWave = temp5
+		pha
+
+		jsr LoadPianoKeyTempVariables
+
+		pla
+
+
+		rts
+;------------------------------------------------------------------------------
+; make some noise
+PianoKeyDown mx %00
+		; A = C2 = 0, then contiguous up to C5
+:pInst = temp0
+:flags = temp1
+:freq  = temp1+2
+:note  = temp2
+:maxrate = temp2+2
+:loop  = temp3
+:end   = temp4
+:pWave = temp5
+
+		pha
+
+		jsr LoadPianoKeyTempVariables
+
+		pla
+
+		rts
+
+
+;------------------------------------------------------------------------------
+; JMIX header
+		dum 0
+JMIX           ds 4
+jm_file_length ds 4
+jm_version     ds 2
+jm_freq        ds 2
+jm_note        ds 2
+jm_maxrate     ds 2
+jm_loop_point  ds 4
+jm_end_point   ds 4
+
+jm_sizeof	ds 0
+		dend
+
+LoadPianoKeyTempVariables mx %00
+:pInst = temp0
+:flags = temp1
+:freq  = temp1+2
+:note  = temp2
+:maxrate = temp2+2
+:loop  = temp3
+:end   = temp4
+:pWave = temp5
+
+; load up some DP variable with instrument information
+		lda CurrentInstrument
+		asl
+		asl
+		asl
+		lda |instruments+4,x
+		sta <:pInst
+		lda |instruments+6,x
+		sta <:pInst+2
+
+		lda |instruments+2,x
+		sta <:flags
+
+; pInst, points at a JMIX instrument
+
+		ldy #jm_freq
+		lda [:pInst],y
+		sta <:freq
+
+		ldy #jm_note
+		lda [:pInst],y
+		sta <:note
+
+		ldy #jm_maxrate
+		lda [:pInst],y
+		sta <:maxrate
+
+		ldy #jm_loop_point
+		lda [:pInst],y
+		sta <:loop
+		ldy #jm_loop_point+2
+		lda [:pInst],y
+		sta <:loop+2
+
+		ldy #jm_end_point
+		lda [:pInst],y
+		sta <:end
+		ldy #jm_end_point+2
+		lda [:pInst],y
+		sta <:end+2
+
+		clc
+		lda <:pInst
+		adc #jm_sizeof
+		sta <:pWave
+		lda <:pInst+2
+		adc #0
+		sta <:pWave+2
+
+;-----------------------------------------
+
+		clc
+		lda <:loop
+		adc <:pInst
+		sta <:loop
+		lda <:loop+2
+		adc <:pInst+2
+		sta <:loop+2
+
+		clc
+		lda <:end
+		adc <:pInst
+		sta <:end
+		lda <:end+2
+		adc <:pInst+2
+		sta <:end+2
+
+		rts
+;------------------------------------------------------------------------------
+;
+;
+
+INST_FLAG_LOOP = $0001	; if it loops, we need to stop when key up
+INST_FLAG_DRUM = $0002  ; it it's a drum, it always plays the same frequency
 
 instruments
 	da txt_piano
+	dw INST_FLAG_LOOP
 	adrl piano_inst
+
 	da txt_basspull
+	dw INST_FLAG_LOOP
 	adrl basspull_inst
+
 	da txt_bassdrum
+	dw INST_FLAG_DRUM
 	adrl bassdrum_inst
 
 ;------------------------------------------------------------------------------
 ToggleInstrument mx %00
+
+:index = CurrentInstrument
 
 	lda |:index
 	inc
@@ -1015,9 +1167,8 @@ ToggleInstrument mx %00
 :ok sta |:index
 
 	asl
-	sta <temp0
 	asl
-	adc <temp0
+	asl
 	tax
 	lda |instruments+0,x
 
@@ -1032,7 +1183,7 @@ ToggleInstrument mx %00
 
 	rts
 
-:index dw 2  ; default to piano
+CurrentInstrument dw 2  ; default to piano
 
 ;------------------------------------------------------------------------------
 
