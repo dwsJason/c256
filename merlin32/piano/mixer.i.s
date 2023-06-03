@@ -46,15 +46,16 @@ osc_pWave     ds 4 ; 24.8 current wave pointer
 osc_pWaveLoop ds 4 ; 24.8 location in the wave, to loop too
 osc_pWaveEnd  ds 4 ; 24.8 end of wave
 osc_frequency ds 2 ; 8.8 frequency
-osc_left_vol  ds 2 ; Left Volume
-osc_right_vol ds 2 ; Right Volume
+osc_left_vol  ds 1 ; Left Volume
+osc_right_vol ds 1 ; Right Volume
 ; 22
-osc_frame_size ds 4 ; how many source samples will move when we render 256 output samples
+osc_frame_size ds 4 ; 24.8 how many samples will move when we render 256 output samples
+osc_loop_size  ds 4 ; 24.8
 osc_set_freq   ds 2 
-osc_set_left   ds 2
-osc_set_right  ds 2
+osc_set_left   ds 1
+osc_set_right  ds 1
 
-sizeof_osc ds 0
+sizeof_osc ds 0  	; needs to be less than 32 (31 or under)
 
 		dend
 

@@ -10,8 +10,15 @@
         use Util.Macs
 		use macs.i
 		use mixer.i
+
+		; hardware stuff
 		use ../phx/Math_def.asm
+		use ../phx/Math_Float_def.asm
+		use ../phx/timer_def.asm
 		use ../phx/VKYII_CFP9553_SDMA_def.asm
+
+		; kernel things
+		put ..\phx\kernel_inc.asm
 
 
 		mx %00
@@ -126,17 +133,20 @@ Mstartup mx %00
 		sta <osc_pWaveLoop+3,x
 		sta <osc_pWaveEnd+3,x
 
+		stz <osc_loop_size,x
+		stz <osc_loop_size+2,x
+
 		lda #$0100 ; 1.0
 		sta <osc_frequency,x
 		sta <osc_set_freq,x
 		asl
-		sta <osc_frame_size,x
+		sta <osc_frame_size+1,x
 
-		lda #32
+		lda #$2020  ; 32 + 32, left + right
 		sta <osc_left_vol,x
-		sta <osc_right_vol,x
+;		sta <osc_right_vol,x
 		sta <osc_set_left,x
-		sta <osc_set_right,x
+;		sta <osc_set_right,x
 
 		txa
 		clc
@@ -144,6 +154,35 @@ Mstartup mx %00
 		tax
 		cpx #sizeof_osc*VOICES
 		bcc ]lp
+
+		do 0
+; FPU Initialize, to help with the looping math
+
+		; set for fixed point and divide
+		lda #$01F3
+		sta >FP_MATH_CTRL0
+
+		; need to do a dummy operation, to sort of unclog
+		; any residual values in the system
+
+		lda #$1000
+		tax
+		sta >FP_MATH_INPUT0_LL
+		sta >FP_MATH_INPUT1_LL
+		lda #0
+		tay
+		sta >FP_MATH_INPUT0_HL
+		sta >FP_MATH_INPUT1_HL
+
+		txa
+		sta >FP_MATH_INPUT0_LL
+		tya
+		sta >FP_MATH_INPUT0_HL
+		txa
+		sta >FP_MATH_INPUT1_LL
+		tya
+		sta >FP_MATH_INPUT1_HL
+		fin
 
 
 ; Load Software FIFO
@@ -154,17 +193,38 @@ Mstartup mx %00
 
 ; Enable DAC
 
+		sep #$30
 
-		;
-		; Ho Boy!
-		;
+		lda #2
+		sta >$AF1900  ; Reset FIFO
+		lda #0
+		sta >$AF1900  ; UnReset FIFO
 
+        ; Information
+        ; The FIFO is 4096 Byte Deep
+        ; With a DMA (That is not supported yet) (1 Read, 1 Write) - Fastest Time to fill the FiFo is 572us 
+        ; Mode 0: 8Bits Mono -  4096K Samples @ 48Khz - (Can Store 85.33ms of Sound) 5.3 Frames Long 
+        ; Mode 1: 8Bits Stereo -  2048K Samples @ 48Khz - (Can Store 42.66ms of Sound) 2.6 Frames Long
+        ; Mode 2: 16Bits Mono -  2048K Samples @ 48Khz - (Can Store 42.66ms of Sound)
+        ; Mode 3; 16Bits Stereo - 1024K Samples @ 48Khz - (Can Store 21.33ms of Sound) 1.3 Frames Long  Takes 
+
+		lda #%1101    ; Mode 3 is where we live, and enable
+		sta >$AF1900
+
+		rep #$30
 
 ; Pump Data into DAC
-
+		; load first half
+		jsl MIXFIFO24_8_start
+		; load second half
 		jsl MIXFIFO24_8_start
 
-; Enable the 4ms interrupts used to service the OSC + DAC
+; Enable the interrupts used to service the OSC + DAC
+; 24000 / 256 = 93.75 times per second (this also means our service
+; cushion is 10.66ms (good to know), actually an interrupt duty cycle
+; of 5ms should be good enough (maybe don't need 4ms fidelity)
+
+		jsr InstallMixerJiffy
 
 		;
 		; Errm Gerd
@@ -308,8 +368,10 @@ pOscillators ds 2  ; 16 bit pointer to the array of oscillators in bank0
 ; Initialize Left/Right FIFOs   	
    	
 		lda |osc_left_vol,y
+		;and #$00FF
 		sta <UNSIGNED_MULT_A_LO
 		lda |osc_right_vol,y
+		;and #$00FF
 		sta <SIGNED_MULT_A_LO
 		
 		ldx #MixBuffer
@@ -706,9 +768,44 @@ sizeof_resampler = ResampleOSC1-ResampleOSC0
 	sta <osc_delta
 	lda <osc_pWave+2+]offset 
 	sbc <osc_pWaveEnd+2+]offset 
-	sta <osc_delta
-	bpl next_osc
+	sta <osc_delta+2
+	bmi next_osc
 
+	; we're past the end of the wave
+	; so now we have to go to
+	; loop point + (delta % loop size), so annoying
+	lda <osc_loop_size+]offset
+	ora <osc_loop_size+2+]offset
+	bne do_mod
+	stz <osc_delta
+	stz <osc_delta+2
+	bra mod_done
+do_mod
+	; if the loop size is >= delta, then no mod
+	lda <osc_delta+2
+	cmp <osc_loop_size+2+]offset
+	bcc mod_done  ; no mod
+	bne mod
+	lda <osc_delta
+	cmp <osc_loop_size+]offset
+	bcc mod_done	; no mod
+	beq mod_done	; no mod
+mod
+	; $$TODO, we have to do some real math here
+	; delta will never be larger than 4096
+	; still we must do loop size / delta
+	; and alter the delta, so it matches the remainder
+
+	; I feel like this is not going to work.
+	lda >osc_loop_size+1+]offset
+	sta >UNSIGNED_DIV_DEM_LO
+	lda <osc_delta+1
+	sta >UNSIGNED_DIV_NUM_LO
+	lda >UNSIGNED_DIV_REM_LO
+	sta <osc_delta+1
+
+
+mod_done
 	clc
 	lda <osc_pWaveLoop+]offset 
 	adc <osc_delta
@@ -818,5 +915,124 @@ InitVolumeTables mx %00
 		pla
 		sta <:temp
 		rts
+;------------------------------------------------------------------------------
+; (leave timer 0 for actual trackers)
+; Currently hijack timer 1, but could work on timer 0
+;
+;C pseudo code for counting up
+;TIMER1_CHARGE_L = 0x00;
+;TIMER1_CHARGE_M = 0x00;
+;TIMER1_CHARGE_H = 0x00;
+;TIMER1_CMP_L = clockValue & 0xFF;
+;TIMER1_CMP_M = (clockValue >> 8) & 0xFF;
+;TIMER1_CMP_H = (clockValue >> 16) & 0xFF;
+;
+;TIMER1_CMP_REG = TMR_CMP_RECLR;
+;TIMER1_CTRL_REG = TMR_EN | TMR_UPDWN | TMR_SCLR;
+;
+;C pseudo code for counting down
+;TIMER1_CHARGE_L = (clockValue >> 0) & 0xFF;
+;TIMER1_CHARGE_M = (clockValue >> 8) & 0xFF;
+;TIMER1_CHARGE_H = (clockValue >> 16) & 0xFF;
+;TIMER1_CMP_L = 0x00;
+;TIMER1_CMP_M = 0x00;
+;TIMER1_CMP_H = 0x00;
+;
+;TIMER1_CMP_REG = TMR_CMP_RELOAD;
+;TIMER1_CTRL_REG = TMR_EN | TMR_SLOAD;
+;
+InstallMixerJiffy mx %00
+
+; Enable the interrupts used to service the OSC + DAC
+; 24000 / 256 = 93.75 times per second (this also means our service
+; cushion is 10.66ms (good to know), actually an interrupt duty cycle
+; of 5ms should be good enough (maybe don't need 4ms fidelity)
+
+; trying for a 5ms cadence here
+; 1000/5 = 200s interrupt per second
+; interrupt have overhead, so in theory
+; 200hz interrupts (187.5 might also be ok)
+;:RATE equ {14318180/200}
+:RATE equ 76363   ; 187.5 times per second
+
+; The reason I want this 2x the rate, is that the FIFO always needs something
+; left in the tank.  Anytime it hit's empty, it will hurt my ears.
+
+		php
+		sei
+
+		phkb 0
+		plb
+
+		; jump vector hooked up
+
+		lda #$5C
+		sta |VEC_INT03_TMR1
+
+		lda #MixerService
+		sta |VEC_INT03_TMR1+1
+		lda #>MixerService
+		sta |VEC_INT03_TMR1+2
+
+		sep #$30
+
+		lda #<:RATE
+		sta |TIMER1_CMP_L
+		lda #>:RATE
+		sta |TIMER1_CMP_M
+		lda #^:RATE
+		sta |TIMER1_CMP_H
+
+		lda #TMR1_CMP_RECLR
+		sta |TIMER0_CMP_REG
+		lda #TMR1_EN+TMR1_UPDWN+TMR1_SCLR
+		sta |TIMER1_CTRL_REG
+
+		rep #$31
+
+		plb
+		plp
+
+		rts
+
+;------------------------------------------------------------------------------
+MixerService mx %00
+		php
+		rep #$30
+
+		lda >$AF1904 ; Read the FIFO Status
+		and #$800    ; We dump in 256 samples at a time
+		             ; our samples are 8 bytes each, so 2048 bytes
+		beq :work
+
+		plp
+		rtl
+:work
+		; dump data into the HW FIFO
+		phb
+		jsl MIXFIFO24_8_start
+		phd
+
+		; b will get set above, but what if that changes?
+		phk
+		plb
+
+		lda |pOscillators
+		tcd
+
+;
+; honor any wave pointer update requests
+;
+
+		jsr osc_update	; grab sample data, for the "software fifo"
+
+; honor frequency change requests
+; (since volume uses DMA, it can happen "immediately")
+
+
+		pld
+		plb
+		plp
+		rtl
 ;------------------------------------------------------------------------------
 
