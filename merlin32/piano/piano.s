@@ -17,6 +17,7 @@
 
 		; my conventient long branch macros
 		use macs.i
+		use keys.i
 		
 		; linked data, and routines
 		ext decompress_lzsa
@@ -125,6 +126,8 @@ start   ent             ; make sure start is visible outside the file
 		jsr fastLOCATE
 		ldx #txt_instrument
 		jsr fastPUTS
+
+		jsr ToggleInstrument
 ;------------------------------------------------------------------------------
 ; Mixer things
 
@@ -151,8 +154,57 @@ UpdateLoop
 		; needs to happen before the keys are rendered, at the top 2/3rds of the frame
 		jsr UpdatePianoKeys
 
+		ldx #KEY_F1
+		lda #ToggleInstrument
+		jsr OnKeyDown
+
 		bra UpdateLoop
 
+;------------------------------------------------------------------------------
+; X = Key #
+; A = Function to Call
+OnKeyDown mx %00
+		dec
+		pha
+		sep #$20
+		lda |keyboard,x
+		bne :down
+		; key is up, don't call
+		sta |latch_keys,x
+		rep #$30
+:latched
+		pla
+		rts
+:down
+		cmp |latch_keys,x
+		sta |latch_keys,x
+		rep #$30
+		beq :latched
+:KeyIsDown
+		rts
+
+;------------------------------------------------------------------------------
+; X = Key #
+; A = Function to Call
+OnKeyUp mx %00
+		dec
+		pha
+		sep #$20
+		lda |keyboard,x
+		beq :up
+		; key is up, don't call
+		sta |latch_keys,x
+		rep #$30
+:latched
+		pla
+		rts
+:up
+		cmp |latch_keys,x
+		sta |latch_keys,x
+		rep #$30
+		beq :latched
+:KeyIsUp
+		rts
 
 ;------------------------------------------------------------------------------
 UpdateScroll mx %00
@@ -944,6 +996,46 @@ UpdatePianoKeys mx %00
 
 ;------------------------------------------------------------------------------
 
+instruments
+	da txt_piano
+	adrl piano_inst
+	da txt_basspull
+	adrl basspull_inst
+	da txt_bassdrum
+	adrl bassdrum_inst
+
+;------------------------------------------------------------------------------
+ToggleInstrument mx %00
+
+	lda |:index
+	inc
+	cmp #3
+	bcc :ok
+	lda #0
+:ok sta |:index
+
+	asl
+	sta <temp0
+	asl
+	adc <temp0
+	tax
+	lda |instruments+0,x
+
+	pha
+
+	ldx #12
+	ldy #47
+	jsr fastLOCATE
+
+	plx
+	jsr fastPUTS
+
+	rts
+
+:index dw 2  ; default to piano
+
+;------------------------------------------------------------------------------
+
 ; Non Initialized spaced
 
 	dum *+$2100  ; pirate! (this is cheating, these addresses are not relocatable)
@@ -967,6 +1059,8 @@ keyboard   ds 128
 piano_keys ds 128
 
 mixer_dpage ds 256		  	 ; mixer gets it's own DP
+
+latch_keys ds 128			; hybrid latch memory
 
 
 uninitialized_end ds 0
