@@ -11,6 +11,7 @@
 		put ..\phx\vicky_ii_def.asm
 		put ..\phx\VKYII_CFP9553_TILEMAP_def.asm
 		put ..\phx\interrupt_def.asm
+		put ..\phx\Math_def.asm
 
 		; kernel things
 		put ..\phx\kernel_inc.asm
@@ -37,6 +38,7 @@
 ; Direct Page Equates
 ;------------------------------------------------------------------------------
 		put dp.i.s
+		put mixer.i.s
 			  
 ;
 ; Decompress to this address
@@ -1002,6 +1004,11 @@ UpdatePianoKeys mx %00
 ;------------------------------------------------------------------------------
 ; stop making noise
 PianoKeyUp mx %00
+		php
+		phb
+		phd
+		rep #$30
+
 		; A = C2 = 0, then contiguous up to C5
 :pInst = temp0
 :flags = temp1
@@ -1013,15 +1020,28 @@ PianoKeyUp mx %00
 :pWave = temp5
 		pha
 
+		phk
+		plb
+		lda #MyDP
+		tcd
+
+
 		jsr LoadPianoKeyTempVariables
 
 		pla
 
+		pld
+		plb
+		plp
 
 		rts
 ;------------------------------------------------------------------------------
 ; make some noise
 PianoKeyDown mx %00
+		php
+		phb
+		phd
+		rep #$30
 		; A = C2 = 0, then contiguous up to C5
 :pInst = temp0
 :flags = temp1
@@ -1032,11 +1052,42 @@ PianoKeyDown mx %00
 :end   = temp4
 :pWave = temp5
 
+
 		pha
+
+		phk
+		plb
+		lda #MyDP
+		tcd
+
 
 		jsr LoadPianoKeyTempVariables
 
+		; freq to actual osc freq
+		; freq / 24000
+		sei
+		lda <:freq
+		sta |UNSIGNED_MULT_A_LO
+		;lda #24000
+		;sta |UNSIGNED_MULT_B_LO
+		lda #$02BB
+		sta |UNSIGNED_MULT_B_LO
+
+
+		lda |UNSIGNED_MULT_AL_LO
+		sta |$8000
+		lda |UNSIGNED_MULT_AH_LO
+		sta |$8002
+
+
+		lda |UNSIGNED_MULT_AL_HI
+		sta <:freq
+
 		pla
+
+		pld
+		plb
+		plp
 
 		rts
 
@@ -1067,10 +1118,11 @@ LoadPianoKeyTempVariables mx %00
 :pWave = temp5
 
 ; load up some DP variable with instrument information
-		lda CurrentInstrument
+		lda |CurrentInstrument
 		asl
 		asl
 		asl
+		tax
 		lda |instruments+4,x
 		sta <:pInst
 		lda |instruments+6,x
