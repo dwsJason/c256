@@ -1018,6 +1018,7 @@ PianoKeyUp mx %00
 :loop  = temp3
 :end   = temp4
 :pWave = temp5
+:loop_size = temp6
 		pha
 
 		phk
@@ -1051,6 +1052,7 @@ PianoKeyDown mx %00
 :loop  = temp3
 :end   = temp4
 :pWave = temp5
+:loop_size = temp6
 
 
 		pha
@@ -1065,23 +1067,54 @@ PianoKeyDown mx %00
 
 		; freq to actual osc freq
 		; freq / 24000
-		sei
+		sei                         ; can't have interrupt happen here
 		lda <:freq
 		sta |UNSIGNED_MULT_A_LO
 		;lda #24000
 		;sta |UNSIGNED_MULT_B_LO
-		lda #$02BB
+		lda #$02BB  			 ; $1000000/24000
 		sta |UNSIGNED_MULT_B_LO
 
+		;lda |UNSIGNED_MULT_AL_LO
+		;sta |$8000
+		;lda |UNSIGNED_MULT_AH_LO
+		;sta |$8002
 
-		lda |UNSIGNED_MULT_AL_LO
-		sta |$8000
 		lda |UNSIGNED_MULT_AH_LO
-		sta |$8002
-
-
-		lda |UNSIGNED_MULT_AL_HI
 		sta <:freq
+
+		ldx #mixer_dpage-MyDP+{0*sizeof_osc}  ; channel 3, because why not?
+
+		; Freq
+		sta <osc_frequency,x  ; frequency request
+		stz <osc_pWave,x
+
+		; Wave Pointer in 24.8
+		lda <:pWave			  ; new wave address
+		sta <osc_pWave+1,x
+		lda <:pWave+1
+		sta <osc_pWave+2,x
+
+		; Loop address in 24.8
+		stz <osc_pWaveLoop,x
+		lda <:loop
+		sta <osc_pWaveLoop+1,x
+		lda <:loop+1
+		sta <osc_pWaveLoop+2,x
+
+		stz <osc_pWaveEnd,x
+		lda <:end
+		sta <osc_pWaveEnd+1,x
+		lda <:end+1
+		sta <osc_pWaveEnd+2,x
+
+		; Loop size in 24.8
+		stz <osc_loop_size,x
+		lda <:loop_size
+		sta <osc_loop_size+1,x
+		lda <:loop_size+1
+		sta <osc_loop_size+2,x
+
 
 		pla
 
@@ -1116,6 +1149,7 @@ LoadPianoKeyTempVariables mx %00
 :loop  = temp3
 :end   = temp4
 :pWave = temp5
+:loop_size = temp6
 
 ; load up some DP variable with instrument information
 		lda |CurrentInstrument
@@ -1169,6 +1203,7 @@ LoadPianoKeyTempVariables mx %00
 
 ;-----------------------------------------
 
+		; loop point address
 		clc
 		lda <:loop
 		adc <:pInst
@@ -1177,6 +1212,7 @@ LoadPianoKeyTempVariables mx %00
 		adc <:pInst+2
 		sta <:loop+2
 
+		; wave end address
 		clc
 		lda <:end
 		adc <:pInst
@@ -1184,6 +1220,15 @@ LoadPianoKeyTempVariables mx %00
 		lda <:end+2
 		adc <:pInst+2
 		sta <:end+2
+
+		; loop size
+		sec
+		lda <:end
+		sbc <:loop
+		sta <:loop_size
+		lda <:end+2
+		sbc <:loop+2
+		sta <:loop_size+2
 
 		rts
 ;------------------------------------------------------------------------------
