@@ -744,6 +744,20 @@ sizeof_resampler = ResampleOSC1-ResampleOSC0
 ]osc    = 0
 
 	lup 8
+
+	lda <osc_frequency+]offset
+	cmp <osc_set_freq+]offset
+	beq freq_ok
+
+	sta <osc_set_freq+]offset
+	asl
+	sta <osc_frame_size+1+]offset
+
+	lsr
+	ldx #]osc
+	jsl SetChannelFreq   ; is there time to do 8 of these at once?  Doubt it.
+
+freq_ok
 	pei osc_pWave+2+]offset
 	plb
 	plb
