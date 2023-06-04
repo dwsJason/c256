@@ -984,7 +984,7 @@ InstallMixerJiffy mx %00
 		sta |TIMER1_CMP_H
 
 		lda #TMR1_CMP_RECLR
-		sta |TIMER0_CMP_REG
+		sta |TIMER1_CMP_REG
 		lda #TMR1_EN+TMR1_UPDWN+TMR1_SCLR
 		sta |TIMER1_CTRL_REG
 
