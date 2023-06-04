@@ -917,7 +917,7 @@ CheckKey mac
 	stx <{]1+128}
 	txy
 	bne keydown@
-	lda #]1-1
+	lda #]2-1
 	jsr PianoKeyUp
 	; else keyup
 	lda >piano_colors+{]2*4}-4+2
@@ -925,7 +925,7 @@ CheckKey mac
 	lda >piano_colors+{]2*4}-4
 	bra store@
 keydown@
-	lda #]1-1
+	lda #]2-1
 	jsr PianoKeyDown
 	lda 3,s
 	tay
