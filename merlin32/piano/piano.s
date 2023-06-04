@@ -1007,7 +1007,7 @@ PianoKeyUp mx %00
 		php
 		phb
 		phd
-		rep #$30
+		rep #$31
 
 		; A = C2 = 0, then contiguous up to C5
 :pInst = temp0
@@ -1083,7 +1083,45 @@ PianoKeyDown mx %00
 		lda |UNSIGNED_MULT_AH_LO
 		sta <:freq
 
-		ldx #mixer_dpage-MyDP+{0*sizeof_osc}  ; channel 3, because why not?
+		;----------------------------------------------------
+
+		lda 1,s
+		clc
+		adc #36 ;-> C2
+		sta 1,s
+		cmp <:note
+		beq :freq_good
+		bcs :step_up
+		; step down
+		sec
+		lda <:note
+		sbc 1,s
+		asl
+		tax
+		lda |pitch_step_down,x
+		sta |UNSIGNED_MULT_A_LO
+		lda <:freq
+		sta |UNSIGNED_MULT_B_LO
+
+		lda |UNSIGNED_MULT_AH_LO
+		bra :go
+
+:step_up
+		sbc <:note
+		asl
+		tax
+		lda |pitch_step_up,x
+		sta |UNSIGNED_MULT_A_LO
+		lda <:freq
+		sta |UNSIGNED_MULT_B_LO
+		lda |UNSIGNED_MULT_AL_HI
+:go
+		sta <:freq
+:freq_good
+		lda <:freq
+		;----------------------------------------------------
+
+		ldx #mixer_dpage-MyDP+{7*sizeof_osc}  ; channel 3, because why not?
 
 		; Freq
 		sta <osc_frequency,x  ; frequency request
@@ -1281,6 +1319,503 @@ ToggleInstrument mx %00
 	rts
 
 CurrentInstrument dw 2  ; default to piano
+
+;------------------------------------------------------------------------------
+;
+;Pitch Tables
+;------------
+;Pitch up 1 step = 1.059463
+;Pitch down 1 step = 0.943874
+;
+;Step Up Table in 8.8 format
+pitch_step_up
+;step=  0  1.000
+	dw $0100
+;step=  1  1.059
+	dw $010f
+;step=  2  1.122
+	dw $011f
+;step=  3  1.189
+	dw $0130
+;step=  4  1.260
+	dw $0142
+;step=  5  1.335
+	dw $0155
+;step=  6  1.414
+	dw $016a
+;step=  7  1.498
+	dw $017f
+;step=  8  1.587
+	dw $0196
+;step=  9  1.682
+	dw $01ae
+;step= 10  1.782
+	dw $01c8
+;step= 11  1.888
+	dw $01e3
+;step= 12  2.000
+	dw $0200
+;step= 13  2.119
+	dw $021e
+;step= 14  2.245
+	dw $023e
+;step= 15  2.378
+	dw $0260
+;step= 16  2.520
+	dw $0285
+;step= 17  2.670
+	dw $02ab
+;step= 18  2.828
+	dw $02d4
+;step= 19  2.997
+	dw $02ff
+;step= 20  3.175
+	dw $032c
+;step= 21  3.364
+	dw $035d
+;step= 22  3.564
+	dw $0390
+;step= 23  3.776
+	dw $03c6
+;step= 24  4.000
+	dw $0400
+;step= 25  4.238
+	dw $043c
+;step= 26  4.490
+	dw $047d
+;step= 27  4.757
+	dw $04c1
+;step= 28  5.040
+	dw $050a
+;step= 29  5.339
+	dw $0556
+;step= 30  5.657
+	dw $05a8
+;step= 31  5.993
+	dw $05fe
+;step= 32  6.350
+	dw $0659
+;step= 33  6.727
+	dw $06ba
+;step= 34  7.127
+	dw $0720
+;step= 35  7.551
+	dw $078d
+;step= 36  8.000
+	dw $0800
+;step= 37  8.476
+	dw $0879
+;step= 38  8.980
+	dw $08fa
+;step= 39  9.514
+	dw $0983
+;step= 40  10.079
+	dw $0a14
+;step= 41  10.679
+	dw $0aad
+;step= 42  11.314
+	dw $0b50
+;step= 43  11.986
+	dw $0bfc
+;step= 44  12.699
+	dw $0cb3
+;step= 45  13.454
+	dw $0d74
+;step= 46  14.254
+	dw $0e41
+;step= 47  15.102
+	dw $0f1a
+;step= 48  16.000
+	dw $1000
+;step= 49  16.951
+	dw $10f3
+;step= 50  17.959
+	dw $11f5
+;step= 51  19.027
+	dw $1307
+;step= 52  20.159
+	dw $1428
+;step= 53  21.357
+	dw $155b
+;step= 54  22.627
+	dw $16a0
+;step= 55  23.973
+	dw $17f9
+;step= 56  25.398
+	dw $1966
+;step= 57  26.909
+	dw $1ae8
+;step= 58  28.509
+	dw $1c82
+;step= 59  30.204
+	dw $1e34
+;step= 60  32.000
+	dw $2000
+;step= 61  33.903
+	dw $21e7
+;step= 62  35.919
+	dw $23eb
+;step= 63  38.055
+	dw $260e
+;step= 64  40.318
+	dw $2851
+;step= 65  42.715
+	dw $2ab7
+;step= 66  45.255
+	dw $2d41
+;step= 67  47.946
+	dw $2ff2
+;step= 68  50.797
+	dw $32cc
+;step= 69  53.818
+	dw $35d1
+;step= 70  57.018
+	dw $3904
+;step= 71  60.408
+	dw $3c68
+;step= 72  64.000
+	dw $4000
+;step= 73  67.806
+	dw $43ce
+;step= 74  71.838
+	dw $47d6
+;step= 75  76.110
+	dw $4c1c
+;step= 76  80.635
+	dw $50a2
+;step= 77  85.430
+	dw $556e
+;step= 78  90.510
+	dw $5a82
+;step= 79  95.892
+	dw $5fe4
+;step= 80  101.594
+	dw $6598
+;step= 81  107.635
+	dw $6ba2
+;step= 82  114.035
+	dw $7209
+;step= 83  120.816
+	dw $78d0
+;step= 84  128.001
+	dw $8000
+;step= 85  135.612
+	dw $879c
+;step= 86  143.676
+	dw $8fac
+;step= 87  152.219
+	dw $9838
+;step= 88  161.271
+	dw $a145
+;step= 89  170.860
+	dw $aadc
+;step= 90  181.020
+	dw $b505
+;step= 91  191.784
+	dw $bfc8
+;step= 92  203.188
+	dw $cb30
+;step= 93  215.270
+	dw $d745
+;step= 94  228.071
+	dw $e412
+;step= 95  241.633
+	dw $f1a2
+;step= 96  256.001 10000
+;step= 97  271.224 10f39
+;step= 98  287.352 11f5a
+;step= 99  304.438 13070
+;step=100  322.541 1428a
+;step=101  341.721 155b8
+;step=102  362.040 16a0a
+;step=103  383.568 17f91
+;step=104  406.377 19660
+;step=105  430.541 1ae8a
+;step=106  456.142 1c824
+;step=107  483.266 1e344
+;step=108  512.003 20000
+;step=109  542.448 21e72
+;step=110  574.703 23eb4
+;step=111  608.877 260e0
+;step=112  645.083 28515
+;step=113  683.442 2ab71
+;step=114  724.081 2d414
+;step=115  767.137 2ff23
+;step=116  812.754 32cc0
+;step=117  861.083 35d15
+;step=118  912.285 39049
+;step=119  966.533 3c688
+;step=120  1024.006 40001
+;step=121  1084.896 43ce5
+;step=122  1149.408 47d68
+;step=123  1217.755 4c1c1
+;step=124  1290.167 50a2a
+;step=125  1366.884 556e2
+;step=126  1448.163 5a829
+;step=127  1534.276 5fe46
+;step=128  1625.508 65982
+
+;Step Down Table
+; this is in the format 0.16 (for more precision)
+pitch_step_down
+;step=-  0  1.000 
+	dw $0000
+;step=-  1  0.944
+	dw $f1a1
+;step=-  2  0.891
+	dw $e411
+;step=-  3  0.841
+	dw $d744
+;step=-  4  0.794
+	dw $cb2f
+;step=-  5  0.749
+	dw $bfc8
+;step=-  6  0.707
+	dw $b504
+;step=-  7  0.667
+	dw $aadc
+;step=-  8  0.630
+	dw $a145
+;step=-  9  0.595
+	dw $9837
+;step=- 10  0.561
+	dw $8fac
+;step=- 11  0.530
+	dw $879c
+;step=- 12  0.500
+	dw $7fff
+;step=- 13  0.472
+	dw $78d0
+;step=- 14  0.445
+	dw $7208
+;step=- 15  0.420
+	dw $6ba2
+;step=- 16  0.397
+	dw $6597
+;step=- 17  0.375
+	dw $5fe4
+;step=- 18  0.354
+	dw $5a82
+;step=- 19  0.334
+	dw $556e
+;step=- 20  0.315
+	dw $50a2
+;step=- 21  0.297
+	dw $4c1b
+;step=- 22  0.281
+	dw $47d6
+;step=- 23  0.265
+	dw $43ce
+;step=- 24  0.250
+	dw $3fff
+;step=- 25  0.236
+	dw $3c68
+;step=- 26  0.223
+	dw $3904
+;step=- 27  0.210
+	dw $35d1
+;step=- 28  0.198
+	dw $32cb
+;step=- 29  0.187
+	dw $2ff2
+;step=- 30  0.177
+	dw $2d41
+;step=- 31  0.167
+	dw $2ab7
+;step=- 32  0.157
+	dw $2851
+;step=- 33  0.149
+	dw $260d
+;step=- 34  0.140
+	dw $23eb
+;step=- 35  0.132
+	dw $21e7
+;step=- 36  0.125
+	dw $1fff
+;step=- 37  0.118
+	dw $1e34
+;step=- 38  0.111
+	dw $1c82
+;step=- 39  0.105
+	dw $1ae8
+;step=- 40  0.099
+	dw $1965
+;step=- 41  0.094
+	dw $17f9
+;step=- 42  0.088
+	dw $16a0
+;step=- 43  0.083
+	dw $155b
+;step=- 44  0.079
+	dw $1428
+;step=- 45  0.074
+	dw $1306
+;step=- 46  0.070
+	dw $11f5
+;step=- 47  0.066
+	dw $10f3
+;step=- 48  0.062
+	dw $0fff
+;step=- 49  0.059
+	dw $0f1a
+;step=- 50  0.056
+	dw $0e41
+;step=- 51  0.053
+	dw $0d74
+;step=- 52  0.050
+	dw $0cb2
+;step=- 53  0.047
+	dw $0bfc
+;step=- 54  0.044
+	dw $0b50
+;step=- 55  0.042
+	dw $0aad
+;step=- 56  0.039
+	dw $0a14
+;step=- 57  0.037
+	dw $0983
+;step=- 58  0.035
+	dw $08fa
+;step=- 59  0.033
+	dw $0879
+;step=- 60  0.031
+	dw $07ff
+;step=- 61  0.029
+	dw $078d
+;step=- 62  0.028
+	dw $0720
+;step=- 63  0.026
+	dw $06ba
+;step=- 64  0.025
+	dw $0659
+;step=- 65  0.023
+	dw $05fe
+;step=- 66  0.022
+	dw $05a8
+;step=- 67  0.021
+	dw $0556
+;step=- 68  0.020
+	dw $050a
+;step=- 69  0.019
+	dw $04c1
+;step=- 70  0.018
+	dw $047d
+;step=- 71  0.017
+	dw $043c
+;step=- 72  0.016
+	dw $03ff
+;step=- 73  0.015
+	dw $03c6
+;step=- 74  0.014
+	dw $0390
+;step=- 75  0.013
+	dw $035d
+;step=- 76  0.012
+	dw $032c
+;step=- 77  0.012
+	dw $02ff
+;step=- 78  0.011
+	dw $02d4
+;step=- 79  0.010
+	dw $02ab
+;step=- 80  0.010
+	dw $0285
+;step=- 81  0.009
+	dw $0260
+;step=- 82  0.009
+	dw $023e
+;step=- 83  0.008
+	dw $021e
+;step=- 84  0.008
+	dw $01ff
+;step=- 85  0.007
+	dw $01e3
+;step=- 86  0.007
+	dw $01c8
+;step=- 87  0.007
+	dw $01ae
+;step=- 88  0.006
+	dw $0196
+;step=- 89  0.006
+	dw $017f
+;step=- 90  0.006
+	dw $016a
+;step=- 91  0.005
+	dw $0155
+;step=- 92  0.005
+	dw $0142
+;step=- 93  0.005
+	dw $0130
+;step=- 94  0.004
+	dw $011f
+;step=- 95  0.004
+	dw $010f
+;step=- 96  0.004
+	dw $00ff
+;step=- 97  0.004
+	dw $00f1
+;step=- 98  0.003
+	dw $00e4
+;step=- 99  0.003
+	dw $00d7
+;step=-100  0.003
+	dw $00cb
+;step=-101  0.003
+	dw $00bf
+;step=-102  0.003
+	dw $00b5
+;step=-103  0.003
+	dw $00aa
+;step=-104  0.002
+	dw $00a1
+;step=-105  0.002
+	dw $0098
+;step=-106  0.002
+	dw $008f
+;step=-107  0.002
+	dw $0087
+;step=-108  0.002
+	dw $007f
+;step=-109  0.002
+	dw $0078
+;step=-110  0.002
+	dw $0072
+;step=-111  0.002
+	dw $006b
+;step=-112  0.002
+	dw $0065
+;step=-113  0.001
+	dw $005f
+;step=-114  0.001
+	dw $005a
+;step=-115  0.001
+	dw $0055
+;step=-116  0.001
+	dw $0050
+;step=-117  0.001
+	dw $004c
+;step=-118  0.001
+	dw $0047
+;step=-119  0.001
+	dw $0043
+;step=-120  0.001
+	dw $003f
+;step=-121  0.001
+	dw $003c
+;step=-122  0.001
+	dw $0039
+;step=-123  0.001
+	dw $0035
+;step=-124  0.001
+	dw $0032
+;step=-125  0.001
+	dw $002f
+;step=-126  0.001
+	dw $002d
+;step=-127  0.001
+	dw $002a
+;step=-128  0.001
+	dw $0028
 
 ;------------------------------------------------------------------------------
 
