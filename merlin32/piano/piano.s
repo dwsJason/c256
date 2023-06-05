@@ -1026,8 +1026,7 @@ PianoKeyUp mx %00
 		lda #MyDP
 		tcd
 
-
-		jsr LoadPianoKeyTempVariables
+		;jsr LoadPianoKeyTempVariables
 
 		pla
 
@@ -1231,6 +1230,7 @@ LoadPianoKeyTempVariables mx %00
 		lda [:pInst],y
 		sta <:end+2
 
+		; set wave pointer
 		clc
 		lda <:pInst
 		adc #jm_sizeof
@@ -1241,22 +1241,22 @@ LoadPianoKeyTempVariables mx %00
 
 ;-----------------------------------------
 
-		; loop point address
+		; correct loop point address
 		clc
 		lda <:loop
-		adc <:pInst
+		adc <:pWave
 		sta <:loop
 		lda <:loop+2
-		adc <:pInst+2
+		adc <:pWave+2
 		sta <:loop+2
 
 		; wave end address
 		clc
 		lda <:end
-		adc <:pInst
+		adc <:pWave
 		sta <:end
 		lda <:end+2
-		adc <:pInst+2
+		adc <:pWave+2
 		sta <:end+2
 
 		; loop size
