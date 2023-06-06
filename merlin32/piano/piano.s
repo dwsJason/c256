@@ -794,7 +794,7 @@ fastPUTS  mx %00
 		rep #$30
         rts
 ;------------------------------------------------------------------------------
-txt_version cstr 'Virtual Piano v0.0.1    Try pressing some keys, QWERTY..ZXC :)'
+txt_version cstr 'Virtual Piano v0.0.3    Try pressing some keys, QWERTY..ZXC :)'
 txt_lower_notes cstr 'C2                              C3                              C4                             C5'
 txt_f1 cstr 'F1: Toggle Instrument'
 txt_instrument cstr 'INSTRUMENT:'
@@ -1004,6 +1004,91 @@ UpdatePianoKeys mx %00
 	rts
 
 ;------------------------------------------------------------------------------
+; sizeof_osc = 28, so A x 28
+mult_sizeof_osc mx %00
+		; sizeof_osc = 28, so A*28
+		asl  ; x2
+		asl  ; x4
+		pha
+		asl  ; x8
+		asl  ; x16
+		asl  ; x32
+		sec
+		sbc 1,s	; x32-x4 = x28
+		sta 1,s
+		pla
+		rts
+
+;------------------------------------------------------------------------------
+; A = note
+; return X = mixer_dpage-MyDP+{<channel#>*sizeof_osc}
+;  c=0 success
+;  c=1 fail
+; wrecks Y
+FindVoiceKeyDown mx %00
+		ldy #VOICES-1
+		pha
+]lp		lda |voice_status,y
+		and #$FF
+		beq :found_it
+		dey
+		bpl ]lp
+		pla
+		sec		; c=1 is fail  ; no more voices available
+		rts
+:found_it
+		; mark in use
+		lda |voice_status,y
+		ora 1,s
+		sta |voice_status,y
+
+		tya
+
+		jsr mult_sizeof_osc
+
+		clc
+		adc #mixer_dpage-MyDP
+		tax
+		pla
+		; c=0 success
+		rts
+
+;------------------------------------------------------------------------------
+; A = note
+; return X = mixer_dpage-MyDP+{<channel#>*sizeof_osc}
+;  c=0 success
+;  c=1 fail
+; wrecks Y
+FindVoiceKeyUp mx %00
+		ldy #VOICES-1
+		pha
+]lp		lda |voice_status,y
+		and #$FF
+		cmp 1,s
+		beq :found_it
+		dey
+		bpl ]lp
+		pla
+		sec		; c=1 is fail
+		rts
+
+:found_it
+		lda |voice_status,y  ; free the channel
+		and #$FF00
+		sta |voice_status,y
+
+		tya
+		jsr mult_sizeof_osc
+		clc
+		adc #mixer_dpage-MyDP
+
+		tax
+
+		pla
+		;c=0=success
+		rts
+
+;------------------------------------------------------------------------------
 ; stop making noise
 PianoKeyUp mx %00
 		php
@@ -1028,8 +1113,38 @@ PianoKeyUp mx %00
 		lda #MyDP
 		tcd
 
-		;jsr LoadPianoKeyTempVariables
+		jsr LoadPianoKeyTempVariables
 
+		;lda <:flags
+		;and #INST_FLAG_LOOP
+		;beq :nothing  
+		
+		; get note in A
+		lda 1,s
+		clc
+		adc #36 ;-> C2, convert to midi note
+		sta 1,s
+
+		jsr FindVoiceKeyUp
+		bcs :nothing
+
+		; install silence
+		sei
+
+		lda #silence
+		sta <osc_pWave+1,x
+		sta <osc_pWaveLoop+1,x
+		sta <osc_pWaveEnd+1,x
+
+		lda #^MIXER_WORKRAM
+		sta <osc_pWave+3,x
+		sta <osc_pWaveLoop+3,x
+		sta <osc_pWaveEnd+3,x
+		stz <osc_loop_size,x
+		stz <osc_loop_size+2,x
+
+
+:nothing
 		pla
 
 		pld
@@ -1122,7 +1237,12 @@ PianoKeyDown mx %00
 		lda <:freq
 		;----------------------------------------------------
 
-		ldx #mixer_dpage-MyDP+{0*sizeof_osc}  ; channel 3, because why not?
+		;ldx #mixer_dpage-MyDP+{5*sizeof_osc}  ; channel 3, because why not?
+		pha	; save freq
+		lda 3,s    ; grab midi note #
+		jsr FindVoiceKeyDown
+		pla ; restore freq
+		bcs :no_voice
 
 		; Freq
 		sta <osc_frequency,x  ; frequency request
@@ -1154,7 +1274,7 @@ PianoKeyDown mx %00
 		lda <:loop_size+1
 		sta <osc_loop_size+2,x
 
-
+:no_voice
 		pla
 
 		pld
@@ -1850,6 +1970,8 @@ piano_keys ds 128
 mixer_dpage ds 256		  	 ; mixer gets it's own DP
 
 latch_keys ds 128			; hybrid latch memory
+
+voice_status ds VOICES      ; a byte for each voice, 0 means available
 
 
 uninitialized_end ds 0

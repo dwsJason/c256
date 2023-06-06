@@ -96,7 +96,8 @@ Mstartup mx %00
 ; Set Initial volumes
 
 		lda #7
-		ldx #32 ; left + right channels set to medium
+		ldx #16 ;32 ; left + right channels set to medium
+		;ldy #0
 		txy
 ]lp
 		jsl Msetvolume
@@ -218,8 +219,17 @@ Mstartup mx %00
 ; Pump Data into DAC
 		; load first half
 		jsl MIXFIFO24_8_start
+
+		lda >$AF1904
+		and #$FFF
+		sta >$300000
+
 		; load second half
 		jsl MIXFIFO24_8_start
+
+		lda >$AF1904
+		and #$FFF
+		sta >$300002
 
 ; Enable the interrupts used to service the OSC + DAC
 ; 24000 / 256 = 93.75 times per second (this also means our service
@@ -490,10 +500,11 @@ MIXFIFO24_8_start mx %00
 	adc >Channel6Right ;6
 	adc >Channel7Right ;6   ; 48
 
-	stx |$1908  	   ;5  
-	sta |$1908         ;5  
-	stx |$1908  	   ;5  
-	sta |$1908         ;5   ; 20 = total 118
+	sta |$1908  	   ;5
+	stx |$1908         ;5  
+	sta |$1908  	   ;5  
+	stx |$1908         ;5   ; 20 = total 118
+	;jsr FIFO_RECORD
 
 	--^
 
@@ -503,6 +514,20 @@ MIXFIFO24_8_end
 
     rtl
 	fin
+
+; DEBUG BANK
+DEBUG_RAM = $300000
+
+FIFO_RECORD
+	sta |$1908
+:st	sta >DEBUG_RAM
+	lda >:st+1
+	inc
+	inc
+	sta >:st+1
+	rts
+
+
 
 	do 0
 	; this is like 17940 bytes
@@ -968,7 +993,7 @@ InstallMixerJiffy mx %00
 ; 1000/5 = 200s interrupt per second
 ; interrupt have overhead, so in theory
 ; 200hz interrupts (187.5 might also be ok)
-;:RATE equ {14318180/200}
+;:RATE equ {14318180/400}
 :RATE equ 76363   ; 187.5 times per second
 
 ; The reason I want this 2x the rate, is that the FIFO always needs something
@@ -1024,10 +1049,16 @@ InstallMixerJiffy mx %00
 MixerService mx %00
 		php
 		rep #$30
-
+:check
 		lda >$AF1904 ; Read the FIFO Status
-		and #$800    ; We dump in 256 samples at a time
+;		bmi :break
+;		and #$FFF    ; We dump in 256 samples at a time
+;		beq :break
+;
+;		cmp #$980
 		             ; our samples are 8 bytes each, so 2048 bytes
+;		bcc :work
+		and #$800
 		beq :work
 
 		plp
@@ -1054,10 +1085,12 @@ MixerService mx %00
 ; honor frequency change requests
 ; (since volume uses DMA, it can happen "immediately")
 
-
 		pld
 		plb
+		;bra :check 
+
 		plp
 		rtl
+
 ;------------------------------------------------------------------------------
 
