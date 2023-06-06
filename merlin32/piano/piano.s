@@ -459,12 +459,173 @@ p_frame ds 2
 p_timer ds 2
 p_x     ds 2
 p_y     ds 2
+p_cat   ds 2   ; pointer to cat
 sizeof_particle ds 0
 		dend
 
+;
+; This is pretty dumb, basically any particle with a p_y
+; that is negative is in-active
+; 
 UpdateParticles mx %00
-		rts
+
+;---------------------------------------------------------------
+; Hacky code for testing
+
+	lda <dpJiffy
+	and #$f
+	bne :continue
+
+	jsr SpawnParticles
+
+:continue
+
+;---------------------------------------------------------------
+
+	ldx #0
+	ldy #sizeof_sp*8
+]loop
+	lda |particle_objects+p_y,x
+	bmi :next_particle
+
+	sec
+	lda |particle_objects+p_x,x
+	sbc #4
+	sta |particle_objects+p_x,x
+
+	lda |particle_objects+p_timer,x
+	inc
+	cmp #256
+	bcc :ok
+	lda #255
+:ok
+	sta |particle_objects+p_timer,x
+
+	; the timer is also a state machine
+
+	lsr
+	lsr
+	lsr
+
+	cmp #6
+	bcc :no_clamp
+	lda #5
+:no_clamp
+
+	pha  ; save state x 1
+	asl
+
+	phy
+	tay
+	lda |:frames,y
+	sta |particle_objects+p_frame,x
+	ply
+
+	sec
+	lda |particle_objects+p_y,x
+	sbc 1,s
+	sta |particle_objects+p_y,x
+	pla
+
+:render
+
+	lda #$65
+	sta |oam_shadow+sp_control,y
+
+	lda |particle_objects+p_frame,x
+	sta |oam_shadow+sp_address,y
+	lda #^{VRAM_NYAN_SPRITES-VRAM}
+	sta |oam_shadow+sp_address+2,y
+
+	lda |particle_objects+p_x,x
+	sta |oam_shadow+sp_x,y
+
+	lda |particle_objects+p_y,x
+	sta |oam_shadow+sp_y,y
+
+
+:next_particle
+	clc
+	tya
+	adc #sizeof_sp ; oam increment
+	tay
+
+	;clc c=0
+	txa
+	adc #sizeof_particle
+	tax
+	cmp #56*sizeof_particle
+	bcc ]loop
+
+	rts
+
 :frames dw 6*1024,7*1024,8*1024,9*1024,10*1024,11*1024
+
+;------------------------------------------------------------------------------
+
+SpawnParticles mx %00
+
+:catx = temp0
+:caty = temp0+2
+
+		ldx #0
+]catloop
+		lda |cat_objects+cat_note,x
+		beq :next_cat
+		lda |cat_objects+cat_y,x
+		cmp #386
+		bcs :next_cat
+
+		sta <:caty
+
+		lda |cat_objects+cat_x,x
+		sta <:catx
+
+		phx
+		jsr :FindFreeParticle
+		bcs :continue ; none available
+	
+; spawn a particle in the middle of the screen, so I can see it work
+		lda <:catx
+		sta |particle_objects+p_x,x
+		lda <:caty
+		sta |particle_objects+p_y,x
+		stz |particle_objects+p_timer,x
+:continue
+		plx
+:next_cat
+		clc
+		txa
+		adc #sizeof_cat
+		tax
+		cmp #sizeof_cat*8
+		bcc ]catloop
+
+		rts
+
+;$$TODO Fix this stupidness
+; I know, I could use a stack allocator here, instead of this
+; just stupidness
+;
+:FindFreeParticle
+	ldx #0
+	clc
+]loop
+	lda |particle_objects+p_y,x
+	bmi :found_particle
+	txa
+	adc #sizeof_particle
+	tax
+	cmp #56*sizeof_particle
+	bcc ]loop
+	; c=1 failed
+	rts
+
+:found_particle
+	clc
+	rts
+
+
 ;------------------------------------------------------------------------------
 UpdateSprites mx %00
 
