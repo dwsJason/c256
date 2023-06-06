@@ -195,6 +195,9 @@ Mstartup mx %00
 
 ; Enable DAC
 
+		;phkb ^$AF0000
+		;plb
+
 		sep #$30
 
 		lda #2
@@ -210,11 +213,13 @@ Mstartup mx %00
         ; Mode 2: 16Bits Mono -  2048K Samples @ 48Khz - (Can Store 42.66ms of Sound)
         ; Mode 3; 16Bits Stereo - 1024K Samples @ 48Khz - (Can Store 21.33ms of Sound) 1.3 Frames Long  Takes 
 
-		lda #%1101    ; stereo Mode 3 is where we live, and enable
-;		lda #%1001    ; mono Mode 2 is where we live, and enable
-		sta >$AF1900
+		;lda #%1101    ; stereo Mode 3 is where we live, and enable
+		;sta |$AF1900
+		;sta |$AF1900
 
 		rep #$30
+
+		;plb
 
 ; Pump Data into DAC
 		; load first half
@@ -223,6 +228,11 @@ Mstartup mx %00
 		lda >$AF1904
 		and #$FFF
 		sta >$300000
+
+		sep #$30
+		lda #%1101    ; stereo Mode 3 is where we live, and enable
+		sta >$AF1900
+		rep #$30
 
 		; load second half
 		jsl MIXFIFO24_8_start
@@ -267,6 +277,7 @@ Msetvolume mx %00
 :osc   = 6
 :left  = 4
 :right = 2
+		phb
 		pha
 		phx
 		phy
@@ -291,6 +302,7 @@ Msetvolume mx %00
 		sta |SDMA_DST_ADDY_L   ; left destination
 
 		lda :left,s            ; volume value
+		and #$3F
 
 		; need to multiply by 512
 		xba
@@ -328,6 +340,7 @@ Msetvolume mx %00
 		sta |SDMA_DST_ADDY_L   ; 1024 * osc # + 512 for right channel
 
 		lda :right,s           ; right volume
+		and #$3F
 		; need to multiply by 512
 		xba
 		asl
@@ -360,6 +373,8 @@ Msetvolume mx %00
 		ply
 		plx
 		pla
+
+		plb
 		rtl
 ;------------------------------------------------------------------------------
 		
@@ -500,10 +515,10 @@ MIXFIFO24_8_start mx %00
 	adc >Channel6Right ;6
 	adc >Channel7Right ;6   ; 48
 
-	sta |$1908  	   ;5
-	stx |$1908         ;5  
-	sta |$1908  	   ;5  
-	stx |$1908         ;5   ; 20 = total 118
+	stx |$1908  	   ;5
+	sta |$1908         ;5  
+	stx |$1908  	   ;5  
+	sta |$1908         ;5   ; 20 = total 118
 	;jsr FIFO_RECORD
 
 	--^
@@ -810,7 +825,7 @@ freq_ok
 	lda <osc_pWave+2+]offset 
 	sbc <osc_pWaveEnd+2+]offset 
 	sta <osc_delta+2
-	bmi next_osc
+	bmi vol_update
 
 	; we're past the end of the wave
 	; so now we have to go to
@@ -854,7 +869,21 @@ mod_done
 	lda <osc_pWaveLoop+2+]offset 
 	adc <osc_delta+2
 	sta <osc_pWave+2+]offset 
+vol_update
+	; slip volume updates into here
+	lda <osc_left_vol+]offset
+	cmp <osc_set_left+]offset
+	beq next_osc
+	sta <osc_set_left+]offset
+
+	tax
+	xba
+	tay
+	lda #]osc
+	jsl Msetvolume
+
 next_osc
+
 ]osc = ]osc+1
 ]offset = ]offset+28
 	--^

@@ -118,6 +118,19 @@ start   ent             ; make sure start is visible outside the file
 		jsr fastPUTS
 
 		ldx #1
+		ldy #4
+		jsr fastLOCATE
+		ldx #txt_f2
+		jsr fastPUTS
+
+		ldx #1
+		ldy #5
+		jsr fastLOCATE
+		ldx #txt_f3
+		jsr fastPUTS
+
+
+		ldx #1
 		ldy #73
 		jsr fastLOCATE
 		
@@ -130,7 +143,16 @@ start   ent             ; make sure start is visible outside the file
 		ldx #txt_instrument
 		jsr fastPUTS
 
+		ldx #4
+		ldy #46
+		jsr fastLOCATE
+		ldx #txt_volume
+		jsr fastPUTS
+
+
 		jsr ToggleInstrument
+		jsr ShowVolume
+
 ;------------------------------------------------------------------------------
 ; Mixer things
 
@@ -161,6 +183,17 @@ UpdateLoop
 		ldx #KEY_F1
 		lda #ToggleInstrument
 		jsr OnKeyDown
+
+		ldx #KEY_F2
+		lda #VolumeUp
+		jsr OnKeyDown
+
+		ldx #KEY_F3
+		lda #VolumeDown
+		jsr OnKeyDown
+
+		jsr ShowVolume
+
 
 		bra UpdateLoop
 
@@ -797,7 +830,10 @@ fastPUTS  mx %00
 txt_version cstr 'Virtual Piano v0.0.3    Try pressing some keys, QWERTY..ZXC :)'
 txt_lower_notes cstr 'C2                              C3                              C4                             C5'
 txt_f1 cstr 'F1: Toggle Instrument'
+txt_f2 cstr 'F2: Volume Up'
+txt_f3 cstr 'F3: Volume Down'
 txt_instrument cstr 'INSTRUMENT:'
+txt_volume     cstr     'VOLUME:'
 txt_piano    cstr 'Piano G5    '
 txt_basspull cstr 'Bass Pull E2'
 txt_bassdrum cstr 'Bass Drum   '
@@ -1169,6 +1205,7 @@ PianoKeyDown mx %00
 :end   = temp4
 :pWave = temp5
 :loop_size = temp6
+:vol = temp7
 
 
 		pha
@@ -1184,6 +1221,35 @@ PianoKeyDown mx %00
 		; freq to actual osc freq
 		; freq / 24000
 		sei                         ; can't have interrupt happen here
+
+		;----------------------------------------------------
+
+		lda |CurrentVolume
+		sta |UNSIGNED_MULT_A_LO
+
+		lda 1,s
+		tax
+		lda |pan_left,x
+		and #$FF
+		sta |UNSIGNED_MULT_B_LO
+		lda |UNSIGNED_MULT_AL_LO
+		asl
+		asl
+		xba
+		and #$3F
+		sta <:vol
+
+		lda |pan_right,x
+		and #$FF
+		sta |UNSIGNED_MULT_B_LO
+		lda |UNSIGNED_MULT_AL_LO
+		asl
+		asl
+		and #$3F00
+		tsb <:vol
+
+		;----------------------------------------------------
+
 		lda <:freq
 		sta |UNSIGNED_MULT_A_LO
 		;lda #24000
@@ -1246,6 +1312,11 @@ PianoKeyDown mx %00
 
 		; Freq
 		sta <osc_frequency,x  ; frequency request
+
+		lda <:vol   	   	; left + right volume
+		sta <osc_left_vol,x
+		sta |DebugVolumes
+
 		stz <osc_pWave,x
 
 		; Wave Pointer in 24.8
@@ -1282,6 +1353,27 @@ PianoKeyDown mx %00
 		plp
 
 		rts
+
+;------------------------------------------------------------------------------
+; Pan Table
+pan_left
+]num_pans = 37
+]start = 36
+
+		lup ]num_pans
+		db 63*256*]start/{]num_pans*256}
+]start = ]start-1
+		--^
+
+pan_right
+]num_pans = 37
+]start = 0
+
+		lup ]num_pans
+		db 63*256*]start/{]num_pans*256}
+]start = ]start+1
+		--^
+
 
 
 ;------------------------------------------------------------------------------
@@ -1415,6 +1507,47 @@ instruments
 	dw INST_FLAG_DRUM
 	adrl yoshi_inst
 
+;------------------------------------------------------------------------------
+VolumeUp mx %00
+	lda |CurrentVolume
+	inc
+	cmp #64
+	bcc :ok
+	lda #63
+:ok
+	sta |CurrentVolume
+	bra ShowVolume
+;------------------------------------------------------------------------------
+VolumeDown mx %00
+	dec |CurrentVolume
+	bpl :ok
+	stz |CurrentVolume
+:ok
+;	rts
+;------------------------------------------------------------------------------
+
+ShowVolume mx %00
+	ldx #12
+	ldy #46
+	jsr fastLOCATE
+	lda |CurrentVolume
+	jsr fastHEXBYTE
+
+	lda #' '
+	fastPUTC
+
+	lda |DebugVolumes
+	jsr fastHEXBYTE
+
+	lda #' '
+	fastPUTC
+
+	lda |DebugVolumes+1
+	jsr fastHEXBYTE
+
+	rts
+DebugVolumes dw 0
+CurrentVolume dw 16
 ;------------------------------------------------------------------------------
 ToggleInstrument mx %00
 
