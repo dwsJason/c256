@@ -250,20 +250,209 @@ OnKeyUp mx %00
 		rts
 
 ;------------------------------------------------------------------------------
+        dum 0
+sp_control ds 1
+sp_address ds 3
+sp_x       ds 2
+sp_y       ds 2
+sizeof_sp  ds 0
+		dend
+
 		dum 0
 cat_frame ds 2
 cat_timer ds 2
+cat_idx   ds 2
 cat_x     ds 2
 cat_y     ds 2
 cat_note  ds 2
 sizeof_cat ds 0
 		dend
-
-
+;
+; Each Channel gets a cat
+;
 UpdateCats mx %00
+
+:target_x = temp0
+:target_y = temp0+2
+:oam_offset = temp1
+
+;----------------------------------------
+		; for now hard code 1, just to see if the sprite moves
+]ct = 7
+		lup 8
+		lda |voice_status+]ct
+		and #$FF
+		beq not
+		sta |cat_objects+cat_note+{sizeof_cat*]ct}
+not
+]ct = ]ct-1
+		--^
+;----------------------------------------
+
+		ldx #0
+		stz <:oam_offset
+]loop
+		lda |cat_objects+cat_note,x
+		beq :next_cat
+
+		; the cat has a note, so the cat is "active"
+		jsr :is_playing
+		bcs :goto_position
+		; else
+		; goto_home
+		sec
+		sbc #36
+		asl
+		tay
+		lda |:homes_x,y
+		sta <:target_x
+		lda #386+32
+		sta <:target_y
+		jsr :move_target
+		jsr :draw_cat
+		bra :next_cat
+
+:goto_position
+		;sec c=1
+		sbc #36 ; C2
+		pha
+
+		asl
+		sta <:target_y  	; key * 10
+		asl
+		asl
+		adc <:target_y
+		adc #32
+		sta <:target_y
+
+		pla
+		and #$3
+		xba
+		lsr
+		lsr
+		lsr
+		adc #800-128
+		sta <:target_x
+
+		jsr :move_target
+		jsr :draw_cat
+
+:next_cat
+		txa
+		clc
+		adc #sizeof_cat
+		tax
+		cmp #sizeof_cat*8
+		bcc ]loop
+
+		rts
+
+:is_playing
+
+		ldy #7
+		pha
+]voicelp
+		lda |voice_status,y
+		and #$FF
+		cmp 1,s
+		beq :yes
+		dey
+		bpl ]voicelp
+		pla
+		clc
+		rts
+:yes
+		pla
+		sec
+		rts 
+
+:draw_cat
+		ldy <:oam_offset
+
+		lda #$65
+		sta |oam_shadow+sp_control,y
+
+		lda |cat_objects+cat_frame,x
+		sta |oam_shadow+sp_address,y
+		lda #^{VRAM_NYAN_SPRITES-VRAM}
+		sta |oam_shadow+sp_address+2,y
+
+		;sec
+		lda |cat_objects+cat_x,x
+		;sbc #32
+		sta |oam_shadow+sp_x,y
+		;sec
+		lda |cat_objects+cat_y,x
+		;sbc #32
+		sta |oam_shadow+sp_y,y
+
+		dec |cat_objects+cat_timer,x
+
+		bpl :skip
+
+		lda #6
+		sta |cat_objects+cat_timer,x
+
+		phy
+		lda |cat_objects+cat_idx,x
+		inc
+		cmp #6
+		bcc :frame_ok
+		lda #0
+:frame_ok
+		sta |cat_objects+cat_idx,x
+		asl
+		tay
+		lda |:frames,y
+		sta |cat_objects+cat_frame,x
+		ply
+:skip
+		tya
+		clc
+		adc #sizeof_sp
+		sta <:oam_offset
+		rts
+
+:move_target
+		sec
+		lda <:target_x
+		sbc |cat_objects+cat_x,x
+		cmp #$8000
+		ror
+		cmp #$8000
+		ror
+		cmp #$8000
+		ror
+		adc |cat_objects+cat_x,x
+		sta |cat_objects+cat_x,x
+
+		sec
+		lda <:target_y
+		sbc |cat_objects+cat_y,x
+		cmp #$8000
+		ror
+		cmp #$8000
+		ror
+		cmp #$8000
+		ror
+		adc |cat_objects+cat_y,x
+		sta |cat_objects+cat_y,x
+
 		rts
 
 :frames dw 0*1024,1*1024,2*1024,3*1024,4*1024,5*1024
+
+; home Y position is 384
+; an X position for each Key
+:homes_x
+]o = 32
+		 dw 4+]o,26+]o,39+]o,62+]o,85+]o,112+]o,134+]o,153+]o,172+]o,188+]o,206+]o,222+]o 
+]o = ]o+253
+		 dw 4+]o,26+]o,39+]o,62+]o,85+]o,112+]o,134+]o,153+]o,172+]o,188+]o,206+]o,222+]o
+]o = ]o+253
+		 dw 4+]o,26+]o,39+]o,62+]o,85+]o,112+]o,134+]o,153+]o,172+]o,188+]o,206+]o,222+]o
+]o = ]o+253
+		 dw 4+]o
 ;------------------------------------------------------------------------------
 		dum 0
 p_frame ds 2
@@ -288,14 +477,15 @@ UpdateSprites mx %00
 
 ;------------------------------------------------------------------------------
 oam_clear mx %00
-		phkb ^SP00_CONTROL_REG
-		plb
+		;phkb ^SP00_CONTROL_REG
+		;plb
 ]offset = 0
 		lup 64
-		stz |SP00_CONTROL_REG+]offset
+;		stz |SP00_CONTROL_REG+]offset
+		stz |oam_shadow+]offset
 ]offset = ]offset+8
 		--^
-		plb
+		;plb
 
 		rts
 ;------------------------------------------------------------------------------
@@ -2308,8 +2498,10 @@ voice_status ds VOICES      ; a byte for each voice, 0 means available
 
 oam_shadow ds 8*64			; 64 sprite objects
 
-num_cats ds 2
+cat_objects ds 8*sizeof_cat ; max 8 cats
+
 num_particles ds 2
+particle_objects ds 56*sizeof_particle ; max 56 particles
 
 uninitialized_end ds 0
 	dend
