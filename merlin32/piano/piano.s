@@ -9,6 +9,8 @@
 
 		; hardware includes from the kernel source code
 		put ..\phx\vicky_ii_def.asm
+		put ..\phx\VKYII_CFP9553_SDMA_def.asm
+		put ..\phx\VKYII_CFP9553_SPRITE_def.asm
 		put ..\phx\VKYII_CFP9553_TILEMAP_def.asm
 		put ..\phx\interrupt_def.asm
 		put ..\phx\Math_def.asm
@@ -51,6 +53,7 @@ work_buffer = $100000	; $$TODO Refactor code so this only ever needs 64k
 VRAM = $B00000
 VRAM_PIANO_MAP = $B80000  ; smaller
 VRAM_STAR_MAP  = $B90000  ; tile map for stars (128k
+VRAM_NYAN_SPRITES = $C70000  ; Nyan Cat Sprites
 VRAM_TILE_CAT  = $C80000  ; tile catalog (C8->CF) will be the 8 tile catalogs in succession
 
 ;------------------------------------------------------------------------------
@@ -92,11 +95,11 @@ start   ent             ; make sure start is visible outside the file
 		mvn ^uninitialized_start,^uninitialized_start
 
 
-
 		jsr video_init
 
 		jsr font_init
 
+		jsr sprites_pic_init
 		jsr stars_pic_init
 		jsr piano_pic_init
 
@@ -171,6 +174,8 @@ UpdateLoop
 		jsr WaitJiffy    ; wait for vblank
 		jsr UpdateScroll ; video register updates, things work better during vblank
 
+		jsr UpdateOAM    ; DMA Sprites
+
 
 ;----- stuff where VBlank does not matter
 
@@ -194,6 +199,7 @@ UpdateLoop
 
 		jsr ShowVolume
 
+		jsr UpdateSprites
 
 		bra UpdateLoop
 
@@ -242,6 +248,121 @@ OnKeyUp mx %00
 		beq :latched
 :KeyIsUp
 		rts
+
+;------------------------------------------------------------------------------
+		dum 0
+cat_frame ds 2
+cat_timer ds 2
+cat_x     ds 2
+cat_y     ds 2
+cat_note  ds 2
+sizeof_cat ds 0
+		dend
+
+
+UpdateCats mx %00
+		rts
+
+:frames dw 0*1024,1*1024,2*1024,3*1024,4*1024,5*1024
+;------------------------------------------------------------------------------
+		dum 0
+p_frame ds 2
+p_timer ds 2
+p_x     ds 2
+p_y     ds 2
+sizeof_particle ds 0
+		dend
+
+UpdateParticles mx %00
+		rts
+:frames dw 6*1024,7*1024,8*1024,9*1024,10*1024,11*1024
+;------------------------------------------------------------------------------
+UpdateSprites mx %00
+
+		jsr oam_clear
+		jsr UpdateCats
+		Jsr UpdateParticles
+
+		inc |oam_dirty
+		rts
+
+;------------------------------------------------------------------------------
+oam_clear mx %00
+		phkb ^SP00_CONTROL_REG
+		plb
+]offset = 0
+		lup 64
+		stz |SP00_CONTROL_REG+]offset
+]offset = ]offset+8
+		--^
+		plb
+
+		rts
+;------------------------------------------------------------------------------
+;
+UpdateOAM mx %00
+		lda |oam_dirty
+		bne :update
+		rts
+
+:update
+		do 0
+		ldx #oam_shadow
+		ldy #SP00_CONTROL_REG
+		lda #7
+		mvn ^oam_shadow,^SP00_CONTROL_REG
+
+		phk
+		plb
+		fin
+
+		do 1
+		php
+		sei	  ; want to protect against interrupts that do DMA (audio mixer)
+
+		; set B into the same bank as registers
+		phkb ^SDMA_CTRL_REG0
+		plb
+
+		sep #$10  ; mx=01
+
+		stz |SDMA_CTRL_REG0   ; disable the DMA
+
+		ldx #SDMA_CTRL0_Enable
+		stx |SDMA_CTRL_REG0   ; enable the circuit
+
+		lda #SP00_CONTROL_REG
+		sta |SDMA_DST_ADDY_L
+		ldy #^SP00_CONTROL_REG
+		sty |SDMA_DST_ADDY_H
+
+		lda #64*8
+		sta |SDMA_SIZE_L
+		stz |SDMA_SIZE_H
+
+		lda #oam_shadow
+		sta |SDMA_SRC_ADDY_L
+		ldy #^oam_shadow
+		sty |SDMA_SRC_ADDY_H
+
+		ldx #SDMA_CTRL0_Enable+SDMA_CTRL0_Start_TRF
+		stx |SDMA_CTRL_REG0
+
+		nop	; this pains me
+		nop
+		nop
+		nop
+		nop
+
+		stz |SDMA_CTRL_REG0   ; disable the DMA
+
+		rep #$31
+		plb
+		plp
+		fin
+		rts
+
+oam_dirty dw 0  ; mark true
 
 ;------------------------------------------------------------------------------
 UpdateScroll mx %00
@@ -374,8 +495,7 @@ WaitJiffy
 video_init mx %00
 
 		; 800x600
-		;lda #$100+Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_Bitmap_En+Mstr_Ctrl_GAMMA_En+Mstr_Ctrl_TileMap_En
-		lda #$100+Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_GAMMA_En+Mstr_Ctrl_TileMap_En+Mstr_Ctrl_Text_Mode_En+Mstr_Ctrl_Text_Overlay
+		lda #$100+Mstr_Ctrl_Graph_Mode_En+Mstr_Ctrl_GAMMA_En+Mstr_Ctrl_TileMap_En+Mstr_Ctrl_Text_Mode_En+Mstr_Ctrl_Text_Overlay+Mstr_Ctrl_Sprite_En
 		sta >MASTER_CTRL_REG_L
 
 		; No Border
@@ -437,6 +557,86 @@ video_init mx %00
 		sta >TILESET6_ADDY_H
 		inc
 		sta >TILESET7_ADDY_H
+
+		rts
+;------------------------------------------------------------------------------
+sprites_pic_init mx %00
+
+;
+; Extract Tiles Data
+;
+		; source picture
+		pea ^sprites_pic
+		pea sprites_pic
+
+		; destination address
+		pea ^work_buffer
+		pea work_buffer
+
+		jsl decompress_pixels
+		
+		; copy to VRAM
+		lda #0
+		tax
+		tay
+		dec
+		mvn ^work_buffer,^VRAM_NYAN_SPRITES  ; from work buffer, to tile catalog
+
+		phk
+		plb
+
+
+;
+; Extract CLUT data for the sprites
+;
+		; source picture
+		pea ^sprites_pic
+		pea sprites_pic
+
+		; destination address
+		pea ^pal_buffer
+		pea pal_buffer
+
+		jsl decompress_clut
+
+        ; Copy the LUT up into the HW
+        ldy     #GRPH_LUT2_PTR  ; dest
+        ldx     #pal_buffer  	; src
+        lda     #1024-1			; length
+        mvn     ^pal_buffer,^GRPH_LUT2_PTR    ; src,dest
+
+		phk
+		plb
+
+; Sprite Test
+
+		jsr oam_clear
+
+		do 0
+		lda #$65  		  ; activate with clut 2
+		sta |oam_shadow
+		stz |oam_shadow+1 ; Sprite ADDY (1024*0)
+		lda #^{VRAM_NYAN_SPRITES-VRAM}
+		sta |oam_shadow+3
+		lda #400
+		sta |oam_shadow+4
+		lda #300
+		sta |oam_shadow+6
+
+		lda #$65
+		sta |oam_shadow+8
+		lda #1024*7
+		sta |oam_shadow+9
+		lda #^{VRAM_NYAN_SPRITES-VRAM}
+		sta |oam_shadow+3+8
+		lda #400
+		sta |oam_shadow+4+8
+		lda #300
+		sta |oam_shadow+6+8
+		fin
+
+
+		inc |oam_dirty  ; so it will upload
 
 		rts
 ;------------------------------------------------------------------------------
@@ -2106,6 +2306,10 @@ latch_keys ds 128			; hybrid latch memory
 
 voice_status ds VOICES      ; a byte for each voice, 0 means available
 
+oam_shadow ds 8*64			; 64 sprite objects
+
+num_cats ds 2
+num_particles ds 2
 
 uninitialized_end ds 0
 	dend
