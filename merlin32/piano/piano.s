@@ -31,6 +31,7 @@
 		ext piano_inst
 		ext basspull_inst
 		ext bassdrum_inst
+		ext yoshi_inst
 
         mx %00
 
@@ -800,6 +801,7 @@ txt_instrument cstr 'INSTRUMENT:'
 txt_piano    cstr 'Piano G5    '
 txt_basspull cstr 'Bass Pull E2'
 txt_bassdrum cstr 'Bass Drum   '
+txt_yoshi    cstr 'Yoshi       '
 ;------------------------------------------------------------------------------
 ReadKeyboard mx %00
 		phd
@@ -1120,7 +1122,7 @@ PianoKeyDown mx %00
 		lda <:freq
 		;----------------------------------------------------
 
-		ldx #mixer_dpage-MyDP+{7*sizeof_osc}  ; channel 3, because why not?
+		ldx #mixer_dpage-MyDP+{0*sizeof_osc}  ; channel 3, because why not?
 
 		; Freq
 		sta <osc_frequency,x  ; frequency request
@@ -1289,6 +1291,10 @@ instruments
 	dw INST_FLAG_DRUM
 	adrl bassdrum_inst
 
+	da txt_yoshi
+	dw INST_FLAG_DRUM
+	adrl yoshi_inst
+
 ;------------------------------------------------------------------------------
 ToggleInstrument mx %00
 
@@ -1296,7 +1302,7 @@ ToggleInstrument mx %00
 
 	lda |:index
 	inc
-	cmp #3
+	cmp #4
 	bcc :ok
 	lda #0
 :ok sta |:index
@@ -1318,7 +1324,7 @@ ToggleInstrument mx %00
 
 	rts
 
-CurrentInstrument dw 2  ; default to piano
+CurrentInstrument dw 3  ; default to piano
 
 ;------------------------------------------------------------------------------
 ;

@@ -88,5 +88,13 @@
         lna     piano.s16       ; Load Name
         sna     inst2        	; Segment Name
 
+		asm		inst3.s
+        ds      0               ; extra 0's to add to the segment
+        knd     $0001           ; Type and Attr ($11=Static+Bank Relative,$01=Data)
+        ali     none            ; Boundary Alignment
+        lna     piano.s16       ; Load Name
+        sna     inst3        	; Segment Name
+
+
 
 
