@@ -12,6 +12,7 @@
 		use mixer.i
 
 		; hardware stuff
+		use ../phx/interrupt_def.asm
 		use ../phx/Math_def.asm
 		use ../phx/Math_Float_def.asm
 		use ../phx/timer_def.asm
@@ -208,7 +209,8 @@ Mstartup mx %00
         ; Mode 2: 16Bits Mono -  2048K Samples @ 48Khz - (Can Store 42.66ms of Sound)
         ; Mode 3; 16Bits Stereo - 1024K Samples @ 48Khz - (Can Store 21.33ms of Sound) 1.3 Frames Long  Takes 
 
-		lda #%1101    ; Mode 3 is where we live, and enable
+		lda #%1101    ; stereo Mode 3 is where we live, and enable
+;		lda #%1001    ; mono Mode 2 is where we live, and enable
 		sta >$AF1900
 
 		rep #$30
@@ -811,7 +813,7 @@ mod
 	; and alter the delta, so it matches the remainder
 
 	; I feel like this is not going to work.
-	lda >osc_loop_size+1+]offset
+	lda <osc_loop_size+1+]offset
 	sta >UNSIGNED_DIV_DEM_LO
 	lda <osc_delta+1
 	sta >UNSIGNED_DIV_NUM_LO
@@ -990,6 +992,10 @@ InstallMixerJiffy mx %00
 
 		sep #$30
 
+		stz |TIMER1_CHARGE_L
+		stz |TIMER1_CHARGE_M
+		stz |TIMER1_CHARGE_H
+
 		lda #<:RATE
 		sta |TIMER1_CMP_L
 		lda #>:RATE
@@ -1001,6 +1007,11 @@ InstallMixerJiffy mx %00
 		sta |TIMER1_CMP_REG
 		lda #TMR1_EN+TMR1_UPDWN+TMR1_SCLR
 		sta |TIMER1_CTRL_REG
+
+; Enable the TIME1 interrupt
+
+		lda	#FNX0_INT03_TMR1
+		trb |INT_MASK_REG0
 
 		rep #$31
 
