@@ -36,7 +36,10 @@ pCLUT          ds 4  ; pointer to CLUT Structure
 pPIXL		   ds 4  ; pointer to PIXL Structure
 pTMAP          ds 4  ; pointer to TMAP Structure
 
-dpJiffy ds 2
+dpJiffy  ds 2
+dpTimer0 ds 2
+dpTimer1 ds 2
+dpTimer2 ds 2
 
 pFastPut ds 4 ; pointer to the current text buffer address
 

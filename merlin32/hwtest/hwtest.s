@@ -13,6 +13,7 @@
 		put ..\phx\VKYII_CFP9553_SPRITE_def.asm
 		put ..\phx\VKYII_CFP9553_TILEMAP_def.asm
 		put ..\phx\interrupt_def.asm
+		use ../phx/timer_def.asm
 		put ..\phx\Math_def.asm
 
 		; kernel things
@@ -60,6 +61,13 @@ start   ent             ; make sure start is visible outside the file
 		sta >VEC_INT03_TMR1
 		sta >VEC_INT04_TMR2
 
+		lda #$FF
+		sta >INT_MASK_REG0
+		sta >INT_MASK_REG1
+		sta >INT_MASK_REG2
+		sta >INT_MASK_REG3
+
+
 ; Default Stack is on top of System DMA Registers
 ; So move the stack before proceeding
 
@@ -68,6 +76,11 @@ start   ent             ; make sure start is visible outside the file
 
         lda #MyDP
         tcd
+
+		stz <dpJiffy
+		stz <dpTimer0
+		stz <dpTimer1
+		stz <dpTimer2
 
 		phk
 		plb
@@ -84,18 +97,43 @@ start   ent             ; make sure start is visible outside the file
 		jsr font_init
 
 		jsr InstallJiffy
+		jsr InstallTimer0
+		jsr InstallTimer1
 
 ;------------------------------------------------------------------------------
 ; Initial Static Text
-		ldx #0
-		txy
+		ldx #13
+		ldy #1
 		jsr fastLOCATE
 
 		ldx #txt_version
 		jsr fastPUTS
 
+		ldx #1
+		ldy #19
+		jsr fastLOCATE
+		ldx #txt_xlabel
+		jsr fastPUTS
+
+		ldx #1
+		ldy #20
+		jsr fastLOCATE
+
+		ldx #txt_labels
+		jsr fastPUTS
+
+
 ;------------------------------------------------------------------------------
-;
+
+		jsr DisableTimer0
+		jsr DisableTimer1
+
+		cli
+
+
+
+
+;------------------------------------------------------------------------------
 UpdateLoop
 		bra UpdateLoop
 
@@ -136,7 +174,7 @@ InstallJiffy mx %00
 		lda	#FNX0_INT00_SOF
 		trb |INT_MASK_REG0
 
-		cli
+;		cli
 		rts
 
 ;
@@ -150,11 +188,206 @@ InstallJiffy mx %00
 		phk
 		plb
 		php
+		phd
 		rep #$30
-		inc |{MyDP+dpJiffy}
+		pea MyDP
+		pld
+
+		pei pFastPut
+		pei pFastPut+2
+
+		inc <dpJiffy
+
+		; so we can visualize the counter
+		ldx #5
+		ldy #20
+		jsr fastLOCATE
+
+		lda <dpJiffy
+		jsr fastHEXWORD
+
+		ldx #17
+		ldy #20
+		jsr fastLOCATE
+		lda <dpTimer0
+		jsr fastHEXWORD
+
+		ldx #29
+		ldy #20
+		jsr fastLOCATE
+		lda <dpTimer1
+		jsr fastHEXWORD
+
+		ldx #41
+		ldy #20
+		jsr fastLOCATE
+		lda <dpTimer2
+;		jsr fastHEXWORD
+
+
+		pla
+		sta <pFastPut+2
+		pla
+		sta <pFastPut
+
+		pld
 		plp
 		plb
 		rtl
+
+;------------------------------------------------------------------------------
+InstallTimer0 mx %00
+
+:RATE equ 14318180/120
+
+		sei
+
+		lda #$5C
+		sta |VEC_INT02_TMR0
+
+		lda #:timer0
+		sta |VEC_INT02_TMR0+1
+
+		lda #>:timer0
+		sta |VEC_INT02_TMR0+2
+
+		sep #$30
+
+		stz |TIMER0_CHARGE_L
+		stz |TIMER0_CHARGE_M
+		stz |TIMER0_CHARGE_H
+
+		lda #<:RATE
+		sta |TIMER0_CMP_L
+		lda #>:RATE
+		sta |TIMER0_CMP_M
+		lda #^:RATE
+		sta |TIMER0_CMP_H
+
+		lda #TMR0_CMP_RECLR
+		sta |TIMER0_CMP_REG
+		lda #TMR0_EN+TMR0_UPDWN+TMR0_SCLR
+		sta |TIMER0_CTRL_REG
+
+		lda	#FNX0_INT02_TMR0
+		trb |INT_MASK_REG0
+
+		rep #$31
+
+		rts
+:timer0
+		php
+		phd
+		pea MyDP
+		pld
+		rep #$30
+		inc <dpTimer0
+		pld
+		plp
+		rtl
+
+;------------------------------------------------------------------------------
+InstallTimer1 mx %00
+
+:RATE equ 14318180/240
+
+		sei
+
+		lda #$5C
+		sta |VEC_INT03_TMR1
+
+		lda #:timer1
+		sta |VEC_INT03_TMR1+1
+
+		lda #>:timer1
+		sta |VEC_INT03_TMR1+2
+
+		sep #$30
+
+		stz |TIMER1_CHARGE_L
+		stz |TIMER1_CHARGE_M
+		stz |TIMER1_CHARGE_H
+
+		lda #<:RATE
+		sta |TIMER1_CMP_L
+		lda #>:RATE
+		sta |TIMER1_CMP_M
+		lda #^:RATE
+		sta |TIMER1_CMP_H
+
+		lda #TMR1_CMP_RECLR
+		sta |TIMER1_CMP_REG
+		lda #TMR1_EN+TMR1_UPDWN+TMR1_SCLR
+		sta |TIMER1_CTRL_REG
+
+		lda	#FNX0_INT03_TMR1
+		trb |INT_MASK_REG0
+
+		rep #$31
+
+		rts
+:timer1
+		php
+		phd
+		pea MyDP
+		pld
+		rep #$30
+		inc <dpTimer1
+		pld
+		plp
+		rtl
+
+;------------------------------------------------------------------------------
+InstallTimer2 mx %00
+
+:RATE equ 14318180/480
+
+		sei
+
+		lda #$5C
+		sta |VEC_INT04_TMR2
+
+		lda #:timer2
+		sta |VEC_INT04_TMR2+1
+
+		lda #>:timer2
+		sta |VEC_INT04_TMR2+2
+
+		sep #$30
+
+		stz |TIMER2_CHARGE_L
+		stz |TIMER2_CHARGE_M
+		stz |TIMER2_CHARGE_H
+
+		lda #<:RATE
+		sta |TIMER2_CMP_L
+		lda #>:RATE
+		sta |TIMER2_CMP_M
+		lda #^:RATE
+		sta |TIMER2_CMP_H
+
+		lda #TMR2_CMP_RECLR
+		sta |TIMER2_CMP_REG
+		lda #TMR2_EN+TMR2_UPDWN+TMR2_SCLR
+		sta |TIMER2_CTRL_REG
+
+		lda	#FNX0_INT04_TMR2
+		;trb |INT_MASK_REG0
+
+		rep #$31
+
+		rts
+:timer2
+		php
+		phd
+		pea MyDP
+		pld
+		rep #$30
+		inc <dpTimer2
+		pld
+		plp
+		rtl
+
 
 ;------------------------------------------------------------------------------
 ; WaitJiffy
@@ -336,6 +569,14 @@ fastHEXBYTE mx %00
 :temp	ds  3
 
 ;------------------------------------------------------------------------------
+fastHEXWORD mx %00
+		pha
+		xba
+		jsr fastHEXBYTE
+		pla
+		bra fastHEXBYTE
+
+;------------------------------------------------------------------------------
 fastPUTS  mx %00
 		sep #$20
 		ldy <pFastPut
@@ -353,7 +594,14 @@ fastPUTS  mx %00
 		rep #$30
         rts
 ;------------------------------------------------------------------------------
-txt_version cstr 'C256 Interrupt Generator Test'
+txt_version cstr 'C256 Mini Interrupt Test'
+;txt_labels  cstr 'SOL:     TIMER0:     TIMER1:     TIMER2:'
+;txt_xlabel  cstr ' 1X        2X          4x          8X'
+
+txt_labels  cstr 'SOL:     TIMER0:     TIMER1:'
+txt_xlabel  cstr ' 1X        2X          4x'
+
+
 ;------------------------------------------------------------------------------
 
 ; Non Initialized spaced
