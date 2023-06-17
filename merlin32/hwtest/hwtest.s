@@ -127,7 +127,7 @@ start   ent             ; make sure start is visible outside the file
 
 
 ;------------------------------------------------------------------------------
-
+sof_test
 		jsr DisableTimer0
 		jsr DisableTimer1
 
@@ -169,6 +169,107 @@ start   ent             ; make sure start is visible outside the file
 :next
 		jsr fastPUTS
 
+;------------------------------------------------------------------------------
+; Timer 0 Test
+timer0_test
+		sei
+		jsr DisableSOF
+		jsr InstallTimer0
+
+
+		ldx #6
+		ldy #7
+		jsr fastLOCATE
+
+		ldx #txt_test_tmr0
+		jsr fastPUTS
+
+		cli
+
+		lda #CLOCKS_PER_SECOND
+		sta <temp0
+		lda #^CLOCKS_PER_SECOND
+		sta <temp0+2
+
+
+		ldy <dpTimer0
+]loop
+		lda <temp0
+		ora <temp0+2
+		beq :fail
+
+		cpy <dpTimer0
+		bne :pass
+
+		dec <temp0
+		bne ]loop
+
+		dec <temp0+2
+		bne ]loop
+
+:fail
+		ldx #txt_fail
+		bra :next
+:pass
+		ldx #txt_ok
+:next
+		jsr fastPUTS
+
+;------------------------------------------------------------------------------
+; Timer 1 Test
+timer1_test
+		sei
+		jsr DisableTimer0
+		jsr InstallTimer1
+
+		ldx #6
+		ldy #8
+		jsr fastLOCATE
+
+		ldx #txt_test_tmr1
+		jsr fastPUTS
+
+		cli
+
+		lda #CLOCKS_PER_SECOND
+		sta <temp0
+		lda #^CLOCKS_PER_SECOND
+		sta <temp0+2
+
+
+		ldy <dpTimer1
+]loop
+		lda <temp0
+		ora <temp0+2
+		beq :fail
+
+		cpy <dpTimer1
+		bne :pass
+
+		dec <temp0
+		bne ]loop
+
+		dec <temp0+2
+		bne ]loop
+
+:fail
+		ldx #txt_fail
+		bra :next
+:pass
+		ldx #txt_ok
+:next
+		jsr fastPUTS
+
+;--------------------------------------------------------------
+;
+		jsr InstallJiffy
+		jsr InstallTimer0
+
+		stz <dpJiffy
+		stz <dpTimer0
+		stz <dpTimer1
+
+		cli
 ;------------------------------------------------------------------------------
 UpdateLoop
 		bra UpdateLoop
@@ -270,6 +371,26 @@ InstallJiffy mx %00
 		plp
 		plb
 		rtl
+
+;------------------------------------------------------------------------------
+
+DisableSOF mx %00
+		php
+		sei
+
+		sep #$30
+		stz |TIMER1_CTRL_REG
+
+		lda #FNX0_INT00_SOF
+		tsb |INT_MASK_REG0
+
+		lda >INT_PENDING_REG0
+		and #FNX0_INT00_SOF
+		sta >INT_PENDING_REG0
+
+		plp
+		rts
+
 
 ;------------------------------------------------------------------------------
 InstallTimer0 mx %00
