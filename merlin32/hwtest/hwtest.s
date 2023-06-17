@@ -33,6 +33,9 @@
 ;------------------------------------------------------------------------------
 		put dp.i.s
 			  
+			  
+CLOCKS_PER_SECOND equ 14318180
+			  
 ;
 ; Decompress to this address
 ;
@@ -128,10 +131,43 @@ start   ent             ; make sure start is visible outside the file
 		jsr DisableTimer0
 		jsr DisableTimer1
 
+		ldx #6
+		ldy #6
+		jsr fastLOCATE
+
+		ldx #txt_test_sof
+		jsr fastPUTS
+
 		cli
 
+		lda #CLOCKS_PER_SECOND
+		sta <temp0
+		lda #^CLOCKS_PER_SECOND
+		sta <temp0+2
 
 
+		ldy <dpJiffy
+]loop
+		lda <temp0
+		ora <temp0+2
+		beq :fail
+
+		cpy <dpJiffy
+		bne :pass
+
+		dec <temp0
+		bne ]loop
+
+		dec <temp0+2
+		bne ]loop
+
+:fail
+		ldx #txt_fail
+		bra :next
+:pass
+		ldx #txt_ok
+:next
+		jsr fastPUTS
 
 ;------------------------------------------------------------------------------
 UpdateLoop
@@ -287,6 +323,23 @@ InstallTimer0 mx %00
 		rtl
 
 ;------------------------------------------------------------------------------
+DisableTimer0 mx %00
+		php
+		sei
+
+		sep #$30
+		stz |TIMER0_CTRL_REG
+		lda #FNX0_INT02_TMR0
+		tsb |INT_MASK_REG0
+
+		lda >INT_PENDING_REG0
+		and #FNX0_INT02_TMR0
+		sta >INT_PENDING_REG0
+
+		plp
+		rts
+
+;------------------------------------------------------------------------------
 InstallTimer1 mx %00
 
 :RATE equ 14318180/240
@@ -336,6 +389,24 @@ InstallTimer1 mx %00
 		pld
 		plp
 		rtl
+
+;------------------------------------------------------------------------------
+DisableTimer1 mx %00
+		php
+		sei
+
+		sep #$30
+		stz |TIMER1_CTRL_REG
+		lda #FNX0_INT03_TMR1
+		tsb |INT_MASK_REG0
+
+		lda >INT_PENDING_REG0
+		and #FNX0_INT03_TMR1
+		sta >INT_PENDING_REG0
+
+		plp
+		rts
+
 
 ;------------------------------------------------------------------------------
 InstallTimer2 mx %00
@@ -595,12 +666,18 @@ fastPUTS  mx %00
         rts
 ;------------------------------------------------------------------------------
 txt_version cstr 'C256 Mini Interrupt Test'
-;txt_labels  cstr 'SOL:     TIMER0:     TIMER1:     TIMER2:'
+;txt_labels  cstr 'SOF:     TIMER0:     TIMER1:     TIMER2:'
 ;txt_xlabel  cstr ' 1X        2X          4x          8X'
 
-txt_labels  cstr 'SOL:     TIMER0:     TIMER1:'
+txt_labels  cstr 'SOF:     TIMER0:     TIMER1:'
 txt_xlabel  cstr ' 1X        2X          4x'
 
+txt_test_sof  cstr 'TESTING  SOF:'
+txt_test_tmr0 cstr 'TESTING TMR0:'
+txt_test_tmr1 cstr 'TESTING TMR1:'
+
+txt_ok   cstr 'OK'
+txt_fail cstr 'FAIL'
 
 ;------------------------------------------------------------------------------
 
