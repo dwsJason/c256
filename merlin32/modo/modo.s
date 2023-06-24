@@ -78,6 +78,7 @@ AUDIO_RAM = $80000
 MySTACK = STACK_END ;$FEFF Defined in the page_00_inc.asm
 
 ; Video Mode Stuff
+
 XRES = 800
 YRES = 600
 
@@ -92,61 +93,30 @@ VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
 start   ent             ; make sure start is visible outside the file
         clc
         xce
-        rep $31         ; long MX, and CLC
-
-		; I added this here, to allow iteration to be more stable
-		; so when cli happens, we can avoid crashing
-		lda #$6B  ; RTL
-		sta >VEC_INT00_SOF
-		sta >VEC_INT02_TMR0
-
-
-; Default Stack is on top of System Multiply Registers
-; So move the stack before proceeding
-
-        lda #MySTACK
-        tcs
+        sep $35         ; mxci=1
+						; keep interrupts off, until we're ready for them
+						; yes, they should be off, but hard to say how
+						; we got here
 
 		phk
 		plb
 
-		do 0
-		sep #$30
-        ; Setup the Interrupt Controller
-        ; For Now all Interrupt are Falling Edge Detection (IRQ)
-        LDA #$FF
-        STA >INT_EDGE_REG0
-        STA >INT_EDGE_REG1
-        STA >INT_EDGE_REG2
-        STA >INT_EDGE_REG3
-        ; Mask all Interrupt @ This Point
-        STA >INT_MASK_REG0
-        STA >INT_MASK_REG1
-        STA >INT_MASK_REG2
-        STA >INT_MASK_REG3
-
-		;JSL INITRTC
-;INITRTC         PHA
-;                PHP
-;                setas				        ; Just make sure we are in 8bit mode
-
-                LDA #0
-                STA >RTC_RATES    ; Set watch dog timer and periodic interrupt rates to 0
-                STA >RTC_ENABLE   ; Disable all the alarms and interrupts
-                
-                LDA >RTC_CTRL      ; Make sure the RTC will continue to tick in battery mode
-                ORA #%00000100
-                STA >RTC_CTRL
-
-;                PLP
-;                PLA
-;                RTL
+		; I added this here, to allow iteration to be more stable
+		; so when cli happens, we can avoid crashing
+		lda #$6B  ; RTL
+		sta |VEC_INT00_SOF
+		sta |VEC_INT01_SOL
+		sta |VEC_INT02_TMR0
+		sta |VEC_INT03_TMR1
+		sta |VEC_INT04_TMR2
 
 
-		rep #$30
-		fin
+; Default Stack is on top of System Multiply Registers
+; So move the stack before proceeding
+		rep $31 	 ; mxc = 000
 
-
+        lda #MySTACK
+        tcs
 
 		lda #0
 		tcd
@@ -171,6 +141,13 @@ start   ent             ; make sure start is visible outside the file
 
 		phk
 		plb
+
+		; Initialize the uninitialized RAM
+		stz |uninitialized_start
+		ldx #uninitialized_start
+		ldy #uninitialized_start+2
+		lda #{uninitialized_end-uninitialized_start}-3
+		mvn ^uninitialized_start,^uninitialized_start
 
 ;------------------------------------------------------------------------------
 ; So the user doesn't have to press a key to make the mouse work
@@ -861,14 +838,6 @@ InitTextMode mx %00
 			db 13
 			asc 'Memory Location:'
 			db 0
-
-;------------------------------------------------------------------------------
-;
-; Clut Buffer
-;
-pal_buffer
-		ds 1024
-
 
 	dum 0
 sample_name        ds 22
@@ -1939,4 +1908,22 @@ fastHEXBYTE mx %00
 :chars  ASC '0123456789ABCDEF'
 
 :temp	ds  3
+
+;------------------------------------------------------------------------------
+
+; Non Initialized spaced
+
+	dum *+$2100  ; pirate! (this is cheating, these addresses are not relocatable)
+	             ; so org of this file has to be $2100, and if anyone trys to
+				 ; move the location, this will break
+uninitialized_start ds 0
+;------------------------------------------------------------------------------
+;
+; Clut Buffer
+;
+pal_buffer
+		ds 1024
+
+uninitialized_end ds 0
+	dend
 
