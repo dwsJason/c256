@@ -1,6 +1,19 @@
+;
+;  Foenix Bitmap Example in Merlin32
+;
+; $00:2000 - $00:7FFF are free for application use.
+;
+        rel     ; relocatable
+        lnk     Main.l
+
+;        use Util.Macs
+		ext decompress_lzsa
+
+        mx %00
+
 
 ;------------------------------------------------------------------------------
-; void decompress_pixels(void* pDestBuffer, void* pC256Bitmap
+; void decompress_map(void* pDestBuffer, void* pC256Bitmap
 ;
 ; pea ^p256Image
 ; pea #p256Image
@@ -8,14 +21,16 @@
 ; pea ^pDestBuffer
 ; pea pDestBuffer
 ;
-; jsl decompress_pixels
+; jsl decompress_map
 ;
-decompress_pixels mx %00
+decompress_map mx %00
 :pImage = 10
 :pDest  = 6
 :blobCount = temp5
 :zpDest    = temp6
 :size      = temp7
+:pTMAP     = temp8
+
 
 		phd 			; preserver DP
 
@@ -42,6 +57,89 @@ decompress_pixels mx %00
 		jsr	c256Init
 		bcs :error
 
+		; Check for TMAP
+		lda <pTMAP
+		ora <pTMAP+2
+		beq :error  	; no Tile Map to decompress
+
+		ldy #12
+		lda [pTMAP],y
+		sta <:blobCount
+
+		; pPIXL, is the pointer to the PIXL structure
+		lda <pTMAP
+		adc #14
+		sta <:pTMAP
+		lda <pTMAP+2
+		adc #0
+		sta <:pTMAP+2
+		bra BlobDecompress
+
+:done
+:error
+i256Error
+	; Copy the Return address + D
+		lda 1,s
+		sta 9,s
+		lda 3,s
+		sta 11,s
+		lda 4,s
+		sta 12,s
+
+		tsc 		   	; pop args off stack
+		sec
+		sbc #-8
+		tcs
+
+		pld 			; restore DP
+		rtl
+
+
+;------------------------------------------------------------------------------
+; void decompress_pixels(void* pDestBuffer, void* pC256Bitmap
+;
+; pea ^p256Image
+; pea #p256Image
+;
+; pea ^pDestBuffer
+; pea pDestBuffer
+;
+; jsl decompress_pixels
+;
+decompress_pixels mx %00
+:pImage = 10
+:pDest  = 6
+:blobCount = temp5
+:zpDest    = temp6
+:size      = temp7
+:pPIXL     = temp8
+
+
+		phd 			; preserver DP
+
+		tsc
+
+		sec
+		sbc	#256 		; A temporary DP on the stack
+						; which is fine, as long as I stick
+						; to the bottom, and don't call too deep
+
+		tcd
+
+		; Destination Buffer Address
+		; copy to Direct Page
+		lda :pDest,s
+		sta <:zpDest
+		lda :pDest+2,s
+		sta <:zpDest+2
+
+		; Parse Header, Init Chunk Crawler
+		lda	:pImage+2,s
+		tax
+		lda :pImage,s
+		jsr	c256Init
+		bcs i256Error
+
 		ldy #8
 		lda [pPIXL],y
 		sta <:blobCount
@@ -49,34 +147,44 @@ decompress_pixels mx %00
 		; pPIXL, is the pointer to the PIXL structure
 		lda <pPIXL
 		adc #10
-		sta <pPIXL
+		sta <:pPIXL
 		lda <pPIXL+2
 		adc #0
-		sta <pPIXL+2
+		sta <:pPIXL+2
+
+BlobDecompress = *
+
+:pImage = 10
+:pDest  = 6
+:blobCount = temp5
+:zpDest    = temp6
+:size      = temp7
+:pPIXL     = temp8
+
 ]loop
-		lda [pPIXL]
+		lda [:pPIXL]
 		sta <:size	  ; decompressed size
 		bne :compressed
 
 		; Raw Data copy of 65636 bytes
 		ldy #0
 ]rawlp
-		lda [pPIXL],y
+		lda [:pPIXL],y
 		sta [:zpDest],y
 		iny
 		iny
 		bne ]rawlp
 
 		inc :zpDest+2
-		inc <pPIXL+2
+		inc <:pPIXL+2
 
 		bra :blob
 
 :compressed
 		jsr :incpPIXL
 
-		pei <pPIXL+2
-		pei <pPIXL
+		pei <:pPIXL+2
+		pei <:pPIXL
 		pei <:zpDest+2
 		pei <:zpDest
 		jsl decompress_lzsa
@@ -87,12 +195,12 @@ decompress_pixels mx %00
 		inc <:zpDest+2
 
 		clc
-		lda <pPIXL
+		lda <:pPIXL
 		adc	<:size
-		sta <pPIXL
-		lda <pPIXL+2
+		sta <:pPIXL
+		lda <:pPIXL+2
 		adc #0
-		sta <pPIXL+2
+		sta <:pPIXL+2
 		bra ]loop
 
 :done
@@ -114,12 +222,12 @@ decompress_pixels mx %00
 		rtl
 :incpPIXL
 		clc
-		lda <pPIXL
+		lda <:pPIXL
 		adc #2
-		sta <pPIXL
-		lda <pPIXL+2
+		sta <:pPIXL
+		lda <:pPIXL+2
 		adc #0
-		sta <pPIXL+2
+		sta <:pPIXL+2
 		rts
 
 
@@ -346,6 +454,14 @@ c256Init mx %00
         rts
 
 :hasPixl
+
+; TMAP is optional in the file
+		lda		#'TM'
+		ldx     #'AP'
+		jsr     FindChunk
+		sta     <pTMAP
+		stx     <pTMAP+2
+
         ; c=0 everything is good
         clc
         rts
@@ -434,6 +550,7 @@ c256ParseHeader mx %00
         sec     ; c=1 means there's an error
         rts
 
+
 ;------------------------------------------------------------------------------
 
 InvalidHeader asc 'Invalid C256 Header Block'
@@ -444,6 +561,9 @@ MissingClut asc 'No CLUT found'
 
 MissingPixl asc 'No PIXL found'
         db 13,0
+
+MissingTmap asc 'No TMAP found'
+		db 13,0
 
 ;------------------------------------------------------------------------------
 

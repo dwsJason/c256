@@ -9,9 +9,6 @@
         use Util.Macs
 		put macros.s
 
-; Phoenix Machine includes - Merlin32 doesn't support nested includes
-; (SHAME!)
-
 		; Vicky
 		use ../phx/vicky_ii_def.asm
 		use ../phx/VKYII_CFP9553_BITMAP_def.asm 
@@ -23,12 +20,12 @@
 		; Kernel
 		use ../phx/page_00_inc.asm
 		use ../phx/kernel_inc.asm
+
+		; Hardware
 		use ../phx/rtc_def.asm
 		use ../phx/timer_def.asm
-
 		; Fixed Point Math
 		use ../phx/Math_def.asm
-
 
 		; Interrupts
 		use ../phx/interrupt_def.asm
@@ -49,6 +46,13 @@
 
         mx %00
 
+;------------------------------------------------------------------------------
+; Direct Page Equates
+;------------------------------------------------------------------------------
+
+		put dp.i.s
+
+
 ;
 ; Decompress to this address
 ; Temp Buffer for decompressing stuff ~512K here
@@ -68,65 +72,12 @@ VRAM = $B00000
 ; Base Address for Audio
 AUDIO_RAM = $80000
 ;AUDIO_RAM = $E00000
-;source tree weirdness
 
 ;------------------------------------------------------------------------------
 ; I like having my own Direct Page
-MyDP  = $2000
-MySTACK = STACK_END ;$FEFF $EFFF
+MySTACK = STACK_END ;$FEFF Defined in the page_00_inc.asm
 
-fastPUTC mac
-		sta [pFastPut]
-		inc <pFastPut
-		<<<
-
-
-;------------------------------------------------------------------------------
-; Direct Page Equates
-lzsa_sourcePtr = 0
-lsza_destPtr   = 4
-lzsa_matchPtr  = 8
-lzsa_nibble    = 12
-lzsa_suboffset = 14
-lzsa_token     = 16
-
-temp0	= 0
-temp1   = 4
-temp2   = 8
-temp3   = 12
-temp4   = 16
-
-i32EOF_Address = 20
-i32FileLength  = 24
-pData          = 28
-i16Version     = 32
-i16Width       = 34
-i16Height      = 36
-pCLUT          = 38
-pPIXL		   = 42
-temp5          = 46
-temp6		   = 50
-temp7          = 54
-
-last_row       = 100
-
-pFastPut = 124
-
-dpJiffy        = 128
-dpAudioJiffy   = 130
-
-SongIsPlaying = 150
-
-mod_speed             = 152     ; default speed is 6
-mod_song_length       = 154     ; length in patterns
-mod_p_current_pattern = 156     ; pointer to the current pattern
-mod_p_pattern_dir     = 160		; pointer to directory of patterns
-mod_current_row       = 164     ; current row #
-mod_pattern_index     = 166 	; current index into pattern directory
-mod_num_patterns      = 168     ; total number of patterns
-mod_jiffy             = 170     ; mod player jiffy
-
-
+; Video Mode Stuff
 XRES = 800
 YRES = 600
 
