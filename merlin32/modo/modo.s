@@ -51,14 +51,13 @@
 ;------------------------------------------------------------------------------
 
 		put dp.i.s
+		put mixer.i.s
 
 
 ;
 ; Decompress to this address
 ; Temp Buffer for decompressing stuff ~512K here
 ;
-pixel_buffer = $080000	; need about 480k, put it in memory at 512K mark
-
 VICKY_DISPLAY_BUFFER  = $100000
 ; 512k for my copy
 ;VICKY_OFFSCREEN_IMAGE = VICKY_DISPLAY_BUFFER+{XRES*YRES}
@@ -237,16 +236,16 @@ start   ent             ; make sure start is visible outside the file
 ;
 ; Extract CLUT data from the title image
 ;
-;		; source picture
+		; source picture
 ;		pea ^title_pic
 ;		pea title_pic
-;
-;		; destination address
-;		pea ^pal_buffer
-;		pea pal_buffer
-;
+
+		; destination address
+;		pea ^GRPH_LUT0_PTR
+;		pea GRPH_LUT0_PTR
+
 ;		jsl decompress_clut
-;
+
 ;		jsr		WaitVBL
 ;
 ;        ; Copy over the LUT
@@ -315,7 +314,20 @@ start   ent             ; make sure start is visible outside the file
 		pea toms_diner
 		jsl	ModInit
 
-;		jsl MIXER_INIT
+;------------------------------------------------------------------------------
+; Mixer things
+
+		ext MIXstartup
+		ext MIXshutdown
+		ext MIXplaysample
+		ext MIXsetvolume
+
+
+		lda #mixer_dpage	; pass in location of DP memory
+		jsl MIXstartup
+
+;------------------------------------------------------------------------------
+
 
 ;-------------------------------------------------------------
 ;
@@ -1916,6 +1928,9 @@ uninitialized_start ds 0
 ;
 pal_buffer
 		ds 1024
+
+	        ds \              ; 256 byte align, for quicker piano update
+mixer_dpage ds 256		  	 ; mixer gets it's own DP
 
 ;
 ; Precomputed pointers to patterns

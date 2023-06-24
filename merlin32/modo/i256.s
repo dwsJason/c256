@@ -7,9 +7,17 @@
         lnk     Main.l
 
 ;        use Util.Macs
-		ext decompress_lzsa
+		ext smart_decompress_lzsa
 
         mx %00
+
+; 64k bank, to be used for decompression
+; When we're going into VRAM, or into CLUT memory, it's write only, so the
+; lzsa2 decompressor cannot directly decompress.  We need some RAM to work with
+; and 64K, it's a lot, but it's really convenient to have this much
+; since the largest decompress size is going to be 64K
+WORKRAM = $020000
+;^^^ MUST CHANGE IN decompress_v2_fast.asm
 
 
 ;------------------------------------------------------------------------------
@@ -187,7 +195,7 @@ BlobDecompress = *
 		pei <:pPIXL
 		pei <:zpDest+2
 		pei <:zpDest
-		jsl decompress_lzsa
+		jsl smart_decompress_lzsa
 :blob
 		dec <:blobCount
 		beq :done
@@ -311,8 +319,7 @@ decompress_clut mx %00
 		pei <pCLUT
 		pei <:zpDest+2
 		pei <:zpDest
-		jsl decompress_lzsa
-
+		jsl smart_decompress_lzsa
 :done
 :error
 

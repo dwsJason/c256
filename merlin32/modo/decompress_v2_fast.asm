@@ -28,6 +28,8 @@
 ;  3. This notice may not be removed or altered from any source distribution.
 ; -----------------------------------------------------------------------------
 
+WORKRAM = $020000
+
 
 DECOMPRESS_LZSA2	mx %00 			;start
 
@@ -426,19 +428,19 @@ DECOMPRESSION_DONE anop
 
 decompress_lzsa ent
 	mx %00
-pDest equ 4
-pPackedSource equ 8
+:pDest = 4
+:pPackedSource = 8
 
 	; Setup Source Pointer
-	lda pPackedSource,s
+	lda :pPackedSource,s
 	sta <sourcePtr
-	lda pPackedSource+2,s
+	lda :pPackedSource+2,s
 	sta <sourcePtr+2
 
 	; Setup Dest Pointer
-	lda pDest,s
+	lda :pDest,s
 	sta <destPtr
-	lda pDest+2,s
+	lda :pDest+2,s
 	sta <destPtr+2
 
 	jsr	DECOMPRESS_LZSA2	; Call the raw data decompressor
@@ -448,9 +450,9 @@ pPackedSource equ 8
 
 	; Copy the Return address
     lda 1,s
-    sta pPackedSource+1,s
+    sta :pPackedSource+1,s
     lda 2,s
-    sta pPackedSource+2,s
+    sta :pPackedSource+2,s
 
 	tsc
 	sec
@@ -460,3 +462,103 @@ pPackedSource equ 8
 	rtl
 
 ;------------------------------------------------------------------------------
+
+;------------------------------------------------------------------------------
+; Compatible with ORCA/C calling convention:
+;
+;		void smart_decompress_lzsa(void* dest, void* src)
+;
+; pea ^source_address
+; pea #source_address
+;
+; pea ^destination_address
+; pea #destination_address
+;
+; jsl smart_decompress_lzsa
+;
+;
+; What makes this smart?  Certain memory is write-only, if the game is
+; decompressing to write only memory, the lzsa2 decompressor will break
+;
+; This code detects the target location for decompression, if the decompressor
+; cannot decompress to the target location, then it will redirect to WORKRAM
+;
+; And then copy from WORKRAM out to the target location (eventually use DMA)
+; For now, just dumb mvn
+;
+;------------------------------------------------------------------------------
+
+; Kernel method
+VRAM  = $B00000
+VICKY = $AF0000
+
+
+smart_decompress_lzsa ent
+	mx %00
+:pDest = 4
+:pPackedSource = 8
+
+	; Setup Source Pointer
+	lda :pPackedSource,s
+	sta <sourcePtr
+	lda :pPackedSource+2,s
+	sta <sourcePtr+2
+
+	; Setup Dest Pointer
+	lda :pDest,s
+	sta <destPtr
+	lda :pDest+2,s
+	sta <destPtr+2
+
+; smart part
+
+	lda <destPtr+2
+	cmp #^VICKY
+	bcc :golden
+
+; target address, we can't get their directly, so go to the WORKRAM instead
+
+	stz <destPtr   ; WORKRAM is 64K aligned
+	lda #^WORKRAM
+	sta <destPtr+2
+
+:golden
+	jsr	DECOMPRESS_LZSA2	; Call the raw data decompressor
+
+	rep #$31
+	mx %00
+
+	lda :pDest+2,s
+	cmp #^VICKY
+	bcc :goodstuff
+
+; I just realized, for this to work, I need to know the size :-/
+; I think destPtr is probably the size, we'll see
+	tay		; real dest
+
+	ora #{WORKRAM/65536}*256
+	sta >:mvn+1
+
+	ldx #0  ; start address in the WORKBUFFER
+	lda destPtr ; length
+	dec
+	phb
+:mvn mvn 0,0
+	plb
+
+:goodstuff
+	; Copy the Return address
+    lda 1,s
+    sta :pPackedSource+1,s
+    lda 2,s
+    sta :pPackedSource+2,s
+
+	tsc
+	sec
+	sbc #-8
+	tcs
+
+	rtl
+
+;------------------------------------------------------------------------------
+
