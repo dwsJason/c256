@@ -9,6 +9,7 @@
 
 ; Bit Field Definition for the Control Register
 TILE_Enable             = $01
+;Tile Control Register bit[4] for 8x8 (1) or 16x16 (0)
 TILE_Collision_On       = $40           ; Enable       
 ;
 ;Tile MAP Layer 0 Registers
