@@ -35,3 +35,21 @@ TMR1_CMP_RELOAD    = $02 ; Set to one for it to reload when Counting Down
 TIMER1_CMP_L      = $00016D ;
 TIMER1_CMP_M      = $00016E ;
 TIMER1_CMP_H      = $00016F ;
+; Pending Interrupt (Read and Write Back to Clear)
+; TIMER1
+TIMER2_CTRL_REG   = $000170 ;
+TMR2_EN     = $01
+TMR2_SCLR   = $02
+TMR2_SLOAD  = $04
+TMR2_UPDWN  = $08 ; 1 = Up, 0 = Down
+TIMER2_CHARGE_L   = $000171 ; Use if you want to Precharge and countdown
+TIMER2_CHARGE_M   = $000172 ;
+TIMER2_CHARGE_H   = $000173 ;
+; Compare Block
+TIMER2_CMP_REG    = $000174 ;
+TMR2_CMP_RECLR     = $01 ; set to one for it to cycle when Counting up
+TMR2_CMP_RELOAD    = $02 ; Set to one for it to reload when Counting Down
+TIMER2_CMP_L      = $000175 ;
+TIMER2_CMP_M      = $000176 ;
+TIMER2_CMP_H      = $000177 ;
+
