@@ -2,14 +2,10 @@
 ; This ORG File tells omf2hex where in memory to load each segment
 ;
 .alignment org $100
-.autopack  org $10000
+.autopack  org $30000 ; reserve $10000, for the mixer
+                      ; reserve $20000, for a work buffer
 
 RESET org $FFFC
 Main  org $2100
-lzsa  org $10200
-; 02 has the MIXFIFO
-; 03 has Volume tables
-magic org $40200     ; Magic DMA Resampler Tables
-data0 org $90000
-data1 org $100000    ; put the mod file here
+data1 org $280000    ; put the mod file here
 

@@ -1850,13 +1850,6 @@ mt_PeriodTable
 	dw 407,384,363,342,323,305,288,272,256,242,228,216
 	dw 204,192,181,171,161,152,144,136,128,121,114,108
 
-;
-; Precomputed pointers to patterns
-;
-mod_patterns
-	ds 128*4
-
-	put mixer.s
 	put colors.s
 	put i256.s
 	put dma.s
@@ -1923,6 +1916,13 @@ uninitialized_start ds 0
 ;
 pal_buffer
 		ds 1024
+
+;
+; Precomputed pointers to patterns
+;
+mod_patterns
+	ds 128*4
+
 
 uninitialized_end ds 0
 	dend

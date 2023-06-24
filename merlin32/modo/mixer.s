@@ -1,787 +1,1125 @@
 ;
-; 16-bit 24Khz Stereo Mixer
-; Double Shot (store out each result 2x)
-;
-; I can only guess VBlank is larger in 640 mode
-;
-; In 640 mode, I can move this many bytes in VRAM during VBLank
-; 59*640 = 44160
-
-; In 800 mode
-; (27*800) = 21600
+;  The actual mixing code
 ;
 
+;		org $0B0000
+;		dsk mixer.bin
+        rel     ; relocatable
+        lnk     mixer.l
 
+        use Util.Macs
+		put macros.s
+		use mixer.i
+
+		; hardware stuff
+		use ../phx/interrupt_def.asm
 		use ../phx/Math_def.asm
+		use ../phx/Math_Float_def.asm
+		use ../phx/timer_def.asm
+		use ../phx/VKYII_CFP9553_SDMA_def.asm
 
-		ext dma_table
-		ext step_table
+		; kernel things
+		put ..\phx\kernel_inc.asm
 
-FIFO_CAPACITY equ 1024
 
-;
-;  Oscillator Definition
-;
-		dum 0
-OSC_ENABLE 		 ds 2
-OSC_PLAY_RATE    ds 2   ; 1.0 (0x00.00) is 24Khz (0x02.00) is 12Khz, 3.0=8Khz
-OSC_VOLUME_LEFT  ds 2
-OSC_VOLUME_RIGHT ds 2
-OSC_SAMPLER_ADDR ds 4	; pointer Current Sampling Address
-OSC_SAMPLER_END  ds 4   ; ending address of the sample
-OSC_SAMPLER_LOOP ds 4	; pointer to loop address (0 if no loop)
-OSC_LAST_SAMPLE  ds 2	; last sample read, needed to ramp on disable
-OSC_LEFT_FIFO    ds 2   ; Left FIFO Address
-OSC_RIGHT_FIFO   ds 2   ; Right FIFO Address
+		mx %00
 
-sizeof_OSC				; how many bytes in an oscillator
-		dend
+; Dispatch
 
 ;
-; Real Time Volume Tables
-; 512 bytes at the start of thes following banks
-; A Separate Bank for Each Channel
+; Be to set A= to an address in bank 0
+; for 256 bytes of work memory
 ;
+MIXstartup ent
+		jmp Mstartup
 
-Channel0Left  equ $10000
-Channel0Right equ $20000
+MIXshutdown ent 
+		jmp Mshutdown
 
-Channel1Left  equ $30000
-Channel1Right equ $40000
+MIXplaysample ent
+		jmp Mplaysample
 
-Channel2Left  equ $50000
-Channel2Right equ $60000
-
-Channel3Left  equ $70000
-Channel3Right equ $80000
-
-MIXFIFO equ    $020200  ; 1024 entry executable FIFO
-VOL_TABLES equ $030200  ; 64 Volume tables (256 entries each)
+MIXsetvolume ent
+		jmp Msetvolume
 
 ;------------------------------------------------------------------------------
-; Mixer / Oscillator Variables
 ;
-; Give the Mixer it's own Direct Page, why not?
+; Initialize all the things
+;
+; Create Volume Tables
+; Set initial volumes on each channel
+;
+; Initialize silence buffer
+; Initialize all oscillators to be playing silence
+;
+; Load FIFO with silence
+;
+; Enable DAC
+; Pump Data into DAC
+;
+; Enable the MIXER interrupt, with a 4ms interval (250 interrupts per second)
+;
+Mstartup mx %00
 
-; this works, but I really don't like it
-MIXER_RAM ds 511
-MIXER_DIRECT_PAGE = {MIXER_RAM+255}&{$FF00}
+		sta >pOscillators ; pointer to the work memory
+
+		phb
+
+; clear the silence
+
+		lda #0
+		sta >silence
+		ldx #silence
+		ldy #silence+2
+		lda #{silence_end-silence}-3
+		mvn ^silence,^silence
+
+		phk
+		plb
+
+; zero clear out direct page, oscillators
+
+		ldx |pOscillators
+		stz <0,x
+		txy
+		iny
+		iny
+		lda #256-3
+		mvn 0,0
+
+		phk
+		plb
+
+; Initialize Volume Tables
+		jsr InitVolumeTables
+
+; Set Initial volumes
+
+		lda #7
+		ldx #16 ;32 ; left + right channels set to medium
+		;ldy #0
+		txy
+]lp
+		jsl Msetvolume
+		dec
+		bpl ]lp
+
+; Set Default Freq on each of the 8 channels (to 1.0)
+;		nop
+;]wait   bra ]wait
+;        nop
+;
+		ldx #7
+		lda #$0100  ; 1.0
+]lp
+		jsl SetChannelFreq
+		dex
+		bpl ]lp
+
+; Set OSC to default values, playing silence
+
+		phd
+
+		lda |pOscillators
+		tcd
+
+		ldx #0	; osc #0
+]lp
+		lda #silence
+		sta <osc_pWave+1,x
+		sta <osc_pWaveLoop+1,x
+		sta <osc_pWaveEnd+1,x
+
+		lda #^MIXER_WORKRAM
+		sta <osc_pWave+3,x
+		sta <osc_pWaveLoop+3,x
+		sta <osc_pWaveEnd+3,x
+
+		stz <osc_loop_size,x
+		stz <osc_loop_size+2,x
+
+		lda #$0100 ; 1.0
+		sta <osc_frequency,x
+		sta <osc_set_freq,x
+		asl
+		sta <osc_frame_size+1,x
+
+		lda #$2020  ; 32 + 32, left + right
+		sta <osc_left_vol,x
+;		sta <osc_right_vol,x
+		sta <osc_set_left,x
+;		sta <osc_set_right,x
+
+		txa
+		clc
+		adc #sizeof_osc
+		tax
+		cpx #sizeof_osc*VOICES
+		bcc ]lp
+
+		do 0
+; FPU Initialize, to help with the looping math
+
+		; set for fixed point and divide
+		lda #$01F3
+		sta >FP_MATH_CTRL0
+
+		; need to do a dummy operation, to sort of unclog
+		; any residual values in the system
+
+		lda #$1000
+		tax
+		sta >FP_MATH_INPUT0_LL
+		sta >FP_MATH_INPUT1_LL
+		lda #0
+		tay
+		sta >FP_MATH_INPUT0_HL
+		sta >FP_MATH_INPUT1_HL
+
+		txa
+		sta >FP_MATH_INPUT0_LL
+		tya
+		sta >FP_MATH_INPUT0_HL
+		txa
+		sta >FP_MATH_INPUT1_LL
+		tya
+		sta >FP_MATH_INPUT1_HL
+		fin
 
 
-		dw MIXER_DIRECT_PAGE
+; Load Software FIFO
 
-		dum 0
+		jsr osc_update
 
-mixer_temp0 ds 4
-mixer_temp1 ds 4
-mixer_temp2 ds 4
-mixer_temp3 ds 4
-mixer_temp4 ds 4
-mixer_temp5 ds 4
-mixer_temp6 ds 4
-mixer_temp7 ds 4
+		pld
 
-fifo_head  ds 2     ; insert data here
-fifo_tail  ds 2		; execute / pump data here
-fifo_count ds 2 	; how much data is loaded
+; Enable DAC
 
-vol0_left   ds 2		; currently loaded volume, channel 0, left
-vol0_right  ds 2		; currently loaded volume, channel 0, right
+		;phkb ^$AF0000
+		;plb
 
-vol1_left   ds 2		; currently loaded volume, channel 1, left
-vol1_right  ds 2		; currently loaded volume, channel 1, right
+		sep #$30
 
-vol2_left   ds 2		; currently loaded volume, channel 2, left
-vol2_right  ds 2		; currently loaded volume, channel 2, right
+		lda #2
+		sta >$AF1900  ; Reset FIFO
+		lda #0
+		sta >$AF1900  ; UnReset FIFO
 
-vol3_left   ds 2		; currently loaded volume, channel 3, left
-vol3_right  ds 2		; currently loaded volume, channel 3, right
+        ; Information
+        ; The FIFO is 4096 Byte Deep
+        ; With a DMA (That is not supported yet) (1 Read, 1 Write) - Fastest Time to fill the FiFo is 572us 
+        ; Mode 0: 8Bits Mono -  4096K Samples @ 48Khz - (Can Store 85.33ms of Sound) 5.3 Frames Long 
+        ; Mode 1: 8Bits Stereo -  2048K Samples @ 48Khz - (Can Store 42.66ms of Sound) 2.6 Frames Long
+        ; Mode 2: 16Bits Mono -  2048K Samples @ 48Khz - (Can Store 42.66ms of Sound)
+        ; Mode 3; 16Bits Stereo - 1024K Samples @ 48Khz - (Can Store 21.33ms of Sound) 1.3 Frames Long  Takes 
 
-OSC0			  ds 0
-OSC0_ENABLE 	  ds 2
-OSC0_PLAY_RATE    ds 2   ; 1.0 (0x00.00) is 24Khz (0x02.00) is 12Khz 
-OSC0_VOLUME_LEFT  ds 2
-OSC0_VOLUME_RIGHT ds 2
-OSC0_SAMPLER_ADDR ds 4	; pointer Current Sampling Address
-OSC0_SAMPLER_END  ds 4   ; ending address of the sample
-OSC0_SAMPLER_LOOP ds 4	; pointer to loop address (0 if no loop)
-OSC0_LAST_SAMPLE  ds 2	; last sample read, needed to ramp on disable
-OSC0_LEFT_FIFO	  ds 2
-OSC0_RIGHT_FIFO   ds 2
+		;lda #%1101    ; stereo Mode 3 is where we live, and enable
+		;sta |$AF1900
+		;sta |$AF1900
 
-OSC1			  ds 0
-OSC1_ENABLE 	  ds 2
-OSC1_PLAY_RATE    ds 2   ; 1.0 (0x00.00) is 24Khz (0x02.00) is 12Khz 
-OSC1_VOLUME_LEFT  ds 2
-OSC1_VOLUME_RIGHT ds 2
-OSC1_SAMPLER_ADDR ds 4	; pointer Current Sampling Address
-OSC1_SAMPLER_END  ds 4   ; ending address of the sample
-OSC1_SAMPLER_LOOP ds 4	; pointer to loop address (0 if no loop)
-OSC1_LAST_SAMPLE  ds 2	; last sample read, needed to ramp on disable
-OSC1_LEFT_FIFO	  ds 2
-OSC1_RIGHT_FIFO   ds 2
+		rep #$30
 
-OSC2			  ds 0
-OSC2_ENABLE 	  ds 2
-OSC2_PLAY_RATE    ds 2   ; 1.0 (0x00.00) is 24Khz (0x02.00) is 12Khz 
-OSC2_VOLUME_LEFT  ds 2
-OSC2_VOLUME_RIGHT ds 2
-OSC2_SAMPLER_ADDR ds 4	; pointer Current Sampling Address
-OSC2_SAMPLER_END  ds 4   ; ending address of the sample
-OSC2_SAMPLER_LOOP ds 4	; pointer to loop address (0 if no loop)
-OSC2_LAST_SAMPLE  ds 2	; last sample read, needed to ramp on disable
-OSC2_LEFT_FIFO	  ds 2
-OSC2_RIGHT_FIFO   ds 2
+		;plb
 
-OSC3			  ds 0
-OSC3_ENABLE 	  ds 2
-OSC3_PLAY_RATE    ds 2   ; 1.0 (0x01.00) is 24Khz (0x02.00) is 12Khz
-OSC3_VOLUME_LEFT  ds 2
-OSC3_VOLUME_RIGHT ds 2
-OSC3_SAMPLER_ADDR ds 4	; pointer Current Sampling Address
-OSC3_SAMPLER_END  ds 4   ; ending address of the sample
-OSC3_SAMPLER_LOOP ds 4	; pointer to loop address (0 if no loop)
-OSC3_LAST_SAMPLE  ds 2	; last sample read, needed to ramp on disable
-OSC3_LEFT_FIFO	  ds 2
-OSC3_RIGHT_FIFO   ds 2
+; Pump Data into DAC
+		; load first half
+		jsl MIXFIFO24_8_start
 
-sizeof_MIXER_VARS
-		dend
+		lda >$AF1904
+		and #$FFF
+		sta >$300000
 
-		 ERR    {sizeof_MIXER_VARS-1}/256      ; Error if Mixer using too many vars
+		sep #$30
+		lda #%1101    ; stereo Mode 3 is where we live, and enable
+		sta >$AF1900
+		rep #$30
+
+		; load second half
+		jsl MIXFIFO24_8_start
+
+		lda >$AF1904
+		and #$FFF
+		sta >$300002
+
+; Enable the interrupts used to service the OSC + DAC
+; 24000 / 256 = 93.75 times per second (this also means our service
+; cushion is 10.66ms (good to know), actually an interrupt duty cycle
+; of 5ms should be good enough (maybe don't need 4ms fidelity)
+
+		jsr InstallMixerJiffy
+
+		;
+		; Errm Gerd
+		; 
+
+		plb
+		rtl
+;------------------------------------------------------------------------------
+;
+; Unhook/disable the MIXER interrupt
+; Disable the DAC
+;
+Mshutdown mx %00
+		rtl
+;------------------------------------------------------------------------------
+Mplaysample mx %00
+		rtl
+;------------------------------------------------------------------------------
+; MIXsetvolume
+;
+; Use DMA to change the volume table on an oscillator
+;
+; A = OSC # 0-7
+; X = Left Volume (0-63)
+; Y = Right Volume (0-63)
+;
+Msetvolume mx %00
+:osc   = 6
+:left  = 4
+:right = 2
+		phb
+		pha
+		phx
+		phy
+
+		; set B into the same bank as registers
+		phkb ^SDMA_CTRL_REG0
+		plb
+
+		sep #$10  ; mx=01
+
+		stz |SDMA_CTRL_REG0   ; disable the DMA
+
+		ldx #SDMA_CTRL0_Enable
+		stx |SDMA_CTRL_REG0   ; enable the circuit
+
+		; destination address
+		;lda :osc,s   A already has the osc#
+		xba
+		asl
+		asl   				   ; x1024
+
+		sta |SDMA_DST_ADDY_L   ; left destination
+
+		lda :left,s            ; volume value
+		and #$3F
+
+		; need to multiply by 512
+		xba
+		asl
+		adc #VolumeTables
+		sta |SDMA_SRC_ADDY_L
+
+		ldx #^VolumeTables
+		stx |SDMA_SRC_ADDY_H
+		stx |SDMA_DST_ADDY_H
+
+		lda #512
+		sta |SDMA_SIZE_L
+		stz |SDMA_SIZE_H
+
+		ldx #SDMA_CTRL0_Enable+SDMA_CTRL0_Start_TRF
+		stx |SDMA_CTRL_REG0
+
+		nop	; this pains me
+		nop
+		nop
+		nop
+		nop
+
+		stz |SDMA_CTRL_REG0   ; disable the DMA
+
+		ldx #SDMA_CTRL0_Enable
+		stx |SDMA_CTRL_REG0   ; enable the circuit
+
+		lda :osc,s   ; OSC #
+		xba
+		asl
+		asl   				   ; x1024
+		adc #512
+		sta |SDMA_DST_ADDY_L   ; 1024 * osc # + 512 for right channel
+
+		lda :right,s           ; right volume
+		and #$3F
+		; need to multiply by 512
+		xba
+		asl
+		adc #VolumeTables
+		sta |SDMA_SRC_ADDY_L
+
+		ldx #^VolumeTables
+		stx |SDMA_SRC_ADDY_H
+		stx |SDMA_DST_ADDY_H
+
+		lda #512
+		sta |SDMA_SIZE_L
+		stz |SDMA_SIZE_H
+
+		ldx #SDMA_CTRL0_Enable+SDMA_CTRL0_Start_TRF
+		stx |SDMA_CTRL_REG0
+
+		nop
+		nop
+		nop
+		nop
+		nop
+
+		stz |SDMA_CTRL_REG0
+
+		rep #$31
+
+		plb
+
+		ply
+		plx
+		pla
+
+		plb
+		rtl
+;------------------------------------------------------------------------------
+		
+; Unlike NTP, I need / want some bank 0 space		
+;------------------------------------------------------------------------------
+; We want to be able to use the math coprocessor in page $100 as well
+;
+pOscillators ds 2  ; 16 bit pointer to the array of oscillators in bank0 
+;pMixBuffers  ds 2  ; 16 bit pointer to the mix buffers in bank0
+   	
+; each oscillator needs 512 bytes of sample space, I want this in bank 0
+; also (256 samples)
+   	
+		
+		do 0
+; Volume using the hw multiplies, too slow
+
+; Initialize Left/Right FIFOs   	
+   	
+		lda |osc_left_vol,y
+		;and #$00FF
+		sta <UNSIGNED_MULT_A_LO
+		lda |osc_right_vol,y
+		;and #$00FF
+		sta <SIGNED_MULT_A_LO
+		
+		ldx #MixBuffer
+]v = 0
+]f = 0
+		lup 128
+		lda <]v,x   					   ;5  ;31
+		sta <UNSIGNED_MULT_B_LO 		   ;4
+		sta <SIGNED_MULT_B_LO   		   ;4
+		lda <UNSIGNED_MULT_AL_HI		   ;4
+		sta |left_fifo+]f   			   ;5
+		lda <SIGNED_MULT_AL_HI  		   ;4
+		sta |right_fifo+]f  			   ;5
+]v = ]v+2
+]f = ]f+2
+		--^
+		txa
+		clc ; maybe don't need this
+		adc #$100
+		tax
+]v = 0
+]f = 256
+		lup 128
+		lda <]v,x
+		sta <UNSIGNED_MULT_B_LO
+		sta <SIGNED_MULT_B_LO
+		lda <UNSIGNED_MULT_AL_HI
+		sta |left_fifo+]f
+		lda <SIGNED_MULT_AL_HI
+		sta |right_fifo+]f
+]v = ]v+2
+]f = ]f+2
+		--^
+;------------------------------------------------------------------------------
+; Initialize Left/Right FIFOs   	
+   	
+		lda |osc_left_vol,y
+		sta <UNSIGNED_MULT_A_LO
+		lda |osc_right_vol,y
+		sta <SIGNED_MULT_A_LO
+		
+		ldx #MixBuffer
+]v = 0
+]f = 0
+		lup 128
+		lda <]v,x   			   ;5 ;36
+		sta <UNSIGNED_MULT_B_LO    ;4
+		sta <SIGNED_MULT_B_LO      ;4
+		lda <UNSIGNED_MULT_AL_HI   ;4
+		adc |left_fifo+]f   	   ;5
+		sta |left_fifo+]f   	   ;5
+		lda <SIGNED_MULT_AL_HI     ;4
+		adc |right_fifo+]f  	   ;5
+		sta |right_fifo+]f  	   ;5
+]v = ]v+2
+]f = ]f+2
+		--^
+		txa
+		clc   ; 100% needed
+		adc #$100
+		tax
+]v = 0
+]f = 256
+		lup 128
+		lda <]v,x
+		sta <UNSIGNED_MULT_B_LO
+		sta <SIGNED_MULT_B_LO
+		lda <UNSIGNED_MULT_AL_HI
+		adc |left_fifo+]f
+		sta |left_fifo+]f
+		lda <SIGNED_MULT_AL_HI
+		adc |right_fifo+]f
+		sta |right_fifo+]f
+]v = ]v+2
+]f = ]f+2
+		--^
+
+		fin					
+
+					
+;------------------------------------------------------------------------------
+					
+	do 1
+; 24Khz + 8 channel
+MIXFIFO24_8_start mx %00
+
+	phkb ^$AF1900
+	plb
 
 
-MIXFIFO24_start mx %00
+	; 19733 bytes (this is better than the the one below), because
+	; it can have more bits of resolution in the audio, potentially up to 15 bit
+	; if we want to pay the time to alter 64K of data to adjust the volume 
+	; we'll have to time the volume setting with 8 bit, and consider going
+	; to 9 or 10 bit resolution
+	lup 256								  ; 291 (48Khz), 583 (24Khz),875(16Khz)
 
-;	lup 1024
+	lda >Channel0Left  ;6        
+	adc >Channel1Left  ;6        
+	adc >Channel2Left  ;6        
+	adc >Channel3Left  ;6
+	adc >Channel4Left  ;6
+	adc >Channel5Left  ;6
+	adc >Channel6Left  ;6
+	adc >Channel7Left  ;6
+	tax 			   ;2   ; 50
 
-	lda >Channel0Left  ;6        4
-	adc >Channel1Left  ;6        4
-	adc >Channel2Left  ;6        4
-	adc >Channel3Left  ;6        4     ;16
-	tax 			   ;2        1     ;17
+	lda >Channel0Right ;6
+	adc >Channel1Right ;6
+	adc >Channel2Right ;6
+	adc >Channel3Right ;6
+	adc >Channel4Right ;6
+	adc >Channel5Right ;6
+	adc >Channel6Right ;6
+	adc >Channel7Right ;6   ; 48
 
-	lda >Channel0Right ;6        4
-	adc >Channel1Right ;6        4
-	adc >Channel2Right ;6        4
-	adc >Channel3Right ;6        4     ;33
+	stx |$1908  	   ;5
+	sta |$1908         ;5  
+	stx |$1908  	   ;5  
+	sta |$1908         ;5   ; 20 = total 118
+	;jsr FIFO_RECORD
 
-	stx |$1908  	   ;5  Left  3     ;36
-	sta |$1908         ;5  Right 3     ;39
-	stx |$1908  	   ;5  Left  3     ;42
-	sta >$AF1908       ;6  Right 4     ;46 (long to even out the byte count for DMA)
-
-;	^--
-
-MIXFIFO24_end
-
-CH0_OFFSET_LEFT  equ 1
-CH0_OFFSET_RIGHT equ 19
-CH1_OFFSET_LEFT  equ 5
-CH1_OFFSET_RIGHT equ 23
-CH2_OFFSET_LEFT  equ 9
-CH2_OFFSET_RIGHT equ 27
-CH3_OFFSET_LEFT  equ 13
-CH3_OFFSET_RIGHT equ 31
-
-; The index into the fifo block per channel, for setting the address
-; of DMA Transfers
-ChannelOffsetLeft
-	dw	CH0_OFFSET_LEFT,CH1_OFFSET_LEFT,CH2_OFFSET_LEFT,CH3_OFFSET_LEFT
-ChannelOffsetRight
-	dw	CH0_OFFSET_RIGHT,CH1_OFFSET_RIGHT,CH2_OFFSET_RIGHT,CH3_OFFSET_RIGHT
-
-; The offsets to each entry in the FIFO
-
-FIFO_OFFSETS
-;]FRAG_SIZE = {MIXFIFO24_end-MIXFIFO24_start} ; sometimes Merlin sucks
-]FRAG_SIZE = 46
-
-]offset = MIXFIFO
-	lup FIFO_CAPACITY
-	dw ]offset
-]offset = ]offset+]FRAG_SIZE
 	--^
 
+MIXFIFO24_8_end
 
+	plb
+
+    rtl
+	fin
+
+; DEBUG BANK
+DEBUG_RAM = $300000
+
+FIFO_RECORD
+	sta |$1908
+:st	sta >DEBUG_RAM
+	lda >:st+1
+	inc
+	inc
+	sta >:st+1
+	rts
+
+
+
+	do 0
+	; this is like 17940 bytes
+; 24Khz + 8 channel
+MIXFIFO24_8_start mx %00
+
+	lup 256								  ; 291 (48Khz), 583 (24Khz),875(16Khz)
+
+	lda |Channel0Left  ;5        
+	adc |Channel1Left  ;5        
+	adc |Channel2Left  ;5        
+	adc |Channel3Left  ;5
+	adc |Channel4Left  ;5
+	adc |Channel5Left  ;5
+	adc |Channel6Left  ;5
+	adc |Channel7Left  ;5
+	tax 			   ;2   ; 42
+
+	lda |Channel0Right ;5
+	adc |Channel1Right ;5
+	adc |Channel2Right ;5
+	adc |Channel3Right ;5
+	adc |Channel4Right ;5
+	adc |Channel5Right ;5
+	adc |Channel6Right ;5
+	adc |Channel7Right ;5   ; 40
+	tay 			   ;2   ; 42
+
+	txa 			   ;2
+	sta >$1908  	   ;6  
+	tya 			   ;2
+	sta >$1908         ;6  
+	txa 			   ;2
+	sta >$1908  	   ;6
+	tya 			   ;2
+	sta >$1908         ;6   ; 32 = total 116
+
+	--^
+
+MIXFIFO24_8_end
+	fin
+
+; channel resampler will work something like this
+; At lower rates, we can, maybe peep-hole optmize the loads
+; the code gen itself will be faster if we don't (might be worth it, to chisel away the clocks)
+;	lda |0,y            ; 5
+;	sta >left_chx,x 	; 6
+;	sta >right_chx,x	; 6 17 (x8 = 136)  (116+136 = 252)   (~87% duty cycle, 48Khz) (43% at 24Khz) (28% at 16Khz)
+
+; 3+4+4 = 11 bytes * 256 = 2816/$B00 (so $B01 as minimum, up $17/23 in 64K of RAM)
+; 128 volume tables in 64K
+
+	
+	do 0 ; this is implemented with pre-made tables, and uses DMA when volumes are set
+	lda #volume ; 0-255
+	sta <SIGNED_MULT_A_LO
+	
+	; short index
+	iny 					 ; 2
+	sty <SIGNED_MULT_B_LO    ; 3
+	sty <SIGNED_MULT_B_HI    ; 3
+	lda <SIGNED_MULT_AH_LO   ; 4
+	sta |volume 			 ; 5   ; 17 * 256 = 4352, with DMA this could be under 600 clocks, so we need to use DMA
+	
+	fin	
+		
+;
+; These all store sample data into the mixer
+; I know it could be quicker, by placing all the volume tables into different banks
+; could save 6 clocks per OSC, per sample (Which adds up really fast)
+;
+		
+ResampleOSC0 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	ora #Channel0Left    ; left
+	sta >MIXFIFO24_8_start+5+{]count*77}
+	ora #Channel0Right    ; right
+	sta >MIXFIFO24_8_start+38+{]count*77}
+]count = ]count+1
+	--^
+	rtl
+ResampleOSC1 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	ora #Channel1Left    ; left
+	sta >MIXFIFO24_8_start+5+{]count*77}+4
+	ora #Channel1Right    ; right
+	sta >MIXFIFO24_8_start+38+{]count*77}+4
+]count = ]count+1
+	--^
+	rtl
+ResampleOSC2 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	ora #Channel2Left    ; left
+	sta >MIXFIFO24_8_start+5+{]count*77}+8
+	ora #Channel2Right    ; right
+	sta >MIXFIFO24_8_start+38+{]count*77}+8
+]count = ]count+1
+	--^
+	rtl
+ResampleOSC3 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	ora #Channel3Left    ; left
+	sta >MIXFIFO24_8_start+5+{]count*77}+12
+	ora #Channel3Right    ; right
+	sta >MIXFIFO24_8_start+38+{]count*77}+12
+]count = ]count+1
+	--^
+	rtl
+ResampleOSC4 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	ora #Channel4Left    ; left
+	sta >MIXFIFO24_8_start+5+{]count*77}+16
+	ora #Channel4Right    ; right
+	sta >MIXFIFO24_8_start+38+{]count*77}+16
+]count = ]count+1
+	--^
+	rtl
+ResampleOSC5 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	ora #Channel5Left    ; left
+	sta >MIXFIFO24_8_start+5+{]count*77}+20
+	ora #Channel5Right    ; right
+	sta >MIXFIFO24_8_start+38+{]count*77}+20
+]count = ]count+1
+	--^
+	rtl
+ResampleOSC6 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y
+	ora #Channel6Left    ; left
+	sta >MIXFIFO24_8_start+5+{]count*77}+24
+	ora #Channel6Right    ; right
+	sta >MIXFIFO24_8_start+38+{]count*77}+24
+]count = ]count+1
+	--^
+	rtl
+ResampleOSC7 mx %00
+]count = 0
+	lup 256
+	lda |{0+{]count*2}},y   					   ; 3b
+	ora #Channel7Left    ; left 				   ; 3b
+	sta >MIXFIFO24_8_start+5+{]count*77}+28 	   ; 4b 
+	ora #Channel7Right    ; right   			   ; 3b
+	sta >MIXFIFO24_8_start+38+{]count*77}+28	   ; 4b
+]count = ]count+1
+	--^
+	rtl
+
+		
 ;------------------------------------------------------------------------------
-;
-; Generate the executable FIFO
-; Generate volume tables
-; Initialize Mixer Volumes
-; Initialize Audio Registers
-;
-MIXER_INIT ent
-	phb
+; lda #Freq   ; 8.8
+; ldx #OSC Number
+; 
+SetChannelFreq mx %00
+SetFrequency mx %00
 
+	pha
+	phx
+	phy
+
+	phb
 	phk
 	plb
 
 	phd
-	lda #MIXER_DIRECT_PAGE
-	tcd
-
-	jsr GenerateFIFO
-	jsr GenerateVolumes
-
-; -- Force Volumes to Initialize
-
-	lda #$ffff  		; this sets cached volume tables to impossible values
-	sta <vol0_left  	; so the first time oscillators are updated, this will
-	sta <vol0_right		; force fresh volume translation tables to be installed
-	sta <vol1_left		
-	sta <vol1_right
-	sta <vol2_left
-	sta <vol2_right
-	sta <vol3_left
-	sta <vol3_right
-
-	; Important Constants used when DMA into FIFO
-	; The address offset from the base address, to where the value is stored
-	lda #CH0_OFFSET_LEFT
-	sta <OSC0_LEFT_FIFO
-	lda #CH0_OFFSET_RIGHT
-	sta <OSC0_RIGHT_FIFO
-
-	lda #CH1_OFFSET_LEFT
-	sta <OSC1_LEFT_FIFO
-	lda #CH1_OFFSET_RIGHT
-	sta <OSC1_RIGHT_FIFO
-
-	lda #CH2_OFFSET_LEFT
-	sta <OSC2_LEFT_FIFO
-	lda #CH2_OFFSET_RIGHT
-	sta <OSC2_RIGHT_FIFO
-
-	lda #CH3_OFFSET_LEFT
-	sta <OSC3_LEFT_FIFO
-	lda #CH3_OFFSET_RIGHT
-	sta <OSC3_RIGHT_FIFO
-
+	pea $100
 	pld
-	plb
-	rtl
 
-;------------------------------------------------------------------------------
-;
-; Call this to pump the fifo
-;
-;  1. Fill empty space in our FIFO up with data
-;  2. Dump as much of that data as we can, into the HW FIFO
-;
-MIXER_PUMP ent
-	mx %00
+	;;lda #freq ; 8.8
+	asl
+	sta <UNSIGNED_MULT_A_LO
 
-	phb
+	txa
+	asl
+	tax
+	lda |:osc_table,x
+	tax
 
-	phk  			; b in this bank for local variables
-	plb
-
-	phd 			; try to keep mixer variables stuck in our own DP
-	lda #MIXER_DIRECT_PAGE
-	tcd		
-
-	jsr MIXER_OSC	; top of software FIFO
-
-	jsr MIXER_FIFO  ; move as much data as possible into the HW FIFO
-
+	ldy #$FFFF
+	
+; loop 256 times
+]offset = 0
+	lup 256
+	iny 						; 2
+	sty <UNSIGNED_MULT_B_LO 	; 4
+	lda <UNSIGNED_MULT_AL_HI	; 4
+	and #$FFFE  				; 3
+	sta |]offset+1,x  			; 5   ; 19 * 256 = 4864
+]offset = ]offset+17
+	--^
 	pld
 	plb
 
+	ply
+	plx
+	pla
 	rtl
+		
+:osc_table
+	da ResampleOSC0		
+	da ResampleOSC1		
+	da ResampleOSC2		
+	da ResampleOSC3		
+	da ResampleOSC4		
+	da ResampleOSC5		
+	da ResampleOSC6		
+	da ResampleOSC7
+			
+;------------------------------------------------------------------------------
+; 4096 - bytes   - for the 24Khz mixer, we push 2048 bytes at a time (for 48khz mixer, we push 1024)
+;												(8*256)(256 samples), (need 400 every 16.6ms) (256 every 10.6ms, so probably need 5ms interrupts or 4ms)
+;	while FIFO < 3072
+	  ; run the mixer/FIFO
+	  ; run resamplers
+	
+	; check for freq changes + apply
+	; check for vol changes + apply
+	 
 
 ;------------------------------------------------------------------------------
 ;
-; Call this to run the Virtual Oscillators
+; Call the ResampleCode (get wave data into the mixer)
 ;
-MIXER_OSC mx %00
+osc_update mx %00
 
-]lp
-	sec
-	lda #FIFO_CAPACITY	; max room in the mix
-	sbc <fifo_count
-	cmp #256
-	bcc :skip		; there's not enough room to bring in 256 samples
+sizeof_resampler = ResampleOSC1-ResampleOSC0
+]offset = 0
+]osc    = 0
 
-	; Run Each Oscillator
-	; Inject 256 samples at the fifo_head
+	lup 8
 
-	ldx #OSC0
-	jsr MIXER_RUN_OSC  ; run an OSCILLATOR
+	lda <osc_frequency+]offset
+	cmp <osc_set_freq+]offset
+	beq freq_ok
 
-	ldx #OSC1
-	jsr MIXER_RUN_OSC  ; run an OSCILLATOR
+	sta <osc_set_freq+]offset
+	asl
+	sta <osc_frame_size+1+]offset
 
-	ldx #OSC2
-	jsr MIXER_RUN_OSC  ; run an OSCILLATOR
+	lsr
+	ldx #]osc
+	jsl SetChannelFreq   ; is there time to do 8 of these at once?  Doubt it.
 
-	ldx #OSC3
-	jsr MIXER_RUN_OSC  ; run an OSCILLATOR
+freq_ok
+	pei osc_pWave+2+]offset
+	plb
+	plb
+	lda <osc_pWave+1+]offset 
+	and #$FFFE
+	tay
+	jsl ResampleOSC0+{]osc*sizeof_resampler}
 
 	clc
-	lda <fifo_head     ; move the FIFO head
-	adc #256
-	and #FIFO_CAPACITY-1
-	sta <fifo_head
-	; c = 0
-	lda <fifo_count	   ; adjust the FIFO count
-	adc #256
-	sta <fifo_count
+	lda <osc_pWave+]offset 
+	adc <osc_frame_size+]offset 
+	sta <osc_pWave+]offset 
+	lda <osc_pWave+2+]offset 
+	adc <osc_frame_size+2+]offset 
+	sta <osc_pWave+2+]offset 
 
-	bra ]lp
-
-:skip
-	; update volumes here? maybe better if placed in MIXER_FIFO
-
-	rts
-
-;------------------------------------------------------------------------------
-;
-; X is pointer to the OSC
-;
-MIXER_RUN_OSC mx %00
-
-:source_step = mixer_temp0
-:new_sample_pointer = mixer_temp1
-:pScale = mixer_temp2   		   ; pointer to the scale commands
-:count  = mixer_temp3
-:y      = mixer_temp3+2
-:pDesti = mixer_temp4
-:stride = mixer_temp5
-
-	lda <OSC_ENABLE,x
-	beq :disabled
-
-	lda <OSC_PLAY_RATE,x
-	asl
-	adc #step_table-2  	; c=0
-	sta |:st+1
-
-:st	lda >step_table 	; self-modified code
-	asl
-	sta <:source_step	; this is how many bytes the pointer needs to move
-						; on the oscillator
-
-	; c=0
-	adc <OSC_SAMPLER_ADDR,x
-	sta <:new_sample_pointer
-	lda #0
-	adc <OSC_SAMPLER_ADDR+2,x
-	sta <:new_sample_pointer+2
-
-	; new sample pointer is the candidate target
-	; as long as it's less than OSC_SAMPLER_END, we're good for simple case
-
-	cmp <OSC_SAMPLER_END+2,x
-	bcc :not_end
-	bne :past_end
-
-:test_low
-	lda <:new_sample_pointer
-	cmp <OSC_SAMPLER_ADDR
-	bcc :not_end
-
-:past_end
-	; We get here, after sampling this frame, we're going to be past the
-	; end of our sample, so it needs to end, or it needs to loop
-	; in either case, we have a short-fall of samples, so we need to figure
-	; out how many samples will be good, based on the data that's available
-
-
-:not_end
-
-	; The easy case
-	jsr	:resample
-
-;        // How many source samples are we going to traverse?
-;        if ((srcSamples + CurrentSample Pointer) < Sample End Pointer)
-;        {
-;           // Easy Case, get the Samples
-;           // Adjust SrcPointer
-;           // Store Last Sample into the Last Sample Read Register
-;        }
-;        else
-;        {
-;           if (Sample Loop Pointer)
-;           {
-;                //Looping
-;                // Read all the Remaining samples, up to the Sample End Pointer
-;                // Adjust Sample Pointer to Loop Start
-;                // Adjust Samples Required (down from 256 to whatever is remaining)
-;                // goto loop:
-;           }
-;           else
-;           {
-;                // not looping
-;                // Read all the remaining samples, up to the Sample End Pointer
-;                // for whatever is remaining, just duplicate the last sample
-;                // enough times to fill out 256 samples
-;           }
-;        }
-
-;
-; When disabled fill with a constant, but with each fill, move 50%
-; closer to 0 (eventually hit 0), this might help with clicks, will have to
-; listen to see if its "good enough"
-;
-:disabled
-
-	lda <OSC_LAST_SAMPLE,x
-	beq :constant_fill
-
-	cmp #256  ; because this is an index into a table
-	bcs :negative
-
-	; positive, so easy
-	lsr
-	and #!1					; keep lsb clear, index even
-	sta <OSC_LAST_SAMPLE,x
-	bra :constant_fill
-
-:negative
-
-	ora #$FF00
+	; if pWave >= pWaveEnd
+	;    pWave = pLoop + (pWave-pWaveEnd)
 	sec
-	ror
-	and #%1_1111_1110    ; keep index even
-	sta <OSC_LAST_SAMPLE,x
+	lda <osc_pWave+]offset 
+	sbc <osc_pWaveEnd+]offset 
+	sta <osc_delta
+	lda <osc_pWave+2+]offset 
+	sbc <osc_pWaveEnd+2+]offset 
+	sta <osc_delta+2
+	bmi vol_update
 
-	cmp #510		 	 ; take -1 to 0
-	bne :constant_fill
-	lda #0
-	sta <OSC_LAST_SAMPLE,x
+	; we're past the end of the wave
+	; so now we have to go to
+	; loop point + (delta % loop size), so annoying
+	lda <osc_loop_size+]offset
+	ora <osc_loop_size+2+]offset
+	bne do_mod
+	stz <osc_delta
+	stz <osc_delta+2
+	bra mod_done
+do_mod
+	; if the loop size is >= delta, then no mod
+	lda <osc_delta+2
+	cmp <osc_loop_size+2+]offset
+	bcc mod_done  ; no mod
+	bne mod
+	lda <osc_delta
+	cmp <osc_loop_size+]offset
+	bcc mod_done	; no mod
+	beq mod_done	; no mod
+mod
+	; $$TODO, we have to do some real math here
+	; delta will never be larger than 4096
+	; still we must do loop size / delta
+	; and alter the delta, so it matches the remainder
 
-:constant_fill
-
-	; use 2D DMA here, with a constant fill, to get 256 samples
-	; placed into the FIFO, place them at the fifo_head
-
-	; just inline here, because lazy
-
-	; Switch into SDMA Register Bank
-	pea SDMA_CTRL_REG0/256
-	plb
-	plb
-
-	; Fill the Left Channel
-	jsr :dma_fill  		; fill the low byte
-
-	lda <OSC_LAST_SAMPLE+1,x
-
-	inc <FIFO_OFFSETS,x
-	jsr :dma_fill     	; fill the high byte
-	dec <FIFO_OFFSETS,x
-
-	; Now the right channel
-	inx
-	inx
-	lda <OSC_LAST_SAMPLE-2,x
-	jsr :dma_fill	 	; low byte right
-
-	lda <OSC_LAST_SAMPLE-2+1,x
-	inc <FIFO_OFFSETS-2,x
-	jsr :dma_fill
-	dex
-	dex
-	dec <FIFO_OFFSETS,x
-
-	phk
-	plb
-
-	rts
+	; I feel like this is not going to work.
+	lda <osc_loop_size+1+]offset
+	sta >UNSIGNED_DIV_DEM_LO
+	lda <osc_delta+1
+	sta >UNSIGNED_DIV_NUM_LO
+	lda >UNSIGNED_DIV_REM_LO
+	sta <osc_delta+1
 
 
-:dma_fill mx %00
-	sta |SDMA_BYTE_2_WRITE
+mod_done
+	clc
+	lda <osc_pWaveLoop+]offset 
+	adc <osc_delta
+	sta <osc_pWave+]offset 
+	lda <osc_pWaveLoop+2+]offset 
+	adc <osc_delta+2
+	sta <osc_pWave+2+]offset 
+vol_update
+	; slip volume updates into here
+	lda <osc_left_vol+]offset
+	cmp <osc_set_left+]offset
+	beq next_osc
+	sta <osc_set_left+]offset
 
-FRAG_SIZE = {MIXFIFO24_end-MIXFIFO24_start}
-
-	lda #FRAG_SIZE
-	sta |SDMA_DST_STRIDE_L
-
-	lda <fifo_head
-	asl
-	txy
 	tax
-	lda >FIFO_OFFSETS,x
-	tyx
-	adc <OSC_LEFT_FIFO,x
-
-	sta |SDMA_DST_ADDY_L
-	lda #^MIXFIFO
-	sta |SDMA_DST_ADDY_H
-
-	lda #1
-	sta |SDMA_X_SIZE_L
-	lda #256
-	sta |SDMA_Y_SIZE_L
-
-	lda #]FRAG_SIZE
-	sta |SDMA_DST_STRIDE_L
-
-	sep #$20
-	stz |SDMA_CTRL_REG0
-
-	lda #SDMA_CTRL0_Enable+SDMA_CTRL0_1D_2D+SDMA_CTRL0_TRF_Fill+SDMA_CTRL0_Start_TRF
-	sta |SDMA_CTRL_REG0
-
-	rep #$31 ; mxc = 0
-
-	rts
-
-;------------------------------------------------------------------------------
-
-:resample mx %00
-
-	; Maybe we can refactor this, so that it's fetched when the PLAY_RATE
-	; is set, instead of every call
-
-	lda <OSC_PLAY_RATE,x
-	txy
-	asl
-	tax
-	lda >dma_table-2,x
-	sta <:pScale
-	tyx
-	lda #^dma_table
-	sta <:pScale+2
-	; :pScale
-
-	lda [:pScale]
-	beq :no_scale
-
-	jsr :scaleUpCopy
-
-:no_scale
-
-	rts
-
-;------------------------------------------------------------------------------
-:scaleUpCopy mx %00
-	tay
-	and #$ff
-	sta <:count		; multiply count
-	asl
-	sta <:stride	; bytes stride for the amplification
-	tya
 	xba
-	and #$ff		
-	sta <:y			; number of lines
+	tay
+	lda #]osc
+	jsl Msetvolume
 
-	pea VDMA_CONTROL_REG/256  ; maybe could pack target bank, and k into this
-	plb
-	plb
+next_osc
 
-	; Dest Pointer for scale, is 0x200000
-	stz <:pDesti
-	ldy #0
-	lda #$20
-	sta <:pDesti+2
-
-]scale_loop
-
-	; DMA Source
-	lda <OSC_SAMPLER_ADDR,x
-	sta |VDMA_SRC_ADDY_L
-	lda <OSC_SAMPLER_ADDR+1,x
-	sta |VDMA_SRC_ADDY_L+1
-	; DMA Dest
-	;lda <:pDesti
-	;sta |VDMA_DST_ADDY_L
-	sty |VDMA_DST_ADDY_L
-	lda <:pDesti+1
-	sta |VDMA_DST_ADDY_L+1
-
-	lda #2
-	sta |VDMA_X_SIZE_L
-	sta |VDMA_SRC_STRIDE_L
-	lda <:y
-	sta |VDMA_Y_SIZE_L
-
-	lda <:stride
-	sta |VDMA_DST_STRIDE_L
-
-	sep #$20
-	stz |VDMA_CONTROL_REG
-
-	; Begin 2D DMA
-	lda #VDMA_CTRL_Enable+VDMA_CTRL_1D_2D+VDMA_CTRL_Start_TRF
-	sta |VDMA_CONTROL_REG
-
-		; Wait for Completion
-]wait_dma
-	lda |VDMA_STATUS_REG
-	bmi	]wait_dma
-
-	rep #$31
-
-	iny
-	iny
-	; inc <:pDesti
-	dec <:count
-
-	bne ]scale_loop
-
-	phk
-	plb
-
-	rts
-;------------------------------------------------------------------------------
-;
-MIXER_FIFO mx %00
-	; 1. update the volume tables
-	; 2. dump as many samples as we are able into the HW FIFO
-	rts
-
-
-;------------------------------------------------------------------------------
-;
-;
-MIXER_SHUTDOWN ent
-	rtl
-
-;------------------------------------------------------------------------------
-;
-; Generate the unrolled code, that we'll use to make 
-;
-GenerateFIFO mx %00
-
-	;@TODO Convert to DMA
-;FRAG_SIZE = {MIXFIFO24_end-MIXFIFO24_start}
-	; Copy initial code fragment
-
-	ldx #MIXFIFO24_start	 ; src
-	ldy #MIXFIFO			 ; dst
-	lda #FRAG_SIZE-1		 ; len - 1 
-	mvn ^MIXFIFO24_start,^MIXFIFO
-
-	; Overlap copy to make 1024 more
-	ldx #MIXFIFO
-	; y should already be fine
-	lda #{FRAG_SIZE*1024}-1   ; this creates 1 extra, I don't care
-	mvn ^MIXFIFO,^MIXFIFO
-
-	; Add a Jump to loop the thing
-	lda #$4C	; JMP MIXFIFO (at the end)
-	sta |MIXFIFO+{1024*FRAG_SIZE}
-	lda #MIXFIFO
-	sta |MIXFIFO+{1024*FRAG_SIZE}+1
-
-	phk
-	plb
-
-
-
+]osc = ]osc+1
+]offset = ]offset+28
+	--^
 	rts
 
 ;------------------------------------------------------------------------------
 ;
-; Generate the Volume tables
-; 
-GenerateVolumes mx %00
-
+; Setup 64 pre-made volume tables
+;
+InitVolumeTables mx %00
 :temp equ 0
+		pei :temp
 
-	pei :temp
-
-	; Switch into VOL_TABLE data bank
-	pea >VOL_TABLES
-	plb
-	plb
+		phkb ^VolumeTables
+		plb
 
 ; Initialize the full volume Table
 
-	ldx #510
-	lda #$FF
-	sta <:temp
+		ldx #510
+		lda #$FF
+		sta <:temp
 ]lp
-	lda <:temp
-	cmp #$0080
-	bcc :pos
-	ora #$FF00
+		lda <:temp
+		cmp #$0080
+		bcc :pos
+		ora #$FF00
 :pos
-	sta |VOL_TABLES,x
-	dex
-	dex
-	dec <:temp
-	bpl ]lp
+		sta |VolumeTables,x
+		dex
+		dex
+		dec <:temp
+		bpl ]lp
 
 ; Initialize all 65 entries of the volume tables
 ; to full Volume
 
-	; Overlap copy to make 64 more
-	ldx #VOL_TABLES
-	ldy #{VOL_TABLES+512}
-	lda #{64*512}-1        ; length, uses overlapping copy
-	mvn ^VOL_TABLES,^VOL_TABLES
-
-; early exit
-;	phk
-;	plb
-
-;	pla
-;	sta <:temp
-;	rts
-
-	; Conveniently leaves the B where we want it
+		; Overlap copy to make 64 more
+		ldx #VolumeTables
+		ldy #{VolumeTables+512}
+		lda #{63*512}-1        ; length, uses overlapping copy
+		mvn ^VolumeTables,^VolumeTables
+		; leaves B where we want
 
 ; ----------------------------
 ;
-;  Now Generate Volumes 0-64
-; (which should work our great, because 4*64 = 256)
-; I actually want the highest volume to be 3F.FF, so the 4 values mixed
-; End up at FFFC, (I hopefully won't have to worry about overflow)
-
-	phd
-	lda #$100  ; Put the DPage on Top of the Maths co-processor
-	tcd
+; Now Generate Volumes 0-64
+; I actually want the highest volume to be FFF, so the 8 values mixed
+; End up at 7FF8, (I hopefully won't have to worry about overflow)
+		phd
+		lda #$100  ; Put the DPage on Top of the Maths co-processor
+		tcd
 
 
-	ldy #0	; y = Volume Table #
-	tyx     ; x = Volume Table Index offset
-	tya
+		ldy #0	; y = Volume Table #
+		tyx     ; x = Volume Table Index offset
+		tya
 
 ]outer_loop
 
-	sta <SIGNED_MULT_A_LO
-	;pha
+		sta <SIGNED_MULT_A_LO
+		;pha
 
-	ldy #255
+		ldy #255
 
 ]inner_loop
 
-	;lda 1,s
-	;sta <SIGNED_MULT_A_LO
+		;lda 1,s
+		;sta <SIGNED_MULT_A_LO
 
-	lda |VOL_TABLES,x   		; Existing 16 bit SEXT Volume
-	sta <SIGNED_MULT_B_LO
+		lda |VolumeTables,x   		; Existing 16 bit SEXT Volume
+		sta <SIGNED_MULT_B_LO
 
-	lda <SIGNED_MULT_AL_LO		; Assumes I don't have to keep reseting input
-	sta |VOL_TABLES,x
+		lda <SIGNED_MULT_AL_LO		; Assumes I don't have to keep reseting input
+		cmp #$8000  				; scale down, so we can mix 8 of them at full blast
+		ror
+		sta |VolumeTables,x
 
-	inx
-	inx
+		inx
+		inx
 
-	dey
-	bpl ]inner_loop
+		dey
+		bpl ]inner_loop
 
-	;pla
-	lda <SIGNED_MULT_A_LO
-	inc
-	cmp #65
-	bcc ]outer_loop
+		;pla
+		lda <SIGNED_MULT_A_LO
+		inc
+		cmp #64
+		bcc ]outer_loop
 
-	phk		; restore Data Bank
-	plb
+		phk		; restore Data Bank
+		plb
 
-	pld		; restore D-Page
+		pld		; restore D-Page
 
-; ----------------------------
-	pla
-	sta <:temp
+;-----------------------
+; restore stuff
 
-	rts
+		plb
+		pla
+		sta <:temp
+		rts
+;------------------------------------------------------------------------------
+; (leave timer 0 for actual trackers)
+; Currently hijack timer 1, but could work on timer 0
+;
+;C pseudo code for counting up
+;TIMER1_CHARGE_L = 0x00;
+;TIMER1_CHARGE_M = 0x00;
+;TIMER1_CHARGE_H = 0x00;
+;TIMER1_CMP_L = clockValue & 0xFF;
+;TIMER1_CMP_M = (clockValue >> 8) & 0xFF;
+;TIMER1_CMP_H = (clockValue >> 16) & 0xFF;
+;
+;TIMER1_CMP_REG = TMR_CMP_RECLR;
+;TIMER1_CTRL_REG = TMR_EN | TMR_UPDWN | TMR_SCLR;
+;
+;C pseudo code for counting down
+;TIMER1_CHARGE_L = (clockValue >> 0) & 0xFF;
+;TIMER1_CHARGE_M = (clockValue >> 8) & 0xFF;
+;TIMER1_CHARGE_H = (clockValue >> 16) & 0xFF;
+;TIMER1_CMP_L = 0x00;
+;TIMER1_CMP_M = 0x00;
+;TIMER1_CMP_H = 0x00;
+;
+;TIMER1_CMP_REG = TMR_CMP_RELOAD;
+;TIMER1_CTRL_REG = TMR_EN | TMR_SLOAD;
+;
+InstallMixerJiffy mx %00
 
+; Enable the interrupts used to service the OSC + DAC
+; 24000 / 256 = 93.75 times per second (this also means our service
+; cushion is 10.66ms (good to know), actually an interrupt duty cycle
+; of 5ms should be good enough (maybe don't need 4ms fidelity)
+
+; trying for a 5ms cadence here
+; 1000/5 = 200s interrupt per second
+; interrupt have overhead, so in theory
+; 200hz interrupts (187.5 might also be ok)
+;:RATE equ {14318180/400}
+:RATE equ 76363   ; 187.5 times per second
+
+; The reason I want this 2x the rate, is that the FIFO always needs something
+; left in the tank.  Anytime it hit's empty, it will hurt my ears.
+
+		php
+		sei
+
+		phkb 0
+		plb
+
+		; jump vector hooked up
+
+		lda #$5C
+		sta |VEC_INT03_TMR1
+
+		lda #MixerService
+		sta |VEC_INT03_TMR1+1
+		lda #>MixerService
+		sta |VEC_INT03_TMR1+2
+
+		sep #$30
+
+		stz |TIMER1_CHARGE_L
+		stz |TIMER1_CHARGE_M
+		stz |TIMER1_CHARGE_H
+
+		lda #<:RATE
+		sta |TIMER1_CMP_L
+		lda #>:RATE
+		sta |TIMER1_CMP_M
+		lda #^:RATE
+		sta |TIMER1_CMP_H
+
+		lda #TMR1_CMP_RECLR
+		sta |TIMER1_CMP_REG
+		lda #TMR1_EN+TMR1_UPDWN+TMR1_SCLR
+		sta |TIMER1_CTRL_REG
+
+; Enable the TIME1 interrupt
+
+		lda	#FNX0_INT03_TMR1
+		trb |INT_MASK_REG0
+
+		rep #$31
+
+		plb
+		plp
+
+		rts
+
+;------------------------------------------------------------------------------
+MixerService mx %00
+		php
+		rep #$30
+:check
+		lda >$AF1904 ; Read the FIFO Status
+;		bmi :break
+;		and #$FFF    ; We dump in 256 samples at a time
+;		beq :break
+;
+;		cmp #$980
+		             ; our samples are 8 bytes each, so 2048 bytes
+;		bcc :work
+		and #$800
+		beq :work
+
+		plp
+		rtl
+:work
+		; dump data into the HW FIFO
+		phb
+		jsl MIXFIFO24_8_start
+		phd
+
+		; b will get set above, but what if that changes?
+		phk
+		plb
+
+		lda |pOscillators
+		tcd
+
+;
+; honor any wave pointer update requests
+;
+
+		jsr osc_update	; grab sample data, for the "software fifo"
+
+; honor frequency change requests
+; (since volume uses DMA, it can happen "immediately")
+
+		pld
+		plb
+		;bra :check 
+
+		plp
+		rtl
 
 ;------------------------------------------------------------------------------
 
