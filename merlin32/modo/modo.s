@@ -13,25 +13,25 @@
 ; (SHAME!)
 
 		; Vicky
-		use phx/vicky_ii_def.asm
-		use phx/VKYII_CFP9553_BITMAP_def.asm 
-		use phx/VKYII_CFP9553_TILEMAP_def.asm
-		use phx/VKYII_CFP9553_VDMA_def.asm   
-		use phx/VKYII_CFP9553_SDMA_def.asm   
-		use phx/VKYII_CFP9553_SPRITE_def.asm 
+		use ../phx/vicky_ii_def.asm
+		use ../phx/VKYII_CFP9553_BITMAP_def.asm 
+		use ../phx/VKYII_CFP9553_TILEMAP_def.asm
+		use ../phx/VKYII_CFP9553_VDMA_def.asm   
+		use ../phx/VKYII_CFP9553_SDMA_def.asm   
+		use ../phx/VKYII_CFP9553_SPRITE_def.asm 
 
 		; Kernel
-		use phx/page_00_inc.asm
-		use phx/kernel_inc.asm
-		use phx/rtc_def.asm
-		use phx/timer_def.asm
+		use ../phx/page_00_inc.asm
+		use ../phx/kernel_inc.asm
+		use ../phx/rtc_def.asm
+		use ../phx/timer_def.asm
 
 		; Fixed Point Math
-		use phx/Math_def.asm
+		use ../phx/Math_def.asm
 
 
 		; Interrupts
-		use phx/interrupt_def.asm
+		use ../phx/interrupt_def.asm
 
 
 		ext title_pic
@@ -230,6 +230,11 @@ start   ent             ; make sure start is visible outside the file
 
 		phk
 		plb
+
+		;lda #2
+		;sta >MOUSE_PTR_CTRL_REG_L
+		lda #$FFFF
+		sta >MOUSE_PTR_GRAP1_START
 
 ;------------------------------------------------------------------------------
 ;

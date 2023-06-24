@@ -12,7 +12,7 @@
 ;
 
 
-		use phx/Math_def.asm
+		use ../phx/Math_def.asm
 
 		ext dma_table
 		ext step_table

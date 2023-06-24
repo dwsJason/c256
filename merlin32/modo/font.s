@@ -5,7 +5,7 @@
 		lnk font.l
 
 		; Vicky
-		use phx/vicky_ii_def.asm
+		use ../phx/vicky_ii_def.asm
 
 
 		mx %00
