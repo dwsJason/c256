@@ -534,10 +534,11 @@ smart_decompress_lzsa ent
 
 ; I just realized, for this to work, I need to know the size :-/
 ; I think destPtr is probably the size, we'll see
-	tay		; real dest
-
 	ora #{WORKRAM/65536}*256
 	sta >:mvn+1
+
+	lda :pDest,s
+	tay 		  ; real Dest Address
 
 	ldx #0  ; start address in the WORKBUFFER
 	lda destPtr ; length

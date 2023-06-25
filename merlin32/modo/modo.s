@@ -31,7 +31,7 @@
 		use ../phx/interrupt_def.asm
 
 
-		ext title_pic
+		ext logo_pic
 		ext decompress_lzsa
 
 		;
@@ -52,8 +52,6 @@
 
 		put dp.i.s
 		put mixer.i.s
-
-
 ;
 ; Decompress to this address
 ; Temp Buffer for decompressing stuff ~512K here
@@ -68,6 +66,9 @@ VICKY_WORK_BUFFER     = $180000
 ; Kernel method
 VRAM = $B00000
 
+VRAM_TILE_CAT = $C80000
+VRAM_LOGO_MAP = $B80000
+
 ; Base Address for Audio
 AUDIO_RAM = $80000
 ;AUDIO_RAM = $E00000
@@ -81,12 +82,7 @@ MySTACK = STACK_END ;$FEFF Defined in the page_00_inc.asm
 XRES = 800
 YRES = 600
 
-	do XRES=640
-VIDEO_MODE = $007F  ; -- all the things enabled, 640x480
-	else
 VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
-	fin
-
 
 
 start   ent             ; make sure start is visible outside the file
@@ -223,92 +219,13 @@ start   ent             ; make sure start is visible outside the file
 
 		jsr InitTextMode
 
-		lda #0
-		sta >BM0_X_OFFSET
-		sta >BM0_Y_OFFSET
-		sta >BM1_X_OFFSET
-		sta >BM1_Y_OFFSET
-		sta >TL0_CONTROL_REG
-		sta >TL1_CONTROL_REG
-		sta >TL2_CONTROL_REG
-		sta >TL3_CONTROL_REG
-
-;
-; Extract CLUT data from the title image
-;
-		; source picture
-;		pea ^title_pic
-;		pea title_pic
-
-		; destination address
-;		pea ^GRPH_LUT0_PTR
-;		pea GRPH_LUT0_PTR
-
-;		jsl decompress_clut
-
-;		jsr		WaitVBL
-;
-;        ; Copy over the LUT
-;        ldy     #GRPH_LUT0_PTR  ; dest
-;        ldx     #pal_buffer  	; src
-;        lda     #1024-1			; length
-;        mvn     ^pal_buffer,^GRPH_LUT0_PTR    ; src,dest
-;
-;		phk
-;		plb
-;
-;        ; Set Background Color
-;		sep #$30
-;        lda	|pal_buffer
-;        sta >BACKGROUND_COLOR_B ; back
-;        lda |pal_buffer+1
-;        sta  >BACKGROUND_COLOR_G ; back
-;        lda |pal_buffer+2
-;        sta  >BACKGROUND_COLOR_R ; back
-;		rep #$30
-
-
-;;
-;; Extract pixels from the title image
-;;
-;		; source picture
-;		pea ^title_pic
-;		pea title_pic
-;
-;		; destination address
-;		pea ^pixel_buffer
-;		pea pixel_buffer
-;
-;		jsl decompress_pixels
-;
-;		jsr WaitVBL
-
-;-----------------------------------------------------------
-;
-; Copy the Pixels into Video Memory
-;
-;]count = 0
-;		lup 8
-;]source = pixel_buffer+{]count*$10000}
-;]dest   = {VICKY_DISPLAY_BUFFER+VRAM}+{]count*$10000}
-;		lda #0
-;		tax
-;		tay
-;		dec
-;		mvn ^]source,^]dest
-;]count = ]count+1
-;		--^
-;
 		phk
 		plb
+;------------------------------------------------------------------------------
 
+		jsr logo_pic_init
 
-;-------------------------------------------------------------
-;
-; Let's see what we can do with the VDMA Controller
-;
-
-; Just a backup copy of the bitmap before we start banging on the frame buffer
+;------------------------------------------------------------------------------
 
 		pea ^toms_diner
 		pea toms_diner
@@ -821,8 +738,8 @@ InitTextMode mx %00
 
 		; Fuck, make the text readable
 		dec  ; A = 0xFFFF
-		sta >$AF1F78
-		sta >$AF1F79
+;		sta >$AF1F78
+;		sta >$AF1F79
 
 ;
 ; Disable the border
@@ -1913,6 +1830,136 @@ fastHEXBYTE mx %00
 :chars  ASC '0123456789ABCDEF'
 
 :temp	ds  3
+
+;------------------------------------------------------------------------------
+
+logo_pic_init mx %00
+
+;
+; Configure the Width and Height of the Tilemap, based on the width
+; and height stored in our file
+;
+
+		lda #logo_pic
+		ldx #^logo_pic
+		jsr c256Init		;$$JGA TODO, make sure better
+
+		; Tile Map Width, and Height
+
+		ldy #8  ; TMAP width offset
+		lda [pTMAP],y
+		sta >TL3_TOTAL_X_SIZE_L
+		iny
+		iny     ; TMAP height offset
+		lda [pTMAP],y
+		inc
+		and #$FFFE
+		sta >TL3_TOTAL_Y_SIZE_L
+
+;
+; Extract CLUT data from the piano image
+;
+
+		; source image
+		pea ^logo_pic
+		pea logo_pic
+
+		; dest address			; Testing new smart decompress
+		pea ^GRPH_LUT0_PTR
+		pea GRPH_LUT0_PTR
+
+		jsl decompress_clut
+
+;
+; Extract Tiles Data
+;
+
+		; source picture
+		pea ^logo_pic
+		pea logo_pic
+
+		; destination address
+		pea ^VRAM_TILE_CAT
+		pea VRAM_TILE_CAT
+
+		jsl decompress_pixels
+
+;
+; Extract Map Data
+;
+
+		; source picture
+		pea ^logo_pic
+		pea logo_pic
+
+		; destination address
+		pea ^VRAM_LOGO_MAP
+		pea VRAM_LOGO_MAP
+
+		jsl decompress_map
+
+;
+; Set Scroll Registers, and enable TL3
+;
+
+		lda #0
+		; Tile maps off
+		sta >TL0_CONTROL_REG
+		sta >TL1_CONTROL_REG
+		sta >TL2_CONTROL_REG
+		sta >TL3_CONTROL_REG
+		
+		; turn on tile map 3
+		lda #TILE_Enable
+		sta >TL3_CONTROL_REG
+		lda #{VRAM_LOGO_MAP-VRAM}
+		sta >TL3_START_ADDY_L
+		sep #$30
+		lda #^{VRAM_LOGO_MAP-VRAM}
+		sta >TL3_START_ADDY_H
+		rep #$30
+		
+		lda #0
+		sta >TL0_WINDOW_X_POS_L
+		sta >TL0_WINDOW_Y_POS_L
+		sta >TL1_WINDOW_X_POS_L
+		sta >TL1_WINDOW_Y_POS_L
+		sta >TL2_WINDOW_X_POS_L
+		sta >TL2_WINDOW_Y_POS_L
+
+		sta >TL3_WINDOW_X_POS_L
+		lda #16
+		sta >TL3_WINDOW_Y_POS_L
+
+		; catalog data
+		lda #{VRAM_TILE_CAT-VRAM}
+		sta >TILESET0_ADDY_L
+		sta >TILESET1_ADDY_L
+		sta >TILESET2_ADDY_L
+		sta >TILESET3_ADDY_L
+		sta >TILESET4_ADDY_L
+		sta >TILESET5_ADDY_L
+		sta >TILESET6_ADDY_L
+		sta >TILESET7_ADDY_L
+		lda #^{VRAM_TILE_CAT-VRAM}
+		sta >TILESET0_ADDY_H
+		inc
+		sta >TILESET1_ADDY_H	    ; by placing the next tileset after the first, we expand support to 512 tiles
+		inc
+		sta >TILESET2_ADDY_H
+		inc
+		sta >TILESET3_ADDY_H
+		inc
+		sta >TILESET4_ADDY_H
+		inc
+		sta >TILESET5_ADDY_H
+		inc
+		sta >TILESET6_ADDY_H
+		inc
+		sta >TILESET7_ADDY_H
+
+
+		rts
 
 ;------------------------------------------------------------------------------
 
