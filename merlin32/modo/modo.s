@@ -8,6 +8,7 @@
 
         use Util.Macs
 		put macros.s
+		use keys.i
 
 		; Vicky
 		use ../phx/vicky_ii_def.asm
@@ -296,9 +297,15 @@ start   ent             ; make sure start is visible outside the file
 		ldx #0
 		jsr myLOCATE
 
-]pump
+]main_loop
 		jsr WaitVBL
-;		jsr MIXER_PUMP
+
+		jsr ReadKeyboard
+
+		ldx #KEY_SPACE
+		lda #PlayInstrument
+		jsr OnKeyDown
+
 		sei
 ; grab information, I need so I can update the tracker pattern text
 		pei mod_p_current_pattern
@@ -307,7 +314,6 @@ start   ent             ; make sure start is visible outside the file
 		pei mod_pattern_index
 		cli
 ; update the tracker pattern text
-
 
 		ldy #43
 		ldx #0
@@ -320,7 +326,7 @@ start   ent             ; make sure start is visible outside the file
 
 		plx
 		pla
-		bra ]pump
+		bra ]main_loop
 
 :print
 :pBlockAddress = temp5
@@ -357,8 +363,57 @@ start   ent             ; make sure start is visible outside the file
 		dec <:tCount
 		bpl ]lp
 		ply
-		bra ]pump
+		bra ]main_loop
 
+;------------------------------------------------------------------------------
+; X = Key #
+; A = Function to Call
+OnKeyDown mx %00
+		dec
+		pha
+		sep #$20
+		lda |keyboard,x
+		bne :down
+		; key is up, don't call
+		sta |latch_keys,x
+		rep #$30
+:latched
+		pla
+		rts
+:down
+		cmp |latch_keys,x
+		sta |latch_keys,x
+		rep #$30
+		beq :latched
+:KeyIsDown
+		rts
+
+;------------------------------------------------------------------------------
+; X = Key #
+; A = Function to Call
+OnKeyUp mx %00
+		dec
+		pha
+		sep #$20
+		lda |keyboard,x
+		beq :up
+		; key is up, don't call
+		sta |latch_keys,x
+		rep #$30
+:latched
+		pla
+		rts
+:up
+		cmp |latch_keys,x
+		sta |latch_keys,x
+		rep #$30
+		beq :latched
+:KeyIsUp
+		rts
+
+;------------------------------------------------------------------------------
+PlayInstrument mx %00
+		rts
 
 ;------------------------------------------------------------------------------
 ;
@@ -1928,7 +1983,7 @@ logo_pic_init mx %00
 		sta >TL2_WINDOW_Y_POS_L
 
 		sta >TL3_WINDOW_X_POS_L
-		lda #16
+		lda #24
 		sta >TL3_WINDOW_Y_POS_L
 
 		; catalog data
@@ -1962,6 +2017,107 @@ logo_pic_init mx %00
 		rts
 
 ;------------------------------------------------------------------------------
+ReadKeyboard mx %00
+		phd
+		pea 0
+		pld
+
+HISTORY_SIZE = 15
+
+	; Collect Scancodes, but only when they change
+	; place into a history buffer
+	; print out the history buffer onto the screen
+	; for the world to see
+]key_loop
+		jsl GETSCANCODE
+		and #$FF
+		beq :exit
+		cmp |:last_code
+		beq :exit       	; duplicate code, so ignore
+
+		sta |:last_code		; last code, for the duplicate check
+
+	; this is he actual keyboard driver, just reflects keystatus
+	; into the keyboard array
+
+		sep #$30
+		tay
+		and #$7F
+		tax
+		tya
+		bpl :keydown
+		lda #$00  		; key-up
+:keydown
+		sta |keyboard,x
+		
+		tya
+		rep #$30
+
+	; end keyboard driver
+
+	; I keep history here, for debugging
+		do 1
+		ldx |:index     	; current index
+		sta |:history,x 	; save in history
+		dex
+		dex     		; next index
+		bpl :continue
+		ldx #{HISTORY_SIZE*2}-2 ; index wrap
+:continue
+		stx |:index     	; save index for next time
+		fin
+
+		bra ]key_loop
+
+:exit
+		pld
+
+; print out the current history
+		do 1
+:x = temp0
+:y = temp0+2
+
+		ldx #97
+		ldy #2
+		stx <:x
+		sty <:y
+
+		ldy |:index
+]loop
+		phy
+		ldx <:x
+		ldy <:y
+		jsr fastLOCATE
+
+		ply
+		iny
+		iny
+		cpy #HISTORY_SIZE*2
+		bcc :cont2
+		ldy #0
+:cont2
+		cpy |:index
+		beq :xit
+
+		lda |:history,y
+		phy
+		jsr fastHEXBYTE
+		ply
+		inc <:y
+
+		bra ]loop
+:xit
+
+		fin
+		rts
+
+
+:index		dw 0
+:last_code	dw 0
+
+:history	ds HISTORY_SIZE*2
+
+;------------------------------------------------------------------------------
 
 ; Non Initialized spaced
 
@@ -1978,6 +2134,9 @@ pal_buffer
 
 	        ds \              ; 256 byte align, for quicker piano update
 mixer_dpage ds 256		  	 ; mixer gets it's own DP
+
+keyboard   ds 128
+latch_keys ds 128			; hybrid latch memory
 
 ;
 ; Precomputed pointers to patterns
