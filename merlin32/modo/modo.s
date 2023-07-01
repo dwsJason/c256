@@ -128,7 +128,7 @@ start   ent             ; make sure start is visible outside the file
 		;jsl $10D0 ;INITVKYGRPMODE  
 		;jsl $10DC ;INITCODEC
 
-		stz <MOUSE_PTR
+;		stz <MOUSE_PTR
 
         lda #MyDP
         tcd
@@ -198,10 +198,10 @@ start   ent             ; make sure start is visible outside the file
 	    ;
 		; Reset Mouse
 		;
-		lda #0
-		sta >MOUSE_PTR_CTRL_REG_L
-		lda #1
-		sta >MOUSE_PTR_CTRL_REG_L
+		;lda #0
+		;sta >MOUSE_PTR_CTRL_REG_L
+		;lda #1
+		;sta >MOUSE_PTR_CTRL_REG_L
 
 		rep #$31
 ;------------------------------------------------------------------------------
@@ -607,55 +607,6 @@ InstallJiffy mx %00
 		inc |{MyDP+dpJiffy}
 		plb
 		rtl
-
-
-;; Maintain Vector
-;;		sei
-;;
-;;; Only install, if not already installed
-;;		lda	|VEC_INT00_SOF+1
-;;
-;;		cmp #:JiffyTimer
-;;		bne :onward
-;;
-;;		lda |VEC_INT00_SOF+2
-;;		cmp #>:JiffyTimer
-;;		beq :already_installed
-;;
-;;
-;;:onward
-;;		lda	|VEC_INT00_SOF
-;;		sta |:hook
-;;		lda |VEC_INT00_SOF+2
-;;		sta |:hook+2
-;;		
-;;		lda #:JiffyTimer
-;;		sta |VEC_INT00_SOF+1
-;;		lda #>:JiffyTimer
-;;		sta |VEC_INT00_SOF+2
-;;
-;;:already_installed
-;;
-;;; Make sure the JiffyTime is running
-;;
-;;; Enable the SOF interrupt
-;;
-;;		lda	#FNX0_INT00_SOF
-;;		trb |INT_MASK_REG0
-;;
-;;		cli
-;;		rts
-;;
-;;:JiffyTimer
-;;		phb
-;;		phk
-;;		plb
-;;		inc |{MyDP+dpJiffy}
-;;		plb
-;;:hook
-;;		jml $000000
-
-
 ;------------------------------------------------------------------------------
 ;
 ; Audio Jiffy Timer Installer, Enabler
@@ -924,13 +875,15 @@ ModInit mx %00
 :pModInput = 4
 
 ; Zero Page
-:pMod    = 0
-:pInstruments = 4
-:pPatterns = 8
-:pSamples  = 12
-:loopCount = 16
-:current_y = 18
-:num_patterns = 20
+:pMod    = temp0
+:pInstruments = temp1
+:pPatterns = temp2
+:pSamples  = temp3
+:loopCount = temp4
+:current_y = temp5
+:num_patterns = temp5+2
+
+:pInst = temp6   ; used for the extraction over to the mod_instruments, block
 
 ;:pTemp equ 128
 
@@ -993,6 +946,114 @@ ModInit mx %00
 
 	; --- end print out mod file's name
 
+; --- Copy Sample Data into the mod_instruments block
+
+	ldy #20 ; offset to sample information
+	sty <:current_y
+	stz <:loopCount		; which instrument are we working on
+
+]inst_fetch_loop
+
+	lda <:loopCount
+	asl
+	tax
+	lda |inst_address_table,x
+	sta <:pInst			; is the pointer to the current i_ instrument 
+
+; copy the sample name out for the mod, into the i_name
+
+	tay  ; target address
+
+	; c = 0
+	lda <:pMod
+	adc <:current_y
+	tax  ; source address
+
+	lda <:pMod+2
+	sta |:nm_mvn+1
+
+	lda #21    	  ; hard coded length used in MOD files
+	phb
+:nm_mvn mvn 0,0   ; copy the string
+	plb
+
+; advance y
+	lda <:current_y
+	adc #22  	  ; hard coded length, used in MOD files
+	sta <:current_y
+	tay
+
+	ldx <:pInst
+	lda [:pMod],y
+	xba 			  	; endian
+	asl 				; length * 4, because our samples are 2x the size of the samples in the mod, and the length in the file is half the size, to save space
+	rol |i_sample_length+2,x
+	asl
+	rol |i_sample_length+2,x
+	sta |i_sample_length,x
+
+;PAL:   7093789.2 / (428 * 2) = 8287.14hz
+;NSTC:  7159090.5 / (428 * 2) = 8363.42hz
+
+	; set the sample rate
+
+	lda #8363
+	sta |i_sample_rate,x
+
+	; set the key, it happens to be C2
+
+	lda #36 ; midi value for C2, probably won't even be used in Modo
+	sta |i_key_center,x
+
+	iny
+	iny ; now y is pointing at the fine tune
+
+	lda [:pMod],y
+	and #$FF
+	sta |i_fine_tune,x
+
+	iny ; now y is pointing at the volume
+
+	lda [:pMod],y
+	and #$FF
+	sta |i_volume,x
+
+	iny ; now y is pointing at the loop start offset
+	lda [:pMod],y
+	xba           ; adjust for endian
+	; just like the length above, we need to multiply by 2 (because in amiga
+	; mod file, this value is half what it should be), we need to multiply by 2
+	; 1 more time, because our wave data takes 16 bits
+	asl
+	rol |i_sample_loop_start+2,x
+	asl
+	rol |i_sample_loop_start+2,x
+	sta |i_sample_loop_start,x     	; this just contains the loop start, as an offset for now
+
+	iny
+	iny ; now y is pointing at the loop_length
+	lda [:pMod],y
+	xba
+	asl
+	rol |i_sample_loop_end+2,x
+	asl
+	rol |i_sample_loop_end+2,x
+	sta |i_sample_loop_end,x  	; this is just the loop length at this point, temporary
+
+	iny
+	iny
+	sty <:current_y
+
+	lda <:loopCount
+	inc
+	sta <:loopCount
+	cmp #31
+	bcc ]inst_fetch_loop
+
+; --- End - Copy Sample Data into the mod_instruments block
+
+
+	do 0
 	; --- Dump out Sample Information
 
 	ldy #20 ; offset to sample information
@@ -1012,6 +1073,17 @@ ModInit mx %00
 	bcc ]lp
 
 	sty <:current_y
+
+; Copy the string over into the instruments array
+
+;	lda <:loopCount
+;	asl
+;	tax
+;	lda |inst_address_table,x
+;	tay							; y is the address of our i_name, for our current instrument
+;	ldx #:sample_name           ; x is the source address of the instrument string
+;	lda #21
+;	mvn ^:sample_name,^mod_instruments
 
 	; Current Sample #
 	lda <:loopCount
@@ -1097,11 +1169,8 @@ ModInit mx %00
 	inc
 	sta <:loopCount
 	cmp #31
-	bcs :loopDone
-	jmp :SampleDumpLoop
-
-:loopDone
-
+	bccl :SampleDumpLoop
+	fin
 	; --- end Dump out Sample Information
 
 	; Song Length
@@ -2118,6 +2187,13 @@ HISTORY_SIZE = 15
 :history	ds HISTORY_SIZE*2
 
 ;------------------------------------------------------------------------------
+inst_address_table
+]index = 0
+		lup 32
+		da mod_instruments+{]index*sizeof_inst}
+]index = ]index+1
+		--^
+;------------------------------------------------------------------------------
 
 ; Non Initialized spaced
 
@@ -2132,11 +2208,13 @@ uninitialized_start ds 0
 pal_buffer
 		ds 1024
 
-	        ds \              ; 256 byte align, for quicker piano update
+	        ds \             ; 256 byte align, for quicker piano update
 mixer_dpage ds 256		  	 ; mixer gets it's own DP
 
 keyboard   ds 128
-latch_keys ds 128			; hybrid latch memory
+latch_keys ds 128			 ; hybrid latch memory
+
+mod_instruments ds sizeof_inst*32  ; Really a normal mod only has 31 of them
 
 ;
 ; Precomputed pointers to patterns

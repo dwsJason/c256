@@ -78,14 +78,17 @@ osc_delta ds 4
 i_name              ds 32   ; this should be 0 terminated, so max len is 31char
 i_sample_rate       ds 4    ; sample rate of original wave, maps to i_key_center
 i_key_center        ds 2
-i_percussion        ds 2    ; 1 for percussion (this means note # does not matter)
-i_percussion_freq   ds 2    ; freq to play percussion note at
+;i_percussion        ds 2    ; 1 for percussion (this means note # does not matter)
+i_fine_tune         ds 2
+i_volume            ds 2
+;i_percussion_freq   ds 2    ; freq to play percussion note at
 i_loop              ds 2    ; 1 for loop, 0 for single shot
 i_sample_start_addr ds 4    ; ram start address for sample
 i_sample_length     ds 4    ; length in bytes
 i_sample_loop_start ds 4    ; address
 i_sample_loop_end   ds 4    ; address
-i_space ds 4
+i_sample_spans_bank ds 2    ; if this is set, then mixer needs to run slower code that supports spanning banks
+;i_space ds 2
 sizeof_inst ds 0
 		dend
 

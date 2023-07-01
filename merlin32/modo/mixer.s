@@ -146,9 +146,7 @@ Mstartup mx %00
 
 		lda #$2020  ; 32 + 32, left + right
 		sta <osc_left_vol,x
-;		sta <osc_right_vol,x
 		sta <osc_set_left,x
-;		sta <osc_set_right,x
 
 		txa
 		clc
@@ -358,7 +356,7 @@ Msetvolume mx %00
 		ldx #SDMA_CTRL0_Enable+SDMA_CTRL0_Start_TRF
 		stx |SDMA_CTRL_REG0
 
-		nop
+		nop ; why?, it hurts
 		nop
 		nop
 		nop
