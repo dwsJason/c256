@@ -40,9 +40,6 @@
 		;
 		ext toms_diner
 
-		ext MIXER_INIT
-		ext MIXER_PUMP
-
 		ext FontInit
 
         mx %00
@@ -1037,11 +1034,19 @@ ModInit mx %00
 	iny ; now y is pointing at the loop_length
 	lda [:pMod],y
 	xba
-	asl
-	rol |i_sample_loop_end+2,x
-	asl
-	rol |i_sample_loop_end+2,x
-	sta |i_sample_loop_end,x  	; this is just the loop length at this point, temporary
+	stz |i_loop,x
+	cmp #2
+	bcc :no_loop
+
+	inc |i_loop,x  ; mark it as looping
+
+:no_loop
+
+	;asl
+	;rol |i_sample_loop_end+2,x
+	;asl
+	;rol |i_sample_loop_end+2,x
+	;sta |i_sample_loop_end,x  	; this is just the loop length at this point, temporary
 
 	iny
 	iny
@@ -1368,6 +1373,7 @@ ModInit mx %00
 	sta <:pSamp+2
 
 ]copyloop
+	do 0     ; old mod->VRAM table print out
 	ldy |CURSORY
 	ldx #75
 	jsr myLOCATE
@@ -1383,6 +1389,7 @@ ModInit mx %00
 	lda <:pVRAM
 	jsr myPRINTAH
 	jsr myPRINTCR
+	fin
 
 	; Save out the start pointers to the wave data, so we can update the mod_instruments when we're done here
 	lda <:pVRAM
@@ -1680,6 +1687,22 @@ ModInit mx %00
 	inc <:pTemp
 	sta <i_sample_start_addr+2,x
 
+	; if the loop start is 0
+	lda <i_sample_loop_start,x
+	ora <i_sample_loop_start+2,x
+	bne :doesloop
+
+	lda <i_loop,x
+	bne :doesloop
+
+	; does not loop
+
+	lda <i_sample_length,x
+	sta <i_sample_loop_start,x
+	lda <i_sample_length+2,x
+	sta <i_sample_loop_start+2,x
+
+:doesloop
 	clc
 	lda <i_sample_start_addr,x
 	adc <i_sample_loop_start,x
@@ -1693,20 +1716,21 @@ ModInit mx %00
 	adc <i_sample_length,x
 	sta <i_sample_loop_end,x
 	lda <i_sample_start_addr+2,x
-	adc <i_sample_length+2,s
-	sta <i_sample_loop_end,x
+	adc <i_sample_length+2,x
+	sta <i_sample_loop_end+2,x
 
 	clc
 	lda <i_sample_loop_end,x
 	adc #1024*2 ; make 4.0 play rate
 	sta <:pEnd
-	lda |i_sample_loop_end+2,x
+	lda <i_sample_loop_end+2,x
 	adc #0
 	sta <:pEnd+2
 
 	stz <i_sample_spans_bank,x
 
-	lda <:pEnd+2
+
+;	lda <:pEnd+2
 	cmp <i_sample_start_addr+2,x
 	beq :no_span
 
@@ -1757,6 +1781,7 @@ ModInit mx %00
 	ldx #28
 	jsr fastLOCATE
 
+	; Sample Length in bytes
 	ldx #:sample_length
 	jsr fastPUTS
 
@@ -1767,6 +1792,70 @@ ModInit mx %00
 	lda <i_sample_length,x
 	jsr fastHEXWORD
 
+	lda #' '
+	fastPUTC
+
+	; Fine Tune
+	ldx #:fine_tune
+	jsr fastPUTS
+	ldx <:pInst
+	lda <i_fine_tune,x
+	jsr fastHEXBYTE
+	lda #' '
+	fastPUTC
+
+	; Volume
+	ldx #:volume
+	jsr fastPUTS
+	ldx <:pInst
+	lda <i_volume,x
+	jsr fastHEXBYTE
+	;lda #' '
+	;fastPUTC
+
+	; Wave Start
+	ldx #:sample_start
+	jsr fastPUTS
+	ldx <:pInst
+	lda <i_sample_start_addr+2,x
+	jsr fastHEXBYTE
+	ldx <:pInst
+	lda <i_sample_start_addr,x
+	jsr fastHEXWORD 
+	lda #' '
+	fastPUTC
+
+	; Loop Start
+	ldx #:loop_start
+	jsr fastPUTS
+	ldx <:pInst
+	lda <i_sample_loop_start+2,x
+	jsr fastHEXBYTE
+	ldx <:pInst
+	lda <i_sample_loop_start,x
+	jsr fastHEXWORD
+	;lda #' '
+	;fastPUTC
+
+	; end
+	ldx #:sample_end
+	jsr fastPUTS
+	ldx <:pInst
+	lda <i_sample_loop_end+2,x
+	jsr fastHEXBYTE
+	ldx <:pInst
+	lda <i_sample_loop_end,x
+	jsr fastHEXWORD
+
+	ldx <:pInst
+	lda <i_sample_spans_bank,x
+	beq :no_bank_problem
+
+	lda #'*'
+	fastPUTC
+
+:no_bank_problem
+
 	clc
 	lda <:pInst
 	adc #sizeof_inst
@@ -1776,7 +1865,7 @@ ModInit mx %00
 	inc
 	sta <:loopCount
 	cmp #31
-	bcc ]loop
+	bccl ]loop
 
 	fin
 
@@ -1795,7 +1884,10 @@ ModInit mx %00
 
 :space asc ' '
 	db 0
-
+:sample_start asc ' start:'
+	db 0
+:sample_end asc ' end:'
+	db 0
 :sample_length asc 'len:'
 	db 0
 :fine_tune asc 'tune:'
