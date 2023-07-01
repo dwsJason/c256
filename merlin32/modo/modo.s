@@ -1344,10 +1344,10 @@ ModInit mx %00
 	adc #0
 	sta <:pInstruments+2
 
-:pInst = 28
-:pVRAM = 32
-:pSamp = 36
-:tCount = 40
+;:pInst = 28
+:pVRAM = temp7
+:pSamp = temp8
+:tCount = temp9
 
 	lda #31 	   	 ; up to 31 instruments
 	sta <:loopCount
