@@ -86,6 +86,20 @@ YRES = 600
 VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
 
 
+;------------------------------------------------------------------------------
+; Structure for a loaded instrument
+;		dum 0
+;inst_name ds 33 ; cstr of the instrument name, up to 32 characters, 0 terminated
+;inst_address ds 4
+;inst_length ds 4
+;inst_loop ds 4
+;inst_max
+;sizeof_inst ds 0
+;		dend
+
+;------------------------------------------------------------------------------
+
+
 start   ent             ; make sure start is visible outside the file
         clc
         xce
@@ -1172,6 +1186,10 @@ ModInit mx %00
 	bccl :SampleDumpLoop
 	fin
 	; --- end Dump out Sample Information
+
+	ldx #0
+	ldy #36
+	jsr myLOCATE
 
 	; Song Length
 	ldx #:song_len
