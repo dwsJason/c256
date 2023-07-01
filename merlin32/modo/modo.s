@@ -972,6 +972,7 @@ ModInit mx %00
 	tax  ; source address
 
 	lda <:pMod+2
+	xba
 	sta |:nm_mvn+1
 
 	lda #21    	  ; hard coded length used in MOD files
@@ -1050,7 +1051,7 @@ ModInit mx %00
 	inc
 	sta <:loopCount
 	cmp #31
-	bcc ]inst_fetch_loop
+	bccl ]inst_fetch_loop
 
 ; --- End - Copy Sample Data into the mod_instruments block
 
@@ -1720,8 +1721,62 @@ ModInit mx %00
 	bne ]loop
 
 ; -----------------------------------------------------------------------------
+; alternate instrument dump, based on mod_instruments
 
 	do 1
+
+	ldx #mod_instruments-MyDP
+	stx <:pInst
+
+	stz <:loopCount
+]loop
+
+	ldx #0
+	lda <:loopCount
+	clc
+	adc #5
+	sta <:current_y  ; for y position on the screen in this case
+
+	tay
+	jsr fastLOCATE
+
+	lda <:loopCount
+	jsr fastHEXBYTE
+
+	lda #' '
+	fastPUTC
+
+	; Instrument name
+	clc
+	lda <:pInst
+	adc #MyDP
+	tax
+	jsr fastPUTS
+
+	ldy <:current_y
+	ldx #28
+	jsr fastLOCATE
+
+	ldx #:sample_length
+	jsr fastPUTS
+
+	ldx <:pInst
+	lda <i_sample_length+2,x
+	jsr fastHEXBYTE
+	ldx <:pInst
+	lda <i_sample_length,x
+	jsr fastHEXWORD
+
+	clc
+	lda <:pInst
+	adc #sizeof_inst
+	sta <:pInst
+
+	lda <:loopCount
+	inc
+	sta <:loopCount
+	cmp #31
+	bcc ]loop
 
 	fin
 
@@ -2152,6 +2207,13 @@ screen_table
 	da ]var
 ]var = ]var+100
 	--^
+;------------------------------------------------------------------------------
+fastHEXWORD mx %00
+		pha
+		xba
+		jsr fastHEXBYTE
+		pla
+		; --- fall through
 ;------------------------------------------------------------------------------
 fastHEXBYTE mx %00
 		; Kernel function doesn't work
