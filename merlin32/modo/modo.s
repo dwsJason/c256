@@ -42,6 +42,9 @@
 
 		ext FontInit
 
+; toggle the original dump code back on, to examine the source info directly from the MOD
+OLD_DUMP equ 0
+
         mx %00
 
 ;------------------------------------------------------------------------------
@@ -1141,7 +1144,7 @@ ModInit mx %00
 ; --- End - Copy Sample Data into the mod_instruments block
 
 
-	do 0
+	do OLD_DUMP
 	; --- Dump out Sample Information
 
 	ldy #20 ; offset to sample information
@@ -1453,7 +1456,7 @@ ModInit mx %00
 	sta <:pSamp+2
 
 ]copyloop
-	do 0     ; old mod->VRAM table print out
+	do OLD_DUMP     ; old mod->VRAM table print out
 	ldy |CURSORY
 	ldx #75
 	jsr myLOCATE
@@ -1790,6 +1793,17 @@ ModInit mx %00
 	lda <i_sample_length+2,x
 	sta <i_sample_loop_start+2,x
 
+	; take 2 away from the start
+;	sec
+;	lda <i_sample_loop_start,x
+;	sbc #2
+;	sta <i_sample_loop_start,x
+;	lda <i_sample_loop_start+2,x
+;	sbc #0
+;	sta <i_sample_loop_start+2,x
+
+
+
 :doesloop
 	clc
 	lda <i_sample_start_addr,x
@@ -1815,8 +1829,17 @@ ModInit mx %00
 	adc #0
 	sta <:pEnd+2
 
-	stz <i_sample_spans_bank,x
+	; take 2 away from the loop end
+;	sec
+;	lda <i_sample_loop_end,x
+;	sbc #2
+;	sta <i_sample_loop_end,x
+;	lda <i_sample_loop_end+2,x
+;	sbc #0
+;	sta <i_sample_loop_end+2,x
 
+; flag for expensive resampler
+	stz <i_sample_spans_bank,x
 
 ;	lda <:pEnd+2
 	cmp <i_sample_start_addr+2,x
@@ -1835,7 +1858,8 @@ ModInit mx %00
 ; -----------------------------------------------------------------------------
 ; alternate instrument dump, based on mod_instruments
 
-	do 1
+	do OLD_DUMP
+	else
 
 	ldx #mod_instruments-MyDP
 	stx <:pInst
