@@ -412,7 +412,43 @@ OnKeyUp mx %00
 
 ;------------------------------------------------------------------------------
 PlayInstrument mx %00
+
+		ldx #0
+		ldy #60
+		jsr fastLOCATE
+		ldx #:txt_play
+		jsr fastPUTS
+
+		lda |:inst_no
+		jsr fastHEXBYTE
+		lda #' '
+		fastPUTC
+
+		lda |:inst_no
+		asl
+		tax
+		lda |inst_address_table,x
+		tax
+		jsr fastPUTS
+
+		ldx #:txt_space
+		jsr fastPUTS
+
+
+; increment the instrument number
+		lda |:inst_no
+		inc
+		cmp #31
+		bcc :noclamp
+		lda #0
+:noclamp
+		sta |:inst_no
+
 		rts
+:inst_no dw 0
+
+:txt_play cstr 'PLAY INST:'
+:txt_space cstr '                      '
 
 ;------------------------------------------------------------------------------
 ;
