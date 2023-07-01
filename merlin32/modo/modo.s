@@ -428,12 +428,56 @@ PlayInstrument mx %00
 		asl
 		tax
 		lda |inst_address_table,x
+		pha
 		tax
 		jsr fastPUTS
 
 		ldx #:txt_space
 		jsr fastPUTS
+;-----------------------------------------------------------------
 
+		ply ; mod_instrument pointer
+
+		lda |i_sample_length,y
+		ora |i_sample_length+2,y
+		beq :no_sample
+
+		ldx #mixer_dpage-MyDP
+
+		lda #$059*2 ; 8363 hz, C2
+
+		php
+		sei
+
+		sta <osc_frequency,x  ; frequency
+
+		lda #$2020  		; left/right volume (3f max)
+		sta <osc_left_vol,x
+
+		; wave pointer 24.8
+		stz <osc_pWave,x
+		lda |i_sample_start_addr,y
+		sta <osc_pWave+1,x
+		lda |i_sample_start_addr+1,y
+		sta <osc_pWave+2,x
+
+		; loop address 24.8
+		stz <osc_pWaveLoop,x
+		lda |i_sample_loop_start,y
+		sta <osc_pWaveLoop+1,x
+		lda |i_sample_loop_start+1,y
+		sta <osc_pWaveLoop+2,x
+
+		; wave end
+		stz <osc_pWaveEnd,x
+		lda |i_sample_loop_end,y
+		sta <osc_pWaveEnd+1,x
+		lda |i_sample_loop_end+1,y
+		sta <osc_pWaveEnd+2,x
+
+		plp
+
+:no_sample
 
 ; increment the instrument number
 		lda |:inst_no
