@@ -1505,18 +1505,20 @@ ModInit mx %00
 	; we need a pointer back to the loop point, and need to perform circular
 	; copy to fill in the padding, to make the looping work with my mixer
 
+; -- $$ I just realized this is all broken
+
 	ldx #1024 ; we need 1024 more samples
 
 	; pEnd points at the last sample
 	sec
-	lda <:pSamp
+	lda <:pVRAM
 	sbc #2
 	sta <:pEnd
-	lda <:pSamp+2
+	lda <:pVRAM+2
 	sbc #0
 	sta <:pEnd+2
 
-	; :pSamp points at the location the next sample
+	; :pVRAM points at the location the next sample
 	; will be stored
 
 	; :pLoop, points to the loop location
@@ -1539,23 +1541,23 @@ ModInit mx %00
 
 ; here we have out sample count in x
 ; we have valid pointers in
-; :pSamp
+; :pVRAM
 ; :pLoop
 ; :pEnd
 ; :pSrc
 
 ]padding_loop
 	lda [:pSrc]
-	sta [:pSamp]
+	sta [:pVRAM]
 
 ; increment output 1 location - straight forward
 	clc
-	lda <:pSamp
+	lda <:pVRAM
 	adc #2
-	sta <:pSamp
-	lda <:pSamp+2
+	sta <:pVRAM
+	lda <:pVRAM+2
 	adc #0
-	sta <:pSamp+2
+	sta <:pVRAM+2
 
 ; increment source location
 	lda <:pSrc
@@ -1587,6 +1589,12 @@ ModInit mx %00
 :pad_continue
 	dex
 	bne ]padding_loop
+
+;$$JGA Temp hack, to keep samples from spanning banks
+;$$JGA TODO, REMOVE THIS CODE WHEN BANK SPANNER IS WORKING
+
+	inc <:pVRAM+2
+	stz <:pVRAM
 
 
 :skip_empty
