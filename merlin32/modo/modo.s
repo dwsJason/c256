@@ -1055,7 +1055,7 @@ ModInit mx %00
 ; --- End - Copy Sample Data into the mod_instruments block
 
 
-	do 1
+	do 0
 	; --- Dump out Sample Information
 
 	ldy #20 ; offset to sample information
@@ -1394,7 +1394,6 @@ ModInit mx %00
 	inc <:pTemp
 
 
-
 	ldy #sample_length
 	lda [:pInst],y
 	beql :skip_empty	; skip, empty entry
@@ -1657,6 +1656,73 @@ ModInit mx %00
 :cntu
 	dec <:tCount
 	bpl ]lp
+	fin
+
+; -----------------------------------------------------------------------------
+
+; finish fixing up the mod_instruments
+; now that we know where they live in memory
+
+	ldx #mod_instruments-MyDP
+	lda #scratch_ram
+	sta <:pTemp
+
+	ldy #31
+
+]loop
+	lda (:pTemp)
+	inc <:pTemp
+	inc <:pTemp
+	sta <i_sample_start_addr,x
+	lda (:pTemp)
+	inc <:pTemp
+	inc <:pTemp
+	sta <i_sample_start_addr+2,x
+
+	clc
+	lda <i_sample_start_addr,x
+	adc <i_sample_loop_start,x
+	sta <i_sample_loop_start,x
+	lda <i_sample_start_addr+2,x
+	adc <i_sample_loop_start+2,x
+	sta <i_sample_loop_start+2,x
+
+	clc
+	lda <i_sample_start_addr,x
+	adc <i_sample_length,x
+	sta <i_sample_loop_end,x
+	lda <i_sample_start_addr+2,x
+	adc <i_sample_length+2,s
+	sta <i_sample_loop_end,x
+
+	clc
+	lda <i_sample_loop_end,x
+	adc #1024*2 ; make 4.0 play rate
+	sta <:pEnd
+	lda |i_sample_loop_end+2,x
+	adc #0
+	sta <:pEnd+2
+
+	stz <i_sample_spans_bank,x
+
+	lda <:pEnd+2
+	cmp <i_sample_start_addr+2,x
+	beq :no_span
+
+	; flag it as spanning bank, expensive resample
+	inc <i_sample_spans_bank,x
+:no_span
+	clc
+	txa
+	adc #sizeof_inst
+	tax
+	dey
+	bne ]loop
+
+; -----------------------------------------------------------------------------
+
+	do 1
+
 	fin
 
 ; -----------------------------------------------------------------------------
