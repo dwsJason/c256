@@ -87,18 +87,6 @@ VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
 
 
 ;------------------------------------------------------------------------------
-; Structure for a loaded instrument
-;		dum 0
-;inst_name ds 33 ; cstr of the instrument name, up to 32 characters, 0 terminated
-;inst_address ds 4
-;inst_length ds 4
-;inst_loop ds 4
-;inst_max
-;sizeof_inst ds 0
-;		dend
-
-;------------------------------------------------------------------------------
-
 
 start   ent             ; make sure start is visible outside the file
         clc
@@ -1067,7 +1055,7 @@ ModInit mx %00
 ; --- End - Copy Sample Data into the mod_instruments block
 
 
-	do 0
+	do 1
 	; --- Dump out Sample Information
 
 	ldy #20 ; offset to sample information
@@ -1344,10 +1332,17 @@ ModInit mx %00
 	adc #0
 	sta <:pInstruments+2
 
-;:pInst = 28
 :pVRAM = temp7
 :pSamp = temp8
 :tCount = temp9
+:pTemp = temp9
+:pLoop = lzsa_sourcePtr
+:pEnd  = lzsa_destPtr
+:pSrc  = lzsa_matchPtr
+
+	lda #scratch_ram
+	sta <:pTemp
+
 
 	lda #31 	   	 ; up to 31 instruments
 	sta <:loopCount
@@ -1388,12 +1383,67 @@ ModInit mx %00
 	jsr myPRINTAH
 	jsr myPRINTCR
 
+	; Save out the start pointers to the wave data, so we can update the mod_instruments when we're done here
+	lda <:pVRAM
+	sta (:pTemp)
+	inc <:pTemp
+	inc <:pTemp
+	lda <:pVRAM+2
+	sta (:pTemp)
+	inc <:pTemp
+	inc <:pTemp
+
+
 
 	ldy #sample_length
 	lda [:pInst],y
-	beq :skip_empty		; skip, empty entry
+	beql :skip_empty	; skip, empty entry
 	xba					; fix endian
 	tax					; x = counter
+
+	; set up the :pLoop
+	stz <:pLoop
+	stz <:pLoop+2 ; default to no loop
+
+	ldy #sample_loop_start
+	lda [:pInst],y
+	xba
+	bne :itloops
+
+	; maybe it loops
+	ldy #sample_loop_length
+	lda [:pInst],y
+	xba
+	cmp #2
+	bcc :noloops
+	lda #0
+:itloops
+; A is 1/2 the offset to the loop (there's not enough bits to ASL)
+
+	pha
+
+	; Add it once
+	lda <:pVRAM
+	adc 1,s
+	sta <:pLoop
+	lda <:pVRAM+2
+	adc #0
+	sta <:pLoop+2
+
+	clc
+	pla
+	; Add it again
+	adc <:pLoop
+	sta <:pLoop
+	lda <:pLoop+2
+	adc #0
+	sta <:pLoop+2
+
+
+:noloops
+
+	; :pLoop either points to the source loop address
+	;        or :pLoop is nullptr 
 
 	; Actual Data Copy into VRAM
 
@@ -1431,12 +1481,105 @@ ModInit mx %00
 	lda #0
 	adc <:pSamp+2
 	sta <:pSamp+2
-;	dex
-;	beq :wavedone
 	dex 			; via mod spec, the actual length is 2x the recorded length
 	bne ]waveloop
 
-;:wavedone
+;------- the mixer needs some buffer space placed on the end of the sample
+; for performance reasons the mixer only checks for loop points every 256
+; samples, my back of the envelope math says we need a buffer of 1024 samples
+; instruments in a mod will never be played at more than 96Khz
+; 1024 samples = 2048 bytes.
+;
+; I currently only support looping from the end of the wave, back to the loop
+; point.  If the sample does not loop, we still need this pad space at the end
+; and it needs to be filled with silence (non looping samples still loop, but
+; can do so in the silence)
+;
+	; we need a pointer back to the loop point, and need to perform circular
+	; copy to fill in the padding, to make the looping work with my mixer
+
+	ldx #1024 ; we need 1024 more samples
+
+	; pEnd points at the last sample
+	sec
+	lda <:pSamp
+	sbc #2
+	sta <:pEnd
+	lda <:pSamp+2
+	sbc #0
+	sta <:pEnd+2
+
+	; :pSamp points at the location the next sample
+	; will be stored
+
+	; :pLoop, points to the loop location
+
+	lda <:pLoop
+	ora <:pLoop+2
+	bne :loop_not_null
+
+	lda <:pEnd
+	sta <:pLoop
+	lda <:pEnd+2
+	sta <:pLoop+2
+
+:loop_not_null
+
+	lda <:pLoop
+	sta <:pSrc
+	lda <:pLoop+2
+	sta <:pSrc+2
+
+; here we have out sample count in x
+; we have valid pointers in
+; :pSamp
+; :pLoop
+; :pEnd
+; :pSrc
+
+]padding_loop
+	lda [:pSrc]
+	sta [:pSamp]
+
+; increment output 1 location - straight forward
+	clc
+	lda <:pSamp
+	adc #2
+	sta <:pSamp
+	lda <:pSamp+2
+	adc #0
+	sta <:pSamp+2
+
+; increment source location
+	lda <:pSrc
+	adc #2
+	sta <:pSrc
+	lda <:pSrc+2
+	adc #0
+	sta <:pSrc+2
+
+; if source is > pEnd
+; then source = pLoop
+
+	cmp <:pEnd+2
+	bcc :pad_continue
+	bne :pad_reset
+
+	lda <:pSrc
+	cmp <:pEnd
+	bcc :pad_continue
+	beq :pad_continue
+
+:pad_reset
+
+	lda <:pLoop
+	sta <:pSrc
+	lda <:pLoop+2
+	sta <:pSrc+2
+
+:pad_continue
+	dex
+	bne ]padding_loop
 
 
 :skip_empty
@@ -1451,7 +1594,7 @@ ModInit mx %00
 	sta <:pInst+2
 
 	dec <:loopCount ; loop count
-	bne ]copyloop
+	bnel ]copyloop
 
 ; Restore Cursor
 
@@ -2240,6 +2383,7 @@ mod_instruments ds sizeof_inst*32  ; Really a normal mod only has 31 of them
 mod_patterns
 	ds 128*4
 
+scratch_ram ds 1024
 
 uninitialized_end ds 0
 	dend
