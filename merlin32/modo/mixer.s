@@ -110,7 +110,7 @@ Mstartup mx %00
 ;        nop
 ;
 		ldx #7
-		lda #$0200  ; 1.0
+		lda #$0100  ; 1.0
 ]lp
 		jsl SetChannelFreq
 		dex
@@ -138,7 +138,7 @@ Mstartup mx %00
 		stz <osc_loop_size,x
 		stz <osc_loop_size+2,x
 
-		lda #$0200 ; 1.0 - going 9 bits frequency resolution (frequency accrurate to 46.875hz)
+		lda #$0100 ; 1.0 - going 9 bits frequency resolution (frequency accrurate to 46.875hz)
 		sta <osc_frequency,x
 		sta <osc_set_freq,x
 		asl
@@ -722,18 +722,19 @@ SetFrequency mx %00
 	pea $100
 	pld
 
-	; A = Freq in 7.9 fixed point format (24000/512) = 46.875
+	; A = Freq in 8.8 fixed point format (24000/256) = 93.75hz
 	;
 	; I think it's possible to squeeze 4 more bits out of here, but it will
 	; slow this function down, since I would be able to read raw bytes
 	;
 	; Here's what we theoretically would get, just by fixing this function:
-	;  
+	; 7.9 fixed point format (24000/512) = 46.875 hz
 	; 6.10 would give us (24000/1024)  = 23.437 hz
 	; 5.11 would give us (24000/2048)  = 11.71  hz
 	; 4.12 would give us (24000/4096)  =  5.85  hz
 	; 3.13 would give us (24000/8192)  =  2.93  hz
 	; 2.14 would give us (24000/16384) =  1.46  hz
+	asl
 	sta <UNSIGNED_MULT_A_LO
 
 	txa
@@ -800,7 +801,7 @@ sizeof_resampler = ResampleOSC1-ResampleOSC0
 	beq freq_ok
 
 	sta <osc_set_freq+]offset
-	asl
+	asl  ; part of the freq resolution upgrade
 	sta <osc_frame_size+1+]offset
 
 	lsr
