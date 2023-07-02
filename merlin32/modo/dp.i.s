@@ -45,6 +45,9 @@ last_row ds 4
 
 SongIsPlaying ds 2
 
+mod_type_code	      ds 4
+mod_type			  ds 2
+
 mod_speed             ds 2     ; default speed is 6
 mod_song_length       ds 2     ; length in patterns
 mod_p_current_pattern ds 4     ; pointer to the current pattern
