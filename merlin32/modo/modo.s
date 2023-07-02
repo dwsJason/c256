@@ -1010,7 +1010,7 @@ ModInit mx %00
 	lda <mod_num_instruments
 	cmp #15
 	bne :boo
-
+; if it's 15 instruments, it's probably an OG Original MOD
 	lda #'mo'
 	sta |:temp_buffer
 	lda #'d '
@@ -1357,10 +1357,20 @@ ModInit mx %00
 
 ;	jsr myPRINTCR
 
+	lda <mod_num_instruments
+	cmp #15
+	bne :mkmod
+
+	clc
+	lda <:pMod
+	adc #1080-{16*30}
+	bra :oldmod
+:mkmod
 	; Calculate pPatterns
 	clc
 	lda <:pMod
 	adc #1084
+:oldmod
 	sta <:pPatterns
 	lda <:pMod+2
 	adc #0

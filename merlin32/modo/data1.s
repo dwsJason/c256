@@ -9,5 +9,6 @@
 ;-------------------------------------------------------------------------------
 
 toms_diner ent
-	putbin data\mods\tomsdine.mod
+	putbin data\mods\between.mod
+;	putbin data\mods\tomsdine.mod
 

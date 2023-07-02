@@ -47,6 +47,7 @@ SongIsPlaying ds 2
 
 mod_type_code	      ds 4
 mod_type			  ds 2
+mod_num_instruments   ds 2
 
 mod_speed             ds 2     ; default speed is 6
 mod_song_length       ds 2     ; length in patterns
