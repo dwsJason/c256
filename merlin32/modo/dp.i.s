@@ -47,7 +47,9 @@ SongIsPlaying ds 2
 
 mod_type_code	      ds 4
 mod_type			  ds 2
+
 mod_num_instruments   ds 2
+mod_num_tracks        ds 2     ; default to 4
 
 mod_speed             ds 2     ; default speed is 6
 mod_song_length       ds 2     ; length in patterns
@@ -57,6 +59,10 @@ mod_current_row       ds 2     ; current row #
 mod_pattern_index     ds 2     ; current index into pattern directory
 mod_num_patterns      ds 2     ; total number of patterns
 mod_jiffy             ds 2     ; mod player jiffy
+
+mod_temp0			ds 4
+mod_temp1           ds 4
+
 
 
 		dend

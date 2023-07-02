@@ -168,7 +168,7 @@ start   ent             ; make sure start is visible outside the file
 ; Trying to be friendly, in case we can friendly exit
 ;
 		jsr InstallJiffy		; SOF timer
-		jsr InstallAudioJiffy   ; 50hz timer
+		jsr InstallModJiffy     ; 50hz timer
 
 		jsr	WaitVBL
 
@@ -325,6 +325,7 @@ start   ent             ; make sure start is visible outside the file
 		pla ; current_row   - would be nice for this to be illustrated, to the left of the notes
 		cmp <last_row
 		bne :print 			; only print if it needs it, clean up refresh
+;		bra :print
 
 		plx
 		pla
@@ -448,7 +449,7 @@ PlayInstrument mx %00
 		ldx #mixer_dpage-MyDP
 
 ;		lda #$178 ; 8363 hz, C2
-		lda #$0BC/2 ; 8363 hz, C2
+		lda #$059 ; 8363 hz, C2
 
 		php
 		sei
@@ -719,7 +720,7 @@ InstallJiffy mx %00
 ;TIMER1_CMP_REG = TMR_CMP_RELOAD;
 ;TIMER1_CTRL_REG = TMR_EN | TMR_SLOAD;
 ;
-InstallAudioJiffy mx %00
+InstallModJiffy mx %00
 
 ; Trying for 50 hz here
 
@@ -781,7 +782,6 @@ InstallAudioJiffy mx %00
 		inc <dpAudioJiffy
 
 		jsr AudioTick
-
 
 		plp
 		ply
@@ -878,6 +878,160 @@ ModPlayerTick mx %00
 :next_row
 		stz <mod_jiffy
 
+; interpret mod_p_current_pattern, for simple note events
+; this is called during an interrupt, so I'm working with the idea
+; that it's safe to modify the oscillators
+
+:note_period = mod_temp0
+:note_sample = mod_temp0+2
+:effect_no   = mod_temp1
+:effect_parm = mod_temp1+2
+
+		ldx #mixer_dpage-MyDP
+
+		ldy #0
+]lp
+		lda [mod_p_current_pattern],y
+		sta <:note_sample
+		xba
+		and #$FFF ; we have the period
+		sta <:note_period
+
+		iny
+		iny
+
+		lda #$FFF0
+		trb <:note_sample
+
+		lda [mod_p_current_pattern],y
+		sta <:effect_no
+
+		and #$F0
+		tsb <:note_sample
+
+		lda <:effect_no
+		xba
+		and #$ff
+		sta <:effect_parm
+
+		lda #$FFF0
+		trb <:effect_no
+;----------------------------------- what can I do with this stuff?
+
+;     if (SAMPLE > 0) then {
+;	  LAST_INSTRUMENT[CHANNEL] = SAMPLE_NUMBER  (we store this for later)
+;	  volume[CHANNEL] = default volume of sample SAMPLE_NUMBER
+;     }
+
+		lda <:note_sample
+		beq :no_note_sample
+
+		sta |mod_last_sample,y
+
+:no_note_sample
+
+;     if (NOTE exists) then {
+;	  if (VIBRATO_WAVE_CONTROL = retrig waveform) then {
+;		vibrato_position[CHANNEL] = 0 (see SECTION 5.5 about this)
+;	  if (TREMOLO_WAVE_CONTROL = retrig waveform) then {
+;		tremolo_position[CHANNEL] = 0 (see SECTION 5.8 about this)
+;
+;	  if (EFFECT does NOT = 3 and EFFECT does NOT = 5) then
+;	      frequency[CHANNEL] =
+;			FREQ_TAB[NOTE + LAST_INSTRUMENT[CHANNEL]'s finetune]
+;     }
+;
+;     if (EFFECT = 0 and EFFECT_PARAMETER = 0) then goto to SKIP_EFFECTS label
+;									    |
+;     ....                                                                   ³
+;     PROCESS THE NON TICK BASED EFFECTS (see section 5 how to do this)      ³
+;     ALSO GRAB PARAMETERS FOR TICK BASED EFFECTS (like porta, vibrato etc)  ³
+;     ....                                                                   ³
+;									    ³
+;label SKIP_EFFECTS:     <-ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+;
+;     if (frequency[CHANNEL] > 0) then SetFrequency(frequency[CHANNEL])
+;	 if (NOTE exists) then {
+;	  PLAYVOICE (adding sample_offset[CHANNEL] to start address)
+;     }
+;     move note pointer to next note (ie go forward 4 bytes in pattern buffer)
+
+		lda <:note_period
+		beq :nothing
+
+;NSTC:  (7159090.5  / (:note_period * 2))/24000 into 8.8 fixed result
+;        (3579545.25 / :note_period) / 24000
+
+;149.14771875 / :note_period
+;38181 / :note_period
+		sta |UNSIGNED_DIV_DEM_LO
+
+		lda #38181
+		sta |UNSIGNED_DIV_NUM_LO
+
+		lda |UNSIGNED_DIV_QUO_LO
+		; frequency
+		sta <osc_frequency,x
+
+		lda #$0808  		; left/right volume (3f max)
+		sta <osc_left_vol,x
+
+		phy  ; need to preserve
+
+		lda |mod_last_sample,y
+		and #$1F
+		;beq :no_sample
+
+		;dec
+		asl
+		tay
+		lda |inst_address_table,y
+		tay
+
+		lda |i_sample_length,y
+		ora |i_sample_length+2,y
+		beq :no_sample
+
+
+		; wave pointer 24.8
+		stz <osc_pWave,x
+		lda |i_sample_start_addr,y
+		sta <osc_pWave+1,x
+		lda |i_sample_start_addr+1,y
+		sta <osc_pWave+2,x
+
+		; loop address 24.8
+		stz <osc_pWaveLoop,x
+		lda |i_sample_loop_start,y
+		sta <osc_pWaveLoop+1,x
+		lda |i_sample_loop_start+1,y
+		sta <osc_pWaveLoop+2,x
+
+		; wave end
+		stz <osc_pWaveEnd,x
+		lda |i_sample_loop_end,y
+		sta <osc_pWaveEnd+1,x
+		lda |i_sample_loop_end+1,y
+		sta <osc_pWaveEnd+2,x
+
+:no_sample
+		ply ; restore y
+
+:nothing
+
+		; c=?
+		clc
+		txa
+		adc #sizeof_osc  ; next oscillator, for the next track
+		tax
+
+		iny
+		iny
+		cpy #4*4
+		bccl ]lp
+
+; next row, and so on
+
 		lda <mod_current_row
 		inc
 		cmp #64
@@ -968,7 +1122,10 @@ ModInit mx %00
 
 :pInst = temp6   ; used for the extraction over to the mod_instruments, block
 
-;:pTemp equ 128
+	; default to a 4 track mod
+	lda #4
+	sta <mod_num_tracks
+
 
 	stz <SongIsPlaying
 
@@ -2814,6 +2971,8 @@ mod_patterns
 	ds 128*4
 
 scratch_ram ds 1024
+
+mod_last_sample ds 4*8 ; up to 8 channels
 
 uninitialized_end ds 0
 	dend
