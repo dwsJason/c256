@@ -116,8 +116,8 @@ start   ent             ; make sure start is visible outside the file
         lda #MySTACK
         tcs
 
-		lda #0
-		tcd
+;		lda #0
+;		tcd
 		;jsl $10AC ;INITCHLUT	    
 		;jsl $10B0 ;INITSUPERIO	    
 		;jsl $10B4 ;INITKEYBOARD    
@@ -447,14 +447,15 @@ PlayInstrument mx %00
 
 		ldx #mixer_dpage-MyDP
 
-		lda #$059*2 ; 8363 hz, C2
+;		lda #$178 ; 8363 hz, C2
+		lda #$0BC ; 8363 hz, C2
 
 		php
 		sei
 
 		sta <osc_frequency,x  ; frequency
 
-		lda #$2020  		; left/right volume (3f max)
+		lda #$1010  		; left/right volume (3f max)
 		sta <osc_left_vol,x
 
 		; wave pointer 24.8
@@ -485,7 +486,7 @@ PlayInstrument mx %00
 ; increment the instrument number
 		lda |:inst_no
 		inc
-		cmp #31
+		cmp <mod_num_instruments
 		bcc :noclamp
 		lda #0
 :noclamp
@@ -976,14 +977,7 @@ ModInit mx %00
 	lda :pModInput+2,s
 	sta <:pMod+2
 
-	; Construct the MOD type string, and dump it out on the terminal
-
-	ldy #1080 ; Magic offset
-	lda [:pMod],y
-	sta |:temp_buffer
-
 	; --- crap out hex Pointer to the mod
-	phy
 
 	lda <:pMod+2
 	jsr myHEXBYTE
@@ -991,9 +985,13 @@ ModInit mx %00
 	jsr myPRINTAH
 	jsr myPRINTCR
 
-	ply
 	; --- end crap out hex codes
 
+	; Construct the MOD type string, and dump it out on the terminal
+
+	ldy #1080 ; Magic offset
+	lda [:pMod],y
+	sta |:temp_buffer
 	iny
 	iny
 	lda [:pMod],y
@@ -1001,10 +999,30 @@ ModInit mx %00
 	lda #13
 	sta |:temp_buffer+4
 
+;--------------------------------------------------- Validate
+;What do we support?
+
+	lda |:temp_buffer
+	ldx |:temp_buffer+2
+	jsr IsSupportedMod
+	bcc :yes
+
+	lda <mod_num_instruments
+	cmp #15
+	bne :boo
+
+	lda #'mo'
+	sta |:temp_buffer
+	lda #'d '
+	sta |:temp_buffer+2
+	bra :yes
+:boo
+	ldx #:txt_unsupported
+	jsr myPUTS
+
+:yes
 	ldx #:temp_buffer
 	jsr myPUTS				; hopefully M.K.
-
-	;$$TODO, Validate
 
 	ldx #:test
 	jsr myPUTS
@@ -1138,7 +1156,7 @@ ModInit mx %00
 	lda <:loopCount
 	inc
 	sta <:loopCount
-	cmp #31
+	cmp <mod_num_instruments
 	bccl ]inst_fetch_loop
 
 ; --- End - Copy Sample Data into the mod_instruments block
@@ -1259,7 +1277,7 @@ ModInit mx %00
 	lda <:loopCount
 	inc
 	sta <:loopCount
-	cmp #31
+	cmp <mod_num_instruments
 	bccl :SampleDumpLoop
 	fin
 	; --- end Dump out Sample Information
@@ -1433,7 +1451,7 @@ ModInit mx %00
 	sta <:pTemp
 
 
-	lda #31 	   	 ; up to 31 instruments
+	lda <mod_num_instruments   	 ; up to 31 instruments
 	sta <:loopCount
 	;
 	; TARGET Video RAM Location
@@ -1766,7 +1784,7 @@ ModInit mx %00
 	lda #scratch_ram
 	sta <:pTemp
 
-	ldy #31
+	ldy <mod_num_instruments
 
 ]loop
 	lda (:pTemp)
@@ -1976,7 +1994,7 @@ ModInit mx %00
 	lda <:loopCount
 	inc
 	sta <:loopCount
-	cmp #31
+	cmp <mod_num_instruments
 	bccl ]loop
 
 	fin
@@ -2014,6 +2032,8 @@ ModInit mx %00
 :song_len asc 'song length:'
 	db 0
 
+:txt_unsupported cstr 'Unsupportted Mod Type:'
+
 :pattern_count asc 'pattern count:'
 	db 0
 
@@ -2035,6 +2055,74 @@ ModInit mx %00
 
 :temp_buffer
 	ds 16
+
+;------------------------------------------------------------------------------
+; AX = the mod code
+IsSupportedMod mx %00
+		sta <mod_type_code
+		stx <mod_type_code+2
+
+		ldy #31					; most common MOD
+		sty <mod_num_instruments
+
+		stz <mod_type
+
+		cmp |:supported
+		bne :no
+		cpx |:supported+2
+		bne :no
+		clc
+		rts
+:no
+		sep #$30
+
+		lda <mod_type_code
+		jsr :is_letter
+		bcs :old_mod
+
+		lda <mod_type_code+1
+		jsr :is_letter
+		bcs :old_mod
+
+		lda <mod_type_code+2
+		jsr :is_letter
+		bcs :old_mod
+
+		lda <mod_type_code+3
+		jsr :is_letter
+		bcc :letters
+:old_mod
+		lda #15					; really old mod
+		sta <mod_num_instruments
+:letters
+		rep #$30
+		sec
+		rts
+
+:is_letter mx %11
+		cmp #$20
+		bcc :not_letter
+		cmp #$7F
+		bcs :not_letter
+		; c=0 -> is letter
+		rts
+:not_letter
+		sec
+		rts
+;
+; if there are no letters here, then it's a 16 instrument mod
+; like the BETWEEN.MOD I have
+;
+:supported asc 'M.K.'
+
+; TBD - I feel like I should be able to support all these
+		asc 'M!K!'
+		asc '4CHN'
+		asc '6CHN'
+		asc '8CHN'
+		asc 'FLT4'
+		asc 'FLT8'
+
 
 ;------------------------------------------------------------------------------
 ;
