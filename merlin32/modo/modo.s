@@ -448,14 +448,14 @@ PlayInstrument mx %00
 		ldx #mixer_dpage-MyDP
 
 ;		lda #$178 ; 8363 hz, C2
-		lda #$0BC ; 8363 hz, C2
+		lda #$0BC/2 ; 8363 hz, C2
 
 		php
 		sei
 
 		sta <osc_frequency,x  ; frequency
 
-		lda #$1010  		; left/right volume (3f max)
+		lda #$0808  		; left/right volume (3f max)
 		sta <osc_left_vol,x
 
 		; wave pointer 24.8
