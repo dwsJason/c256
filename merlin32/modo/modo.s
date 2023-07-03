@@ -889,8 +889,12 @@ ModPlayerTick mx %00
 :break = mod_temp2
 :break_row = mod_temp2+2
 :osc_x = mod_temp3
+:vol   = mod_temp3+2
 
 		stz <:break
+
+		lda #$2020 ; $$JGA TODO, adjust the volume over in the volume table construction, instead of here
+		sta <:vol
 
 		ldx #mixer_dpage-MyDP
 
@@ -1003,12 +1007,42 @@ ModPlayerTick mx %00
 :porta_vol_slide
 :vibrato_vol_slide
 :tremolo
+		bra :after_effect
 :pan
+; Dual Mod Player
+;00 = far left
+;40 = middle
+;80 = far right
+;A4 = surround *
+
+; FT2 00 = far left, 80 = center, FF = far right
+
+; how can you know?  (I guess I would analyze all the pan settings in the whole)
+; tune, ahead of time, and see what the range is.  Yuck
+
+
+
+		bra :after_effect
 :sample_offset
 :vol_slide
 :jump_to_pattern
-:set_volume
 		bra :after_effect
+:set_volume
+		lda <:effect_parm ; 0-$40
+		lsr
+		cmp #$20
+		bcc :vol_range_ok
+		lda #$20   ; clamp
+:vol_range_ok
+		sta <:vol    ; left
+		xba
+		tsb <:vol    ; right (until we take into account pan)
+
+		ldx <:osc_x
+		lda <:vol  		; left/right volume (3f max)
+		sta <osc_left_vol,x
+		bra :after_effect
+
 :pattern_break
 		inc <:break 	  			; need to break
 		lda <:effect_parm
@@ -1045,7 +1079,7 @@ ModPlayerTick mx %00
 		ldx <:osc_x
 		sta <osc_frequency,x
 
-		lda #$0808  		; left/right volume (3f max)
+		lda <:vol  		; left/right volume (3f max)
 		sta <osc_left_vol,x
 
 		phy  ; need to preserve
