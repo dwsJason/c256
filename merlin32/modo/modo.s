@@ -886,6 +886,11 @@ ModPlayerTick mx %00
 :note_sample = mod_temp0+2
 :effect_no   = mod_temp1
 :effect_parm = mod_temp1+2
+:break = mod_temp2
+:break_row = mod_temp2+2
+:osc_x = mod_temp3
+
+		stz <:break
 
 		ldx #mixer_dpage-MyDP
 
@@ -960,14 +965,68 @@ ModPlayerTick mx %00
 ;     }
 ;     move note pointer to next note (ie go forward 4 bytes in pattern buffer)
 
-		lda <:note_period
-		beq :nothing
+;		lda <:note_period
+;		beql :nothing
+
+		; do some effect stuff here
+		stx <:osc_x
+
+		lda <:effect_no
+		asl
+		tax
+		jmp (:effect_table,x)
+
+:effect_table
+		da :arpeggio		   ;0
+		da :porta_up		   ;1
+		da :porta_down  	   ;2
+		da :porta_to_note      ;3
+		da :vibrato 		   ;4
+		da :porta_vol_slide    ;5
+		da :vibrato_vol_slide  ;6
+		da :tremolo 		   ;7
+		da :pan 			   ;8
+		da :sample_offset      ;9
+		da :vol_slide   	   ;A
+		da :jump_to_pattern    ;B
+		da :set_volume  	   ;C
+		da :pattern_break      ;D
+		da :E_things  	   	   ;E
+		da :set_speed   	   ;F
+
+
+:arpeggio
+:porta_up
+:porta_down
+:porta_to_note
+:vibrato
+:porta_vol_slide
+:vibrato_vol_slide
+:tremolo
+:pan
+:sample_offset
+:vol_slide
+:jump_to_pattern
+:set_volume
+		bra :after_effect
+:pattern_break
+		inc <:break 	  			; need to break
+		lda <:effect_parm
+		sta <:break_row 			; skip to this row, with the break
+		bra :after_effect
+:E_things
+:set_speed
+
+:after_effect
 
 ;NSTC:  (7159090.5  / (:note_period * 2))/24000 into 8.8 fixed result
 ;        (3579545.25 / :note_period) / 24000
 
 ;149.14771875 / :note_period
 ;38181 / :note_period
+		lda <:note_period
+		beq :nothing
+
 		sta |UNSIGNED_DIV_DEM_LO
 
 		lda #38181
@@ -975,6 +1034,7 @@ ModPlayerTick mx %00
 
 		lda |UNSIGNED_DIV_QUO_LO
 		; frequency
+		ldx <:osc_x
 		sta <osc_frequency,x
 
 		lda #$0808  		; left/right volume (3f max)
@@ -1034,8 +1094,11 @@ ModPlayerTick mx %00
 		cpy #4*4
 		bccl ]lp
 
-; next row, and so on
+; check for break
+		lda <:break
+		bne :perform_break
 
+; next row, and so on
 		lda <mod_current_row
 		inc
 		cmp #64
@@ -1065,7 +1128,23 @@ ModPlayerTick mx %00
 		stz <SongIsPlaying
 		rts
 
+:perform_break
+		jsr :next_pattern
 
+		lda <:break_row  ; 16 bytes in a row, for now
+		sta <mod_current_row
+
+		asl
+		asl
+		asl
+		asl
+		adc <mod_p_current_pattern
+		sta <mod_p_current_pattern
+		lda <mod_p_current_pattern+2
+		adc #0
+		sta <mod_p_current_pattern+2
+
+		rts
 
 ;------------------------------------------------------------------------------
 ; ModPlay (play the current Mod)
@@ -1525,13 +1604,13 @@ ModInit mx %00
 
 	clc
 	lda <:pMod
-	adc #1080-{16*30}
+	adc #1080-{16*30}   	 	; old school mod
 	bra :oldmod
 :mkmod
 	; Calculate pPatterns
 	clc
 	lda <:pMod
-	adc #1084
+	adc #1084					; modern mod
 :oldmod
 	sta <:pPatterns
 	lda <:pMod+2

@@ -62,6 +62,8 @@ mod_jiffy             ds 2     ; mod player jiffy
 
 mod_temp0			ds 4
 mod_temp1           ds 4
+mod_temp2			ds 4
+mod_temp3			ds 4
 
 
 
