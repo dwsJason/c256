@@ -900,13 +900,17 @@ ModPlayerTick mx %00
 		iny
 		iny
 
-		lda #$FFF0
+		lda #$FF0F
 		trb <:note_sample
 
 		lda [mod_p_current_pattern],y
 		sta <:effect_no
 
-		and #$F0
+		lsr
+		lsr
+		lsr
+		lsr
+		and #$0F
 		tsb <:note_sample
 
 		lda <:effect_no
@@ -980,9 +984,9 @@ ModPlayerTick mx %00
 
 		lda |mod_last_sample,y
 		and #$1F
-		;beq :no_sample
+		beq :no_sample
 
-		;dec
+		dec
 		asl
 		tay
 		lda |inst_address_table,y
@@ -1353,6 +1357,7 @@ ModInit mx %00
 
 	; Current Sample #
 	lda <:loopCount
+	inc
 	jsr myPRINTAH
 	ldx #:space
 	jsr myPUTS
@@ -2062,6 +2067,7 @@ ModInit mx %00
 	jsr fastLOCATE
 
 	lda <:loopCount
+	inc
 	jsr fastHEXBYTE
 
 	lda #' '
