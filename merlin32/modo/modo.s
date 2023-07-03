@@ -897,6 +897,7 @@ ModPlayerTick mx %00
 		sta <:vol
 
 		ldx #mixer_dpage-MyDP
+		stx <:osc_x
 
 		ldy #0
 ]lp
@@ -973,8 +974,6 @@ ModPlayerTick mx %00
 ;		beql :nothing
 
 		; do some effect stuff here
-		stx <:osc_x
-
 		lda <:effect_no
 		asl
 		tax
@@ -1126,10 +1125,12 @@ ModPlayerTick mx %00
 :nothing
 
 		; c=?
+		ldx <:osc_x
 		clc
 		txa
 		adc #sizeof_osc  ; next oscillator, for the next track
 		tax
+		stx <:osc_x
 
 		iny
 		iny
