@@ -893,14 +893,17 @@ ModPlayerTick mx %00
 
 		stz <:break
 
-		lda #$2020 ; $$JGA TODO, adjust the volume over in the volume table construction, instead of here
-		sta <:vol
+		;lda #$2020 ; $$JGA TODO, adjust the volume over in the volume table construction, instead of here
+		;sta <:vol
 
 		ldx #mixer_dpage-MyDP
 		stx <:osc_x
 
 		ldy #0
 ]lp
+		lda |mod_channel_pan,y
+		sta <:vol
+
 		lda [mod_p_current_pattern],y
 		sta <:note_sample
 		xba
@@ -1018,15 +1021,14 @@ ModPlayerTick mx %00
 
 ; how can you know?  (I guess I would analyze all the pan settings in the whole)
 ; tune, ahead of time, and see what the range is.  Yuck
-
-
-
 		bra :after_effect
 :sample_offset
 :vol_slide
 :jump_to_pattern
 		bra :after_effect
 :set_volume
+		pei <:vol
+
 		lda <:effect_parm ; 0-$40
 		lsr
 		cmp #$20
@@ -1036,6 +1038,22 @@ ModPlayerTick mx %00
 		sta <:vol    ; left
 		xba
 		tsb <:vol    ; right (until we take into account pan)
+
+		pla
+		cmp #$0820
+		beq :dim_right
+
+		; dim_left
+		lsr <:vol
+		lsr <:vol
+
+		bra :not_right
+:dim_right
+
+		lsr <:vol+1
+		lsr <:vol+1
+
+:not_right
 
 		ldx <:osc_x
 		lda <:vol  		; left/right volume (3f max)
@@ -1247,6 +1265,16 @@ ModInit mx %00
 :num_patterns = temp5+2
 
 :pInst = temp6   ; used for the extraction over to the mod_instruments, block
+
+	; default table for volume pan, for fake stereo
+
+	lda #$2008
+	sta |mod_channel_pan
+	sta |mod_channel_pan+{4*3}
+	lda #$8020
+	sta |mod_channel_pan+{4*1}
+	sta |mod_channel_pan+{4*2}
+
 
 	; default to a 4 track mod
 	lda #4
@@ -3101,6 +3129,7 @@ mod_patterns
 scratch_ram ds 1024
 
 mod_last_sample ds 4*8 ; up to 8 channels
+mod_channel_pan ds 4*8 ; up to 8 channels
 
 uninitialized_end ds 0
 	dend
