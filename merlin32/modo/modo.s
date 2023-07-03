@@ -1015,8 +1015,16 @@ ModPlayerTick mx %00
 		sta <:break_row 			; skip to this row, with the break
 		bra :after_effect
 :E_things
+		bra :after_effect
 :set_speed
+		lda <:effect_parm
+		cmp #$20
+		bcs :BPM  ; this needs to alter the 50hz timer, Beats Per Minute
+		sta <mod_speed
+		bra :after_effect
 
+:BPM
+		; needs to alter timer, skip for now
 :after_effect
 
 ;NSTC:  (7159090.5  / (:note_period * 2))/24000 into 8.8 fixed result
