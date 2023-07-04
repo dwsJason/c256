@@ -192,7 +192,7 @@ Mstartup mx %00
 		pld
 
 ; Enable DAC
-
+		; U+ Syncronize
 		phkb ^$AF0000
 		plb
 
@@ -200,7 +200,8 @@ Mstartup mx %00
 
 		lda #2
 		sta |$AF1900  ; Reset FIFO
-		lda #%1100    ; stereo Mode 3 is where we live, and not enable
+;		lda #%1100    ; stereo Mode 3 is where we live, and not enable
+		lda #%1000    ; mono16 Mode 3 is where we live, and not enable
 		sta |$AF1900  ; UnReset FIFO
 
 		; I was hoping that I could fill the FIFO with some data
@@ -218,16 +219,22 @@ Mstartup mx %00
 		cmp #256
 		bcc ]sync_load
 
+		sep #$30
+
 		lda |$AF1904    	; LEFT/RIGHT Synchronize
 ]fifo_sync2
 		cmp |$AF1904		; hold until the FIFO eats some data
 		beq ]fifo_sync2     ; if we hadn't loaded data above, then this would infinite loop
 
-		sep #$30
+		lda |$AF1904    	; LEFT/RIGHT Synchronize
+]fifo_sync3
+		cmp |$AF1904		; hold until the FIFO eats some data
+		beq ]fifo_sync3     ; if we hadn't loaded data above, then this would infinite loop
+
 
 		lda #2
 		sta |$AF1900  ; Reset FIFO
-		lda #%1100    ; stereo Mode 3 is where we live, and not enable
+		lda #%1101    ; stereo Mode 3 is where we live, and not enable
 		sta |$AF1900  ; UnReset FIFO
 
 		rep #$30
@@ -251,14 +258,14 @@ Mstartup mx %00
 		; load first half
 		jsl MIXFIFO24_8_start
 
-		lda >$AF1904		; I need consistent result here
-		and #$FFF
-		sta >$300000
+		;lda >$AF1904		; I need consistent result here
+		;and #$FFF
+		;sta >$300000
 
-		sep #$30
-		lda #%1101    ; stereo Mode 3 is where we live, and enable
-		sta >$AF1900
-		rep #$30
+		;sep #$30
+		;lda #%1101    ; stereo Mode 3 is where we live, and enable
+		;sta >$AF1900
+		;rep #$30
 
 		; load second half
 		jsl MIXFIFO24_8_start
