@@ -193,15 +193,44 @@ Mstartup mx %00
 
 ; Enable DAC
 
-		;phkb ^$AF0000
-		;plb
+		phkb ^$AF0000
+		plb
 
 		sep #$30
 
 		lda #2
-		sta >$AF1900  ; Reset FIFO
-		lda #0
-		sta >$AF1900  ; UnReset FIFO
+		sta |$AF1900  ; Reset FIFO
+		lda #%1100    ; stereo Mode 3 is where we live, and not enable
+		sta |$AF1900  ; UnReset FIFO
+
+		; I was hoping that I could fill the FIFO with some data
+		; without the FIFO eating anything, but this is not the case
+		; on U+ black, the enable bit doesn't even seem hooked up
+
+		; we need to synchronize with the FIFO in order
+		; to get the left/right channels consistently interleaved
+
+		rep #$30
+]sync_load
+		stz |$AF1908  	; FIFO STORE
+		lda |$AF1904    ; Load some data in the FIFO
+		and #$FFF
+		cmp #256
+		bcc ]sync_load
+
+		lda |$AF1904    	; LEFT/RIGHT Synchronize
+]fifo_sync2
+		cmp |$AF1904		; hold until the FIFO eats some data
+		beq ]fifo_sync2     ; if we hadn't loaded data above, then this would infinite loop
+
+		sep #$30
+
+		lda #2
+		sta |$AF1900  ; Reset FIFO
+		lda #%1100    ; stereo Mode 3 is where we live, and not enable
+		sta |$AF1900  ; UnReset FIFO
+
+		rep #$30
 
         ; Information
         ; The FIFO is 4096 Byte Deep
@@ -215,15 +244,14 @@ Mstartup mx %00
 		;sta |$AF1900
 		;sta |$AF1900
 
-		rep #$30
 
-		;plb
+		plb
 
 ; Pump Data into DAC
 		; load first half
 		jsl MIXFIFO24_8_start
 
-		lda >$AF1904
+		lda >$AF1904		; I need consistent result here
 		and #$FFF
 		sta >$300000
 
@@ -235,9 +263,9 @@ Mstartup mx %00
 		; load second half
 		jsl MIXFIFO24_8_start
 
-		lda >$AF1904
-		and #$FFF
-		sta >$300002
+		;lda >$AF1904
+		;and #$FFF
+		;sta >$300002
 
 ; Enable the interrupts used to service the OSC + DAC
 ; 24000 / 256 = 93.75 times per second (this also means our service
