@@ -34,6 +34,7 @@
 
 		ext logo_pic
 		ext decompress_lzsa
+		ext MIXFIFO ; for the visualizer
 
 		;
 		; some mod files
@@ -69,6 +70,8 @@ VRAM = $B00000
 
 VRAM_TILE_CAT = $C80000
 VRAM_LOGO_MAP = $B80000
+
+VRAM_OSC_SPRITES = $C70000 ; OSC visualizer Sprites, 16 sprites, 1K each (32x32)
 
 ; Base Address for Audio
 AUDIO_RAM = $80000
@@ -299,8 +302,19 @@ start   ent             ; make sure start is visible outside the file
 		ldx #0
 		jsr myLOCATE
 
+		jsr InitOscSprites
+
 ]main_loop
 		jsr WaitVBL
+
+		jsr PatternRender
+
+		jsr UpdateOSC0Sprite
+		jsr UpdateOSC0SpriteR
+		jsr UpdateOSC1Sprite
+		jsr UpdateOSC1SpriteR
+		jsr UpdateOSC2Sprite
+		jsr UpdateOSC3Sprite
 
 		jsr ReadKeyboard
 
@@ -308,6 +322,11 @@ start   ent             ; make sure start is visible outside the file
 		lda #PlayInstrument
 		jsr OnKeyDown
 
+		bra ]main_loop
+
+;------------------------------------------------------------------------------
+
+PatternRender mx %00
 		sei
 ; grab information, I need so I can update the tracker pattern text
 		pei mod_p_current_pattern
@@ -329,7 +348,7 @@ start   ent             ; make sure start is visible outside the file
 
 		plx
 		pla
-		bra ]main_loop
+		rts
 
 :print
 :pBlockAddress = temp5
@@ -366,7 +385,7 @@ start   ent             ; make sure start is visible outside the file
 		dec <:tCount
 		bpl ]lp
 		ply
-		bra ]main_loop
+		rts
 
 ;------------------------------------------------------------------------------
 ; X = Key #
@@ -1608,7 +1627,7 @@ ModInit mx %00
 	ldy <:current_y
 	lda [:pMod],y
 	and #$FF
-;	inc
+	inc
 	sta <mod_song_length
 	iny
 	iny
@@ -2808,6 +2827,380 @@ mt_PeriodTable
 	put i256.s
 	put dma.s
 
+;------------------------------------------------------------------------------
+;
+; Configure the Oscillator Graphics
+; We need 16 sprites, to show off the wave data in the Oscillators
+;
+InitOscSprites mx %00
+
+:pTile = temp0
+
+; Clear those sprites to transparent
+		lda #0
+		ldx #32*32*16
+]clear
+		sta >VRAM_OSC_SPRITES,x
+		dex
+		dex
+		bpl ]clear
+
+		; current background is using LUT0
+		; we can use LUT1
+		phkb ^SP00_CONTROL_REG
+		plb
+
+		ldx #0
+]lp
+		lda #SPRITE_Enable+SPRITE_LUT1
+		sta |SP00_CONTROL_REG,x
+
+		txa     ; x8
+		xba 	; x2048
+		lsr 	; x1024
+
+		sta |SP00_ADDY_PTR_L,x
+;		sta <:pTile
+		lda #^{VRAM_OSC_SPRITES-VRAM}
+		sta |SP00_ADDY_PTR_H,x
+;		lda #^VRAM_OSC_SPRITES
+;		sta <:pTile+2
+
+		lda #512
+		sta |SP00_Y_POS_L,x
+		txa
+		
+		; I want x40
+		;asl
+		;asl
+		;asl  ; x8
+		pha
+		asl
+		asl  ; x32
+		adc 1,s
+		sta 1,s
+		pla  ; x40
+
+		clc
+		adc #32+80 ; center them
+
+		sta |SP00_X_POS_L,x
+
+		;lda #$0101 ; text pixel
+		;sta [:pTile]
+
+		clc
+		txa
+		adc #8  ; next sprite tile
+		tax
+		cmp #8*16 ; 16 tiles, because we have 8 channels x 2, for stereo
+		bcc ]lp
+
+; Set some LUT1 Colors
+		lda #$FFFF  		 	; color index 1, is white
+		sta |GRPH_LUT1_PTR+4
+		sta |GRPH_LUT1_PTR+4+2
+
+		lda #$FF00
+		stz |GRPH_LUT1_PTR+8
+		sta |GRPH_LUT1_PTR+8+2
+
+	    plb
+		rts
+
+;------------------------------------------------------------------------------
+UpdateOSC0Sprite mx %00
+; MIXFIFO - Here we go
+; VRAM_OSC_SPRITES, here's where the 32x32 sprite lives
+
+		lda #0     ; erase
+		jsr :draw
+		; update to new positions
+
+]count = 0
+]outcount = 0
+		lup 32
+		lda >MIXFIFO+5+{]count*77}
+		clc
+		adc #$100
+		and #$1E0
+		;lsr 	; 255
+
+		; 0=255, we want 0-31
+		;lsr  ;127 
+		;lsr  ;63
+		;lsr  ;31
+
+		; I think a 512 entry lookup table might be faster
+		; now I need this x32
+		;asl
+		;asl
+		;asl
+		;asl
+		asl
+		adc #VRAM_OSC_SPRITES+]outcount
+		sta |:draw+7+{]outcount*3}
+]count = ]count+8
+]outcount = ]outcount+1
+		--^   	
+
+		lda #1
+		; drop down to draw the new positions
+:draw
+		phkb ^VRAM_OSC_SPRITES
+		plb
+		sep #$20
+		lup 32
+		sta |0 
+		--^
+		rep #$30
+		plb
+		rts
+
+;------------------------------------------------------------------------------
+UpdateOSC0SpriteR mx %00
+; MIXFIFO - Here we go
+; VRAM_OSC_SPRITES, here's where the 32x32 sprite lives
+
+		lda #0     ; erase
+		jsr :draw
+		; update to new positions
+
+]count = 0
+]outcount = 0
+		lup 32
+		lda >MIXFIFO+38+{]count*77}
+		clc
+		adc #$100
+		and #$1E0
+		lsr
+		lsr
+		adc #{12*16}
+		;lsr 	; 255
+
+		; 0=255, we want 0-31
+		;lsr  ;127 
+		;lsr  ;63
+		;lsr  ;31
+
+		; I think a 512 entry lookup table might be faster
+		; now I need this x32
+		;asl
+		;asl
+		;asl
+		;asl
+		asl
+		adc #VRAM_OSC_SPRITES+]outcount+{32*32*1}
+		sta |:draw+7+{]outcount*3}
+]count = ]count+8
+]outcount = ]outcount+1
+		--^   	
+
+		lda #2
+		; drop down to draw the new positions
+:draw
+		phkb ^VRAM_OSC_SPRITES
+		plb
+		sep #$20
+		lup 32
+		sta |0 
+		--^
+		rep #$30
+		plb
+		rts
+
+;------------------------------------------------------------------------------
+UpdateOSC1Sprite mx %00
+; MIXFIFO - Here we go
+; VRAM_OSC_SPRITES, here's where the 32x32 sprite lives
+
+		lda #0     ; erase
+		jsr :draw
+		; update to new positions
+
+]count = 0
+]outcount = 0
+		lup 32
+		lda >MIXFIFO+5+{]count*77}+4
+		clc
+		adc #$100
+		and #$1E0
+		;lsr 	; 255
+
+		; 0=255, we want 0-31
+		;lsr  ;127 
+		;lsr  ;63
+		;lsr  ;31
+
+		; I think a 512 entry lookup table might be faster
+		; now I need this x32
+		;asl
+		;asl
+		;asl
+		;asl
+		asl
+		adc #VRAM_OSC_SPRITES+]outcount+{32*32*2}
+		sta |:draw+7+{]outcount*3}
+]count = ]count+8
+]outcount = ]outcount+1
+		--^   	
+
+		lda #1
+		; drop down to draw the new positions
+:draw
+		phkb ^VRAM_OSC_SPRITES
+		plb
+		sep #$20
+		lup 32
+		sta |0 
+		--^
+		rep #$30
+		plb
+		rts
+;------------------------------------------------------------------------------
+UpdateOSC1SpriteR mx %00
+; MIXFIFO - Here we go
+; VRAM_OSC_SPRITES, here's where the 32x32 sprite lives
+
+		lda #0     ; erase
+		jsr :draw
+		; update to new positions
+
+]count = 0
+]outcount = 0
+		lup 32
+		lda >MIXFIFO+38+{]count*77}+4
+		clc
+		adc #$100
+		and #$1E0
+		;lsr 	; 255
+
+		; 0=255, we want 0-31
+		;lsr  ;127 
+		;lsr  ;63
+		;lsr  ;31
+
+		; I think a 512 entry lookup table might be faster
+		; now I need this x32
+		;asl
+		;asl
+		;asl
+		;asl
+		asl
+		adc #VRAM_OSC_SPRITES+]outcount+{32*32*3}
+		sta |:draw+7+{]outcount*3}
+]count = ]count+8
+]outcount = ]outcount+1
+		--^   	
+
+		lda #1
+		; drop down to draw the new positions
+:draw
+		phkb ^VRAM_OSC_SPRITES
+		plb
+		sep #$20
+		lup 32
+		sta |0 
+		--^
+		rep #$30
+		plb
+		rts
+;------------------------------------------------------------------------------
+UpdateOSC2Sprite mx %00
+; MIXFIFO - Here we go
+; VRAM_OSC_SPRITES, here's where the 32x32 sprite lives
+
+		lda #0     ; erase
+		jsr :draw
+		; update to new positions
+
+]count = 0
+]outcount = 0
+		lup 32
+		lda >MIXFIFO+5+{]count*77}+8
+		clc
+		adc #$100
+		and #$1E0
+		;lsr 	; 255
+
+		; 0=255, we want 0-31
+		;lsr  ;127 
+		;lsr  ;63
+		;lsr  ;31
+
+		; I think a 512 entry lookup table might be faster
+		; now I need this x32
+		;asl
+		;asl
+		;asl
+		;asl
+		asl
+		adc #VRAM_OSC_SPRITES+]outcount+{32*32*4}
+		sta |:draw+7+{]outcount*3}
+]count = ]count+8
+]outcount = ]outcount+1
+		--^   	
+
+		lda #1
+		; drop down to draw the new positions
+:draw
+		phkb ^VRAM_OSC_SPRITES
+		plb
+		sep #$20
+		lup 32
+		sta |0 
+		--^
+		rep #$30
+		plb
+		rts
+;------------------------------------------------------------------------------
+UpdateOSC3Sprite mx %00
+; MIXFIFO - Here we go
+; VRAM_OSC_SPRITES, here's where the 32x32 sprite lives
+
+		lda #0     ; erase
+		jsr :draw
+		; update to new positions
+
+]count = 0
+]outcount = 0
+		lup 32
+		lda >MIXFIFO+5+{]count*77}+12
+		clc
+		adc #$100
+		and #$1E0
+		;lsr 	; 255
+
+		; 0=255, we want 0-31
+		;lsr  ;127 
+		;lsr  ;63
+		;lsr  ;31
+
+		; I think a 512 entry lookup table might be faster
+		; now I need this x32
+		;asl
+		;asl
+		;asl
+		;asl
+		asl
+		adc #VRAM_OSC_SPRITES+]outcount+{32*32*6}
+		sta |:draw+7+{]outcount*3}
+]count = ]count+8
+]outcount = ]outcount+1
+		--^   	
+
+		lda #1
+		; drop down to draw the new positions
+:draw
+		phkb ^VRAM_OSC_SPRITES
+		plb
+		sep #$20
+		lup 32
+		sta |0 
+		--^
+		rep #$30
+		plb
+		rts
 ;------------------------------------------------------------------------------
 fastLOCATE mx %00
 	tya

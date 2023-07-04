@@ -516,6 +516,7 @@ pOscillators ds 2  ; 16 bit pointer to the array of oscillators in bank0
 					
 	do 1
 ; 24Khz + 8 channel
+MIXFIFO ent
 MIXFIFO24_8_start mx %00
 
 	phkb ^$AF1900
