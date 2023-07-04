@@ -1271,9 +1271,13 @@ ModInit mx %00
 	lda #$2008
 	sta |mod_channel_pan
 	sta |mod_channel_pan+{4*3}
+	sta |mod_channel_pan+{4*4}
+	sta |mod_channel_pan+{4*7}
 	lda #$8020
 	sta |mod_channel_pan+{4*1}
 	sta |mod_channel_pan+{4*2}
+	sta |mod_channel_pan+{4*5}
+	sta |mod_channel_pan+{4*6}
 
 
 	; default to a 4 track mod
@@ -1604,7 +1608,7 @@ ModInit mx %00
 	ldy <:current_y
 	lda [:pMod],y
 	and #$FF
-	inc
+;	inc
 	sta <mod_song_length
 	iny
 	iny
