@@ -314,7 +314,9 @@ start   ent             ; make sure start is visible outside the file
 		jsr UpdateOSC1Sprite
 		jsr UpdateOSC1SpriteR
 		jsr UpdateOSC2Sprite
+		jsr UpdateOSC2SpriteR
 		jsr UpdateOSC3Sprite
+		jsr UpdateOSC3SpriteR
 
 		jsr ReadKeyboard
 
@@ -2973,9 +2975,9 @@ UpdateOSC0SpriteR mx %00
 		clc
 		adc #$100
 		and #$1E0
-		lsr
-		lsr
-		adc #{12*16}
+		;lsr
+		;lsr
+		adc #{8*32}
 		;lsr 	; 255
 
 		; 0=255, we want 0-31
@@ -2989,7 +2991,7 @@ UpdateOSC0SpriteR mx %00
 		;asl
 		;asl
 		;asl
-		asl
+		;asl
 		adc #VRAM_OSC_SPRITES+]outcount+{32*32*1}
 		sta |:draw+7+{]outcount*3}
 ]count = ]count+8
@@ -3026,6 +3028,7 @@ UpdateOSC1Sprite mx %00
 		adc #$100
 		and #$1E0
 		;lsr 	; 255
+		adc #{8*32}
 
 		; 0=255, we want 0-31
 		;lsr  ;127 
@@ -3038,7 +3041,7 @@ UpdateOSC1Sprite mx %00
 		;asl
 		;asl
 		;asl
-		asl
+		;asl
 		adc #VRAM_OSC_SPRITES+]outcount+{32*32*2}
 		sta |:draw+7+{]outcount*3}
 ]count = ]count+8
@@ -3093,7 +3096,7 @@ UpdateOSC1SpriteR mx %00
 ]outcount = ]outcount+1
 		--^   	
 
-		lda #1
+		lda #2
 		; drop down to draw the new positions
 :draw
 		phkb ^VRAM_OSC_SPRITES
@@ -3122,6 +3125,55 @@ UpdateOSC2Sprite mx %00
 		adc #$100
 		and #$1E0
 		;lsr 	; 255
+		adc #32*8 ; recenter
+
+		; 0=255, we want 0-31
+		;lsr  ;127 
+		;lsr  ;63
+		;lsr  ;31
+
+		; I think a 512 entry lookup table might be faster
+		; now I need this x32
+		;asl
+		;asl
+		;asl
+		;asl
+		;asl
+		adc #VRAM_OSC_SPRITES+]outcount+{32*32*4}
+		sta |:draw+7+{]outcount*3}
+]count = ]count+8
+]outcount = ]outcount+1
+		--^   	
+
+		lda #1
+		; drop down to draw the new positions
+:draw
+		phkb ^VRAM_OSC_SPRITES
+		plb
+		sep #$20
+		lup 32
+		sta |0 
+		--^
+		rep #$30
+		plb
+		rts
+;------------------------------------------------------------------------------
+UpdateOSC2SpriteR mx %00
+; MIXFIFO - Here we go
+; VRAM_OSC_SPRITES, here's where the 32x32 sprite lives
+
+		lda #0     ; erase
+		jsr :draw
+		; update to new positions
+
+]count = 0
+]outcount = 0
+		lup 32
+		lda >MIXFIFO+38+{]count*77}+8
+		clc
+		adc #$100
+		and #$1E0
+		;lsr 	; 255
 
 		; 0=255, we want 0-31
 		;lsr  ;127 
@@ -3135,13 +3187,14 @@ UpdateOSC2Sprite mx %00
 		;asl
 		;asl
 		asl
-		adc #VRAM_OSC_SPRITES+]outcount+{32*32*4}
+		;adc #32*8  ; recenter
+		adc #VRAM_OSC_SPRITES+]outcount+{32*32*5}
 		sta |:draw+7+{]outcount*3}
 ]count = ]count+8
 ]outcount = ]outcount+1
 		--^   	
 
-		lda #1
+		lda #2
 		; drop down to draw the new positions
 :draw
 		phkb ^VRAM_OSC_SPRITES
@@ -3190,6 +3243,55 @@ UpdateOSC3Sprite mx %00
 		--^   	
 
 		lda #1
+		; drop down to draw the new positions
+:draw
+		phkb ^VRAM_OSC_SPRITES
+		plb
+		sep #$20
+		lup 32
+		sta |0 
+		--^
+		rep #$30
+		plb
+		rts
+;------------------------------------------------------------------------------
+UpdateOSC3SpriteR mx %00
+; MIXFIFO - Here we go
+; VRAM_OSC_SPRITES, here's where the 32x32 sprite lives
+
+		lda #0     ; erase
+		jsr :draw
+		; update to new positions
+
+]count = 0
+]outcount = 0
+		lup 32
+		lda >MIXFIFO+38+{]count*77}+12
+		clc
+		adc #$100
+		and #$1E0
+		;lsr 	; 255
+
+		; 0=255, we want 0-31
+		;lsr  ;127 
+		;lsr  ;63
+		;lsr  ;31
+
+		; I think a 512 entry lookup table might be faster
+		; now I need this x32
+		;asl
+		;asl
+		;asl
+		;asl
+		;asl
+		adc #32*8
+		adc #VRAM_OSC_SPRITES+]outcount+{32*32*7}
+		sta |:draw+7+{]outcount*3}
+]count = ]count+8
+]outcount = ]outcount+1
+		--^   	
+
+		lda #2
 		; drop down to draw the new positions
 :draw
 		phkb ^VRAM_OSC_SPRITES
