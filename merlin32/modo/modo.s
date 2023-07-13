@@ -74,7 +74,7 @@ VRAM_TILE_CAT = $C80000
 VRAM_LOGO_MAP = $B80000
 
 ;VRAM_PUMPBAR_MAP = $B82000  ; LOGO map is like 5K
-VRAM_PUMPBAR_MAP = $B90000  ; LOGO map is like 5K
+VRAM_PUMPBAR_MAP = $B90000  ; LOGO map is like 5K, but looks like MAP needs to be 64k aligned to work
 VRAM_PUMPBAR_CAT = $C90000  ; until we have catalog packing, this is easier
 
 VRAM_OSC_SPRITES = $C70000 ; OSC visualizer Sprites, 16 sprites, 1K each (32x32)
@@ -314,6 +314,8 @@ start   ent             ; make sure start is visible outside the file
 ]main_loop
 		jsr WaitVBL
 
+		jsr PumpBarRender
+
 		jsr PatternRender
 
 		jsr UpdateOSC0Sprite
@@ -332,6 +334,57 @@ start   ent             ; make sure start is visible outside the file
 		jsr OnKeyDown
 
 		bra ]main_loop
+
+;------------------------------------------------------------------------------
+PumpBarRender mx %00
+		php
+		sei
+:bar0 equ temp0
+		; Grab Pump Bar Data
+
+		lda |mod_pump_vol+2
+		stz |mod_pump_vol+2
+		sta <:bar0
+
+		plp
+
+;------------------------------------------------------------------------------
+
+		lda <:bar0
+		and #$FF
+		beq :no_left_update
+
+:no_left_update
+		lda <:bar0
+		xba
+		and #$ff
+		beq :no_right_update
+
+:no_right_update
+
+		lda #{15*4}-2
+		ldx #pump_full_colors
+		ldy #GRPH_LUT2_PTR+{4*1}+{64*0}
+		phb
+		mvn ^pump_full_colors,^GRPH_LUT2_PTR
+		plb
+
+		lda #{15*4}-2
+		ldx #pump_empty_colors
+		ldy #GRPH_LUT2_PTR+{4*1}+{64*1}
+		phb
+		mvn ^pump_full_colors,^GRPH_LUT2_PTR
+		plb
+
+		lda #{15*4}-2
+		ldx #pump_empty_colors
+		ldy #GRPH_LUT2_PTR+{4*1}+{64*2}
+		phb
+		mvn ^pump_full_colors,^GRPH_LUT2_PTR
+		plb
+
+
+		rts
 
 ;------------------------------------------------------------------------------
 
@@ -1126,6 +1179,12 @@ ModPlayerTick mx %00
 
 		lda <:vol  		; left/right volume (3f max)
 		sta <osc_left_vol,x
+
+		;---- start - this might be a good spot to update the pumpbar out
+
+		sta |mod_pump_vol,y
+
+		;---- end - this might be a good spot to update the pumpbar out
 
 		phy  ; need to preserve
 
@@ -3713,6 +3772,51 @@ inst_address_table
 		--^
 ;------------------------------------------------------------------------------
 
+pump_full_colors
+		adrl $FF10FF10    		; Green
+		adrl $FF10FF10
+		adrl $FF10FF10
+		adrl $FF10FF10
+
+		adrl $FF10FF10
+		adrl $FF10FF10
+		adrl $FF10FF10
+		adrl $FF10FF10
+
+		adrl $FF10FF10
+		adrl $FF10FF10
+		adrl $FF10FF10
+		adrl $FFFF1010			; Red
+
+		adrl $FFFF1010
+		adrl $FFFF1010
+		adrl $FFFF1010
+		adrl $FFFF1010
+
+pump_empty_colors
+		adrl $FF202020			; grey
+		adrl $FF202020
+		adrl $FF202020
+		adrl $FF202020
+
+		adrl $FF202020
+		adrl $FF202020
+		adrl $FF202020
+		adrl $FF202020
+
+		adrl $FF202020
+		adrl $FF202020
+		adrl $FF202020
+		adrl $FF202020
+
+		adrl $FF202020
+		adrl $FF202020
+		adrl $FF202020
+		adrl $FF202020
+
+
+;------------------------------------------------------------------------------
+
 ; Non Initialized spaced
 
 	dum *+$2100  ; pirate! (this is cheating, these addresses are not relocatable)
@@ -3744,6 +3848,7 @@ scratch_ram ds 1024
 
 mod_last_sample ds 4*8 ; up to 8 channels
 mod_channel_pan ds 4*8 ; up to 8 channels
+mod_pump_vol    ds 4*8 ; up to 8 channels, pump bar data
 
 uninitialized_end ds 0
 	dend

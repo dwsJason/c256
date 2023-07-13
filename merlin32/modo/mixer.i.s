@@ -56,6 +56,7 @@ osc_set_left   ds 1
 osc_set_right  ds 1
 
 sizeof_osc ds 0  	; needs to be less than 32 (31 or under)
+					; so there's room for the temp variables osc_delta
 
 		dend
 
