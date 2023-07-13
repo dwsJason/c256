@@ -33,6 +33,8 @@
 
 
 		ext logo_pic
+		ext pumpbars_pic
+
 		ext decompress_lzsa
 		ext MIXFIFO ; for the visualizer
 
@@ -70,6 +72,10 @@ VRAM = $B00000
 
 VRAM_TILE_CAT = $C80000
 VRAM_LOGO_MAP = $B80000
+
+;VRAM_PUMPBAR_MAP = $B82000  ; LOGO map is like 5K
+VRAM_PUMPBAR_MAP = $B90000  ; LOGO map is like 5K
+VRAM_PUMPBAR_CAT = $C90000  ; until we have catalog packing, this is easier
 
 VRAM_OSC_SPRITES = $C70000 ; OSC visualizer Sprites, 16 sprites, 1K each (32x32)
 
@@ -230,6 +236,7 @@ start   ent             ; make sure start is visible outside the file
 ;------------------------------------------------------------------------------
 
 		jsr logo_pic_init
+		jsr pumpbars_pic_init
 
 ;------------------------------------------------------------------------------
 
@@ -1301,7 +1308,8 @@ ModInit mx %00
 	sta |mod_channel_pan+{4*6}
 
 
-	; default to a 4 track mod
+	; default to a 4 track mod, we have some 8CHN examples, and the mixer
+	; can handle them
 	lda #4
 	sta <mod_num_tracks
 
@@ -3487,6 +3495,113 @@ logo_pic_init mx %00
 
 
 		rts
+
+;------------------------------------------------------------------------------
+
+pumpbars_pic_init mx %00
+
+;
+; Configure the Width and Height of the Tilemap, based on the width
+; and height stored in our file
+;
+
+		lda #pumpbars_pic
+		ldx #^pumpbars_pic
+		jsr c256Init		;$$JGA TODO, make sure better
+
+		; Tile Map Width, and Height
+
+		ldy #8  ; TMAP width offset
+		lda [pTMAP],y
+		sta >TL2_TOTAL_X_SIZE_L
+		iny
+		iny     ; TMAP height offset
+		lda [pTMAP],y
+		inc
+		and #$FFFE
+		sta >TL2_TOTAL_Y_SIZE_L
+
+;
+; Extract CLUT data from the piano image
+;
+
+		; source image
+		pea ^pumpbars_pic
+		pea pumpbars_pic
+
+		; dest address			; Testing new smart decompress
+		pea ^GRPH_LUT2_PTR
+		pea GRPH_LUT2_PTR
+
+		jsl decompress_clut
+
+;
+; Extract Tiles Data
+;
+
+		; source picture
+		pea ^pumpbars_pic
+		pea pumpbars_pic
+
+		; destination address
+		pea ^VRAM_PUMPBAR_CAT
+		pea VRAM_PUMPBAR_CAT
+
+		jsl decompress_pixels
+
+;
+; Extract Map Data
+;
+
+		; source picture
+		pea ^pumpbars_pic
+		pea pumpbars_pic
+
+		; destination address
+		;pea ^VRAM_PUMPBAR_MAP
+		;pea VRAM_PUMPBAR_MAP
+		pea ^WORKRAM
+		pea WORKRAM
+
+		jsl decompress_map
+
+; 100x75 is the size of this thng
+; massage the map data, and store in VRAM
+
+		ldx #{100*75*2}-2
+		clc
+]lp		lda >WORKRAM,x
+		adc #256+{2*$800}  ; add 256 to start a tile 256, and add bits to enable LUT2
+		sta >VRAM_PUMPBAR_MAP,x
+		dex
+		dex
+		bpl ]lp
+;
+; Set Scroll Registers, and enable TL2
+;
+
+		; turn on tile map 2
+		sep #$30
+		lda #TILE_Enable
+		sta >TL2_CONTROL_REG
+		lda #{VRAM_PUMPBAR_MAP-VRAM}
+		sta >TL2_START_ADDY_L
+		lda #^{VRAM_PUMPBAR_MAP-VRAM}
+		sta >TL2_START_ADDY_H
+		rep #$30
+		
+		lda #256
+		sta >TL2_WINDOW_X_POS_L
+		lda #16
+		sta >TL2_WINDOW_Y_POS_L
+
+		; catalog data
+		;lda #{VRAM_PUMPBAR_CAT-VRAM}
+		;sta >TILESET1_ADDY_L
+		;lda #^{VRAM_PUMPBAR_CAT-VRAM}
+		;sta >TILESET1_ADDY_H
+		rts
+
 
 ;------------------------------------------------------------------------------
 ReadKeyboard mx %00
