@@ -337,52 +337,137 @@ start   ent             ; make sure start is visible outside the file
 
 ;------------------------------------------------------------------------------
 PumpBarRender mx %00
+
+:pbar = temp0
+
 		php
 		sei
-:bar0 equ temp0
-		; Grab Pump Bar Data
-
-		lda |mod_pump_vol+2
-		stz |mod_pump_vol+2
-		sta <:bar0
+]ct = 0
+		lup 8
+		; Grab Pump Bar Data, with interrupts disabled
+		lda |mod_pump_vol+2+{]ct*4}
+		xba ; JGA shouldn't need this :-/
+		stz |mod_pump_vol+2+{]ct*4}
+		sta <:pbar+{]ct*2}
+]ct = ]ct+1
+		--^
 
 		plp
 
+; crap
+		do 0
+		ldx #0
+		ldy #59
+		jsr fastLOCATE
+
+		lda <temp0
+		jsr fastHEXWORD
+		lda <temp0+2
+		jsr fastHEXWORD
+		lda <temp1
+		jsr fastHEXWORD
+		lda <temp1+2
+		jsr fastHEXWORD
+		lda <temp2
+		jsr fastHEXWORD
+		lda <temp2+2
+		jsr fastHEXWORD
+		lda <temp3
+		jsr fastHEXWORD
+		lda <temp3+2
+		jsr fastHEXWORD
+
+		ldx #0
+		ldy #60
+		jsr fastLOCATE
+
+		lda |pump_bar_levels
+		jsr fastHEXWORD
+		lda |pump_bar_levels+2
+		jsr fastHEXWORD
+		lda |pump_bar_levels+4
+		jsr fastHEXWORD
+		lda |pump_bar_levels+8
+		jsr fastHEXWORD
+		lda |pump_bar_levels+10
+		jsr fastHEXWORD
+		fin
+
 ;------------------------------------------------------------------------------
+; Update the 16 bars, peaks, and timers
 
-		lda <:bar0
+		sep #$30
+
+]ct = 0
+		lup 16
+
+		lda <:pbar+]ct
+		beq :no_new_value
+
+		cmp |pump_bar_levels+]ct
+		bcc :no_new_value
+
+		sta |pump_bar_levels+]ct
+		cmp |pump_bar_peaks+]ct
+		bcc :no_new_value
+		sta |pump_bar_peaks+]ct
+		lda #60
+		sta |pump_bar_peak_timer+]ct
+:no_new_value
+		lda |pump_bar_peak_timer+]ct
+		beq :skip_peak_timer
+		dec
+		sta |pump_bar_peak_timer+]ct
+:skip_peak_timer
+		lda |pump_bar_levels+]ct
+		beq :skip_level
+		dec
+		sta |pump_bar_levels+]ct
+:skip_level
+]ct = ]ct+1
+		--^
+
+		rep #$31
+
+; ---- now render 16 pump bars
+
+
+]ct = 0
+		lup 16
+
+		ldy #GRPH_LUT2_PTR+4+{64*]ct}
+
+		lda |pump_bar_levels+]ct
 		and #$FF
-		beq :no_left_update
+		lsr
+		cmp #15
+		bcc :no_clamp
+		lda #15
+:no_clamp
+		asl
+		asl			; number of active colors x 4
+		pha
+		beq :not_active
 
-:no_left_update
-		lda <:bar0
-		xba
-		and #$ff
-		beq :no_right_update
-
-:no_right_update
-
-		lda #{15*4}-2
+		dec
 		ldx #pump_full_colors
-		ldy #GRPH_LUT2_PTR+{4*1}+{64*0}
-		phb
-		mvn ^pump_full_colors,^GRPH_LUT2_PTR
-		plb
+		mvn ^pump_full_colors,^GRPH_LUT2_PTR   ; light up colors
+:not_active
+		sec
+		lda #15*4
+		sbc 1,s
+		sta 1,s
+		pla
+		beq :no_empty
 
-		lda #{15*4}-2
+		dec
 		ldx #pump_empty_colors
-		ldy #GRPH_LUT2_PTR+{4*1}+{64*1}
-		phb
-		mvn ^pump_full_colors,^GRPH_LUT2_PTR
+		mvn ^pump_empty_colors,^GRPH_LUT2_PTR
+:no_empty
+]ct = ]ct+1
+		phk
 		plb
-
-		lda #{15*4}-2
-		ldx #pump_empty_colors
-		ldy #GRPH_LUT2_PTR+{4*1}+{64*2}
-		phb
-		mvn ^pump_full_colors,^GRPH_LUT2_PTR
-		plb
-
+		--^
 
 		rts
 
@@ -1360,7 +1445,7 @@ ModInit mx %00
 	sta |mod_channel_pan+{4*3}
 	sta |mod_channel_pan+{4*4}
 	sta |mod_channel_pan+{4*7}
-	lda #$8020
+	lda #$0820
 	sta |mod_channel_pan+{4*1}
 	sta |mod_channel_pan+{4*2}
 	sta |mod_channel_pan+{4*5}
@@ -3773,25 +3858,25 @@ inst_address_table
 ;------------------------------------------------------------------------------
 
 pump_full_colors
-		adrl $FF10FF10    		; Green
-		adrl $FF10FF10
-		adrl $FF10FF10
-		adrl $FF10FF10
+		adrl $FF18FF18    		; Green
+		adrl $FF18FF18
+		adrl $FF18FF18
+		adrl $FF18FF18
 
-		adrl $FF10FF10
-		adrl $FF10FF10
-		adrl $FF10FF10
-		adrl $FF10FF10
+		adrl $FF18FF18
+		adrl $FF18FF18
+		adrl $FF18FF18
+		adrl $FF18FF18
 
-		adrl $FF10FF10
-		adrl $FF10FF10
-		adrl $FF10FF10
-		adrl $FFFF1010			; Red
+		adrl $FF18FF18
+		adrl $FF18FF18
+		adrl $FF18FF18
+		adrl $FFFF1818			; Red
 
-		adrl $FFFF1010
-		adrl $FFFF1010
-		adrl $FFFF1010
-		adrl $FFFF1010
+		adrl $FFFF1818
+		adrl $FFFF1818
+		adrl $FFFF1818
+		adrl $FFFF1818
 
 pump_empty_colors
 		adrl $FF202020			; grey
@@ -3849,6 +3934,12 @@ scratch_ram ds 1024
 mod_last_sample ds 4*8 ; up to 8 channels
 mod_channel_pan ds 4*8 ; up to 8 channels
 mod_pump_vol    ds 4*8 ; up to 8 channels, pump bar data
+
+		ds 256
+
+pump_bar_levels ds 2*8 	   ; for current rendering
+pump_bar_peaks  ds 2*8 	   ; peaks hang on for 1 second
+pump_bar_peak_timer ds 2*8 ; peak gets cleared to 0, when timer hits 0
 
 uninitialized_end ds 0
 	dend
