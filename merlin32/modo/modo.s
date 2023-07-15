@@ -35,6 +35,7 @@
 		ext logo_pic
 		ext pumpbars_pic
 		ext sprites_pic
+		ext speakers_pic
 
 		ext decompress_lzsa
 		ext MIXFIFO ; for the visualizer
@@ -75,8 +76,12 @@ VRAM_TILE_CAT = $C80000
 VRAM_LOGO_MAP = $B80000
 
 ;VRAM_PUMPBAR_MAP = $B82000  ; LOGO map is like 5K
-VRAM_PUMPBAR_MAP = $B90000  ; LOGO map is like 5K, but looks like MAP needs to be 64k aligned to work
-VRAM_PUMPBAR_CAT = $C90000  ; until we have catalog packing, this is easier
+VRAM_PUMPBAR_MAP  = $B90000  ; LOGO map is like 5K, but looks like MAP needs to be 64k aligned to work
+VRAM_PUMPBAR_CAT  = $C90000  ; until we have catalog packing, this is easier
+VRAM_SPEAKERS_MAP = $BA0000
+VRAM_SPEAKERS_ANIM_MAP = $BA8000  ; for the uncompressed 224x2816 ,map data
+VRAM_SPEAKERS_CAT = $CA0000  ; until we have cat packing, uses 3 banks
+; next available is $CD0000
 
 VRAM_OSC_SPRITES  = $C70000 ; OSC visualizer Sprites, 16 sprites, 1K each (32x32)
 VRAM_TILE_SPRITES = $C60000 ; 64 pre-made sprites, in the sprites.256 file
@@ -240,6 +245,7 @@ start   ent             ; make sure start is visible outside the file
 		jsr logo_pic_init
 		jsr pumpbars_pic_init
 		jsr sprites_pic_init  ; load sprite tiles, and CLUT
+		jsr speakers_pic_init ; load the speaker frames
 
 ;------------------------------------------------------------------------------
 
@@ -3094,7 +3100,7 @@ InitOscSprites mx %00
 		cmp #8*16 ; 16 tiles, because we have 8 channels x 2, for stereo
 		bcc ]lp
 
-		do 1
+		do 0
 ; Set some LUT1 Colors
 		lda #$FFFF  		 	; color index 1, is white
 		sta |GRPH_LUT1_PTR+4
@@ -3578,6 +3584,36 @@ sprites_pic_init mx %00
 		pea VRAM_TILE_SPRITES
 
 		jsl decompress_pixels
+
+		rts
+
+;------------------------------------------------------------------------------
+
+speakers_pic_init mx %00
+
+		pea ^speakers_pic
+		pea speakers_pic
+
+		pea ^GRPH_LUT3_PTR
+		pea GRPH_LUT3_PTR
+
+		jsl decompress_clut
+
+		pea ^speakers_pic
+		pea speakers_pic
+
+		pea ^VRAM_SPEAKERS_CAT
+		pea VRAM_SPEAKERS_CAT
+
+		jsl decompress_pixels
+
+		pea ^speakers_pic
+		pea speakers_pic
+
+		pea ^VRAM_SPEAKERS_ANIM_MAP
+		pea VRAM_SPEAKERS_ANIM_MAP
+
+		jsl decompress_map
 
 		rts
 
