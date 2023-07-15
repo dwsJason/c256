@@ -341,6 +341,42 @@ start   ent             ; make sure start is visible outside the file
 
 ;------------------------------------------------------------------------------
 PeakMeterRender mx %00
+
+]YPOS = 512+112+1
+]XPOS = 192-1
+
+]sprite_no = 16  ; starting sprite index
+]count = 0
+
+		lup 16
+		lda |pump_bar_peak_timer+]count
+		and #$FF
+		beq :disable
+		lda |pump_bar_peaks+]count
+		and #$FF
+		asl
+		eor #$FFFF
+		dec
+		clc
+		adc	#]YPOS
+		
+		sta >SP00_Y_POS_L+{8*]sprite_no}
+		
+		lda	#]XPOS+{48*{]count/2}+{{]count&1}*20}}
+		sta >SP00_X_POS_L+{8*]sprite_no}
+
+		lda #>{VRAM_TILE_SPRITES-VRAM}
+		sta >SP00_ADDY_PTR_M+{8*]sprite_no}
+
+		lda #SPRITE_Enable+SPRITE_LUT1
+:disable
+		sta >SP00_CONTROL_REG+{8*]sprite_no}
+
+
+]count = ]count+1
+]sprite_no = ]sprite_no+1
+		--^
+
 		rts
 ;------------------------------------------------------------------------------
 
@@ -419,7 +455,7 @@ PumpBarRender mx %00
 		cmp |pump_bar_peaks+]ct
 		bcc :no_new_value
 		sta |pump_bar_peaks+]ct
-		lda #60
+		lda #16	; hang time
 		sta |pump_bar_peak_timer+]ct
 :no_new_value
 		lda |pump_bar_peak_timer+]ct
