@@ -34,6 +34,7 @@
 
 		ext logo_pic
 		ext pumpbars_pic
+		ext sprites_pic
 
 		ext decompress_lzsa
 		ext MIXFIFO ; for the visualizer
@@ -77,7 +78,8 @@ VRAM_LOGO_MAP = $B80000
 VRAM_PUMPBAR_MAP = $B90000  ; LOGO map is like 5K, but looks like MAP needs to be 64k aligned to work
 VRAM_PUMPBAR_CAT = $C90000  ; until we have catalog packing, this is easier
 
-VRAM_OSC_SPRITES = $C70000 ; OSC visualizer Sprites, 16 sprites, 1K each (32x32)
+VRAM_OSC_SPRITES  = $C70000 ; OSC visualizer Sprites, 16 sprites, 1K each (32x32)
+VRAM_TILE_SPRITES = $C60000 ; 64 pre-made sprites, in the sprites.256 file
 
 ; Base Address for Audio
 AUDIO_RAM = $80000
@@ -237,6 +239,7 @@ start   ent             ; make sure start is visible outside the file
 
 		jsr logo_pic_init
 		jsr pumpbars_pic_init
+		jsr sprites_pic_init  ; load sprite tiles, and CLUT
 
 ;------------------------------------------------------------------------------
 
@@ -315,6 +318,7 @@ start   ent             ; make sure start is visible outside the file
 		jsr WaitVBL
 
 		jsr PumpBarRender
+		jsr PeakMeterRender
 
 		jsr PatternRender
 
@@ -336,6 +340,10 @@ start   ent             ; make sure start is visible outside the file
 		bra ]main_loop
 
 ;------------------------------------------------------------------------------
+PeakMeterRender mx %00
+		rts
+;------------------------------------------------------------------------------
+
 PumpBarRender mx %00
 
 :pbar = temp0
@@ -3050,6 +3058,7 @@ InitOscSprites mx %00
 		cmp #8*16 ; 16 tiles, because we have 8 channels x 2, for stereo
 		bcc ]lp
 
+		do 1
 ; Set some LUT1 Colors
 		lda #$FFFF  		 	; color index 1, is white
 		sta |GRPH_LUT1_PTR+4
@@ -3058,6 +3067,7 @@ InitOscSprites mx %00
 		lda #$FF00
 		stz |GRPH_LUT1_PTR+8
 		sta |GRPH_LUT1_PTR+8+2
+		fin
 
 	    plb
 		rts
@@ -3509,6 +3519,31 @@ fastHEXBYTE mx %00
 :chars  ASC '0123456789ABCDEF'
 
 :temp	ds  3
+
+;------------------------------------------------------------------------------
+sprites_pic_init mx %00
+
+		; source image
+		pea ^sprites_pic
+		pea sprites_pic
+
+		; dest address			; Testing new smart decompress
+		pea ^GRPH_LUT1_PTR
+		pea GRPH_LUT1_PTR
+
+		jsl decompress_clut
+
+		; source picture
+		pea ^sprites_pic
+		pea sprites_pic
+
+		; destination address
+		pea ^VRAM_TILE_SPRITES
+		pea VRAM_TILE_SPRITES
+
+		jsl decompress_pixels
+
+		rts
 
 ;------------------------------------------------------------------------------
 

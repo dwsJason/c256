@@ -14,3 +14,7 @@ logo_pic ent             ; make sure start is visible outside the file
 pumpbars_pic ent
 	putbin data\pumpbars.256
 
+sprites_pic ent
+	putbin data\sprites.256
+
+
