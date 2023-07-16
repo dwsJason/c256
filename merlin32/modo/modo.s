@@ -326,8 +326,6 @@ start   ent             ; make sure start is visible outside the file
 		jsr PumpBarRender
 		jsr PeakMeterRender
 
-		jsr PatternRender
-
 		jsr UpdateOSC0Sprite
 		jsr UpdateOSC0SpriteR
 		jsr UpdateOSC1Sprite
@@ -336,6 +334,8 @@ start   ent             ; make sure start is visible outside the file
 		jsr UpdateOSC2SpriteR
 		jsr UpdateOSC3Sprite
 		jsr UpdateOSC3SpriteR
+
+		jsr PatternRender
 
 		jsr ReadKeyboard
 
@@ -461,7 +461,7 @@ PumpBarRender mx %00
 		cmp |pump_bar_peaks+]ct
 		bcc :no_new_value
 		sta |pump_bar_peaks+]ct
-		lda #16	; hang time
+		lda #20	; hang time
 		sta |pump_bar_peak_timer+]ct
 :no_new_value
 		lda |pump_bar_peak_timer+]ct
@@ -2769,9 +2769,37 @@ PrintPatternRow mx %00
 	lda [:pRow],y
 	jsr PrintNoteInfo
 
+	ldy <mod_num_tracks
+	cpy #4
+	beq :done
 	lda #'| '
 	fastPUTC
-	inc <pFastPut
+;	inc <pFastPut
+]offset = 0
+	ldy #18+]offset
+	lda [:pRow],y
+	tax
+	ldy #16+]offset
+	lda [:pRow],y
+	jsr PrintNoteInfo
+
+	lda #'| '
+	fastPUTC
+
+]offset = ]offset+4
+	ldy #18+]offset
+	lda [:pRow],y
+	tax
+	ldy #16+]offset
+	lda [:pRow],y
+	jsr PrintNoteInfo
+
+	lda #'| '
+	fastPUTC
+
+]offset = ]offset+4
+
+:done
 	rts
 
 ;------------------------------------------------------------------------------
@@ -2781,9 +2809,9 @@ PrintPatternRow mx %00
 ; AX = 4 bytes of the note
 ;
 PrintNoteInfo mx %00
-:note   = 64
-:period = 68
-:effect = 70
+:note   = temp0
+:period = temp1
+:effect = temp2
 
 	; Save DP locations
 	pei :note
@@ -2884,32 +2912,13 @@ PrintNoteInfo mx %00
 
 	rep #$31
 
-	; multiply x30, for index into sample definition
-	asl	; x2
-	pha
 	asl
-	asl
-	asl
-	asl ; 32
-	sec
-	sbc 1,s ; (32x - 2x = 30x)
-	sta 1,s
-
-:pInstruments = 4
-:pInst = 28
-
-	clc
-	pla
-	adc <:pInstruments
-	sta <:pInst
-	lda #0
-	adc <:pInstruments+2
-	sta <:pInst+2
+	tax
+	lda |inst_address_table,x  ; instrument address
+	tax
+	lda |i_volume,x			   ; instrument volume
 
 	sep #$30
-	ldy #sample_volume
-	lda [:pInst],y
-	and #$FF
 	tay
 	and #$F0
 	lsr
