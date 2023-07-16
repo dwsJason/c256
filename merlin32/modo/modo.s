@@ -348,7 +348,7 @@ start   ent             ; make sure start is visible outside the file
 ;------------------------------------------------------------------------------
 PeakMeterRender mx %00
 
-]YPOS = 512+112+1
+]YPOS = 512+112
 ]XPOS = 192-1
 
 ]sprite_no = 16  ; starting sprite index
@@ -360,10 +360,19 @@ PeakMeterRender mx %00
 		beq :disable
 		lda |pump_bar_peaks+]count
 		and #$FF
+		cmp #4
+		bcs :not_zero
+		lda #4
+:not_zero
+		cmp #16*2
+		bcc :ok
+		lda #16*2
+:ok
+		;asl
 		asl
 		eor #$FFFF
 		dec
-		clc
+		;clc
 		adc	#]YPOS
 		
 		sta >SP00_Y_POS_L+{8*]sprite_no}
@@ -468,6 +477,9 @@ PumpBarRender mx %00
 		beq :skip_peak_timer
 		dec
 		sta |pump_bar_peak_timer+]ct
+		bne :skip_peak_timer
+		;lda |pump_bar_levels+]ct
+		stz |pump_bar_peaks+]ct  ; when timer hits zero, so does peak
 :skip_peak_timer
 		lda |pump_bar_levels+]ct
 		beq :skip_level
