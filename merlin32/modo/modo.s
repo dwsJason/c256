@@ -323,6 +323,8 @@ start   ent             ; make sure start is visible outside the file
 ]main_loop
 		jsr WaitVBL
 
+		jsr SpeakerRender
+
 		jsr PumpBarRender
 		jsr PeakMeterRender
 
@@ -344,6 +346,105 @@ start   ent             ; make sure start is visible outside the file
 		jsr OnKeyDown
 
 		bra ]main_loop
+
+;------------------------------------------------------------------------------
+SpeakerRender mx %00
+	
+;		php
+;		sei
+LEFT_SPEAKER_X = 2
+LEFT_SPEAKER_Y = 17
+
+		lda |speaker_tick
+		inc
+		sta |speaker_tick
+		and #1
+		beq :update
+		;rts
+:update
+
+		lda |speaker_frame
+		inc
+		and #$f
+		sta |speaker_frame
+
+		asl
+		tax
+		lda |:source_address,x
+		tax ; speaker source address
+
+
+		
+
+		phkb ^VDMA_CONTROL_REG
+		plb
+
+		sep #$20 ; m=1,x=0
+
+		stz |VDMA_CONTROL_REG ; disabled
+
+		lda #VDMA_CTRL_Enable+VDMA_CTRL_1D_2D ; enable
+		sta |VDMA_CONTROL_REG
+
+		;ldx #{VRAM_SPEAKERS_ANIM_MAP-VRAM}
+		stx |VDMA_SRC_ADDY_L
+		lda #^{VRAM_SPEAKERS_ANIM_MAP-VRAM}
+		sta |VDMA_SRC_ADDY_H
+
+		ldx #{VRAM_SPEAKERS_MAP-VRAM}+{LEFT_SPEAKER_Y*64*2}+{LEFT_SPEAKER_X*2}
+		stx |VDMA_DST_ADDY_L
+		lda #^{VRAM_SPEAKERS_MAP-VRAM}
+		sta |VDMA_DST_ADDY_H
+
+		ldx #14*2
+		stx |VDMA_X_SIZE_L
+		ldy #22 ;*2
+		sty |VDMA_Y_SIZE_L
+
+		stx |VDMA_SRC_STRIDE_L
+
+		ldx #64*2
+		stx |VDMA_DST_STRIDE_L
+
+		lda #VDMA_CTRL_Start_TRF+VDMA_CTRL_Enable+VDMA_CTRL_1D_2D
+		sta |VDMA_CONTROL_REG
+
+;		nop
+;		nop
+;		nop
+;]wait_done
+;		lda |VDMA_STATUS_REG
+;		bmi ]wait_done
+;		nop
+;		stz |VDMA_CONTROL_REG  ; stop
+
+		rep #$31
+
+		plb
+;		plp
+
+		rts
+
+SPEAKER_FRAME_SIZE = 14*2*22
+
+:source_address
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*0}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*1}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*2}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*3}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*4}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*5}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*6}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*7}
+
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*7}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*6}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*5}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*4}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*3}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*2}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*1}
+		da {VRAM_SPEAKERS_ANIM_MAP-VRAM}+{SPEAKER_FRAME_SIZE*0}
 
 ;------------------------------------------------------------------------------
 PeakMeterRender mx %00
@@ -3675,10 +3776,54 @@ speakers_pic_init mx %00
 		pea ^speakers_pic
 		pea speakers_pic
 
-		pea ^VRAM_SPEAKERS_ANIM_MAP
-		pea VRAM_SPEAKERS_ANIM_MAP
-
+		;pea ^VRAM_SPEAKERS_ANIM_MAP
+		;pea VRAM_SPEAKERS_ANIM_MAP
+		pea ^WORKRAM
+		pea WORKRAM
+		; anim map is 224(14)x2816(176) (about 10k)
 		jsl decompress_map
+
+; assign LUT3, and copy to VRAM
+		ldx #{28*176*2}-2
+		clc
+]lp		lda >WORKRAM,x
+		adc #512+{3*$800}  ; start with tile 512, and add bits for LUT3
+		sta >VRAM_SPEAKERS_ANIM_MAP,x
+		dex
+		dex
+		bpl ]lp
+
+; let's make up a BG3, that can scroll a bit
+; we need 800+32+32 x 600 + 32 + 32
+;  864 x 664, or 54x42
+;  why not just make it 64x64, so math is easy (8KB), 1024 pixels
+
+		ldx #{64*64*2}-2
+		lda #512+{3*$800}  ; zero tile
+]lp		sta >VRAM_SPEAKERS_MAP,x
+		dex
+		dex
+		bpl ]lp
+
+;
+; Setup Scroll Registers etc
+;
+		sep #$30
+		lda #TILE_Enable
+		sta >TL1_CONTROL_REG
+		lda #^{VRAM_SPEAKERS_MAP-VRAM}
+		sta >TL1_START_ADDY_H
+		rep #$30
+		lda #{VRAM_SPEAKERS_MAP-VRAM}
+		sta >TL1_START_ADDY_L
+
+		lda #16
+		sta >TL1_WINDOW_X_POS_L
+		sta >TL1_WINDOW_Y_POS_L
+
+		lda #64
+		sta >TL1_TOTAL_X_SIZE_L
+		sta >TL1_TOTAL_Y_SIZE_L
 
 		rts
 
@@ -3900,11 +4045,12 @@ pumpbars_pic_init mx %00
 		sep #$30
 		lda #TILE_Enable
 		sta >TL2_CONTROL_REG
-		lda #{VRAM_PUMPBAR_MAP-VRAM}
-		sta >TL2_START_ADDY_L
+
 		lda #^{VRAM_PUMPBAR_MAP-VRAM}
 		sta >TL2_START_ADDY_H
 		rep #$30
+		lda #{VRAM_PUMPBAR_MAP-VRAM}
+		sta >TL2_START_ADDY_L
 		
 		lda #256
 		sta >TL2_WINDOW_X_POS_L
@@ -4112,6 +4258,9 @@ mod_pump_vol    ds 4*8 ; up to 8 channels, pump bar data
 pump_bar_levels ds 2*8 	   ; for current rendering
 pump_bar_peaks  ds 2*8 	   ; peaks hang on for 1 second
 pump_bar_peak_timer ds 2*8 ; peak gets cleared to 0, when timer hits 0
+
+speaker_tick  ds 2
+speaker_frame ds 2
 
 uninitialized_end ds 0
 	dend
