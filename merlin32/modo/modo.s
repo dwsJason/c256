@@ -36,6 +36,8 @@
 		ext pumpbars_pic
 		ext sprites_pic
 		ext speakers_pic
+		ext dancer_sprites
+		ext background_pic
 
 		ext decompress_lzsa
 		ext MIXFIFO ; for the visualizer
@@ -50,8 +52,10 @@
 ; toggle the original dump code back on, to examine the source info directly from the MOD
 OLD_DUMP equ 0
 
-PUMPBARS_X = 0
-PUMPBARS_Y = 0
+PUMPBARS_X = 208
+PUMPBARS_Y = 336
+SCOPES_X   = PUMPBARS_X+9
+SCOPES_Y   = PUMPBARS_Y+90
 
 
         mx %00
@@ -75,6 +79,8 @@ VICKY_WORK_BUFFER     = $180000
 
 ; Kernel method
 VRAM = $B00000
+
+VRAM_DANCER_SPRITES = $B00000
 
 VRAM_TILE_CAT = $C80000
 VRAM_LOGO_MAP = $B80000
@@ -254,6 +260,9 @@ start   ent             ; make sure start is visible outside the file
 		jsr pumpbars_pic_init
 		jsr sprites_pic_init  ; load sprite tiles, and CLUT
 		jsr speakers_pic_init ; load the speaker frames
+
+		jsr background_pic_init ; load the dance floor
+
 
 ;------------------------------------------------------------------------------
 
@@ -3248,23 +3257,24 @@ InitOscSprites mx %00
 ;		lda #^VRAM_OSC_SPRITES
 ;		sta <:pTile+2
 
-		lda #512
+		lda #SCOPES_Y+32
 		sta |SP00_Y_POS_L,x
 		txa
 		
 		; I want x40
 		;asl
 		;asl
-		;asl  ; x8
+		asl  ; x8
 		pha
-		asl
+		;asl
 		asl  ; x32
 		adc 1,s
 		sta 1,s
 		pla  ; x40
 
 		clc
-		adc #32+80 ; center them
+;		adc #32+80 ; center them
+		adc #SCOPES_X+32
 
 		sta |SP00_X_POS_L,x
 
@@ -3839,6 +3849,121 @@ speakers_pic_init mx %00
 
 		rts
 
+
+;------------------------------------------------------------------------------
+background_pic_init mx %00
+
+; This is going to replace the logo pic, re-use TL3, maybe I'll
+; sort a way to toggle between this, and the original logo
+
+		lda #background_pic
+		ldx #^background_pic
+		jsr c256Init		;$$JGA TODO, make sure better
+
+		; Tile Map Width, and Height
+
+		ldy #8  ; TMAP width offset
+		lda [pTMAP],y
+		sta >TL3_TOTAL_X_SIZE_L
+		iny
+		iny     ; TMAP height offset
+		lda [pTMAP],y
+		inc
+		and #$FFFE
+		sta >TL3_TOTAL_Y_SIZE_L
+
+;
+; Extract CLUT data 
+;
+
+		; source image
+		pea ^background_pic
+		pea background_pic
+
+		; dest address			; Testing new smart decompress
+		pea ^GRPH_LUT4_PTR
+		pea GRPH_LUT4_PTR
+
+		jsl decompress_clut
+
+		; source image
+		pea ^background_pic
+		pea background_pic
+
+		; dest address			; Testing new smart decompress
+		pea ^WORKRAM
+		pea WORKRAM
+
+		jsl decompress_clut
+
+	; background color
+		lda >WORKRAM
+		sta >BACKGROUND_COLOR_B
+		sep #$30
+		lda >WORKRAM+2
+		sta >BACKGROUND_COLOR_R
+		rep #$30
+
+
+;
+; Extract Tiles Data
+;
+
+		; source picture
+		pea ^background_pic
+		pea background_pic
+
+		; destination address
+		pea ^VRAM_BACKGROUND_CAT
+		pea VRAM_BACKGROUND_CAT
+
+		jsl decompress_pixels
+
+;
+; Extract Map Data
+;
+
+		; source picture
+		pea ^background_pic
+		pea background_pic
+
+		; destination address
+		;pea ^VRAM_PUMPBAR_MAP
+		;pea VRAM_PUMPBAR_MAP
+		pea ^WORKRAM
+		pea WORKRAM
+
+		jsl decompress_map
+
+; 100x75 is the size of this thng
+; massage the map data, and store in VRAM
+
+		ldx #{52*40*2}-2
+		clc
+]lp		lda >WORKRAM,x
+		adc #1024+{4*$800}  ; add 256 to start a tile 256, and add bits to enable LUT2
+		sta >VRAM_BACKGROUND_MAP,x
+		dex
+		dex
+		bpl ]lp
+
+		; turn on tile map 3
+		lda #TILE_Enable
+		sta >TL3_CONTROL_REG
+		lda #{VRAM_BACKGROUND_MAP-VRAM}
+		sta >TL3_START_ADDY_L
+		sep #$30
+		lda #^{VRAM_BACKGROUND_MAP-VRAM}
+		sta >TL3_START_ADDY_H
+		rep #$30
+
+		lda #0
+		sta >TL3_WINDOW_X_POS_L
+		lda #16
+		sta >TL3_WINDOW_Y_POS_L
+
+; catalog data inherited
+		rts
 ;------------------------------------------------------------------------------
 
 logo_pic_init mx %00
