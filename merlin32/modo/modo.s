@@ -50,6 +50,10 @@
 ; toggle the original dump code back on, to examine the source info directly from the MOD
 OLD_DUMP equ 0
 
+PUMPBARS_X = 0
+PUMPBARS_Y = 0
+
+
         mx %00
 
 ;------------------------------------------------------------------------------
@@ -99,7 +103,8 @@ MySTACK = STACK_END ;$FEFF Defined in the page_00_inc.asm
 XRES = 800
 YRES = 600
 
-VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
+;VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
+VIDEO_MODE = $017E  ; -- all the things enabled, 800x600
 
 
 ;------------------------------------------------------------------------------
@@ -449,8 +454,12 @@ SPEAKER_FRAME_SIZE = 14*2*22
 ;------------------------------------------------------------------------------
 PeakMeterRender mx %00
 
-]YPOS = 512+112
-]XPOS = 192-1
+;]YPOS = 512+112
+;]XPOS = 192-1
+
+]YPOS = PUMPBARS_Y+105
+]XPOS = PUMPBARS_X+39
+
 
 ]sprite_no = 16  ; starting sprite index
 ]count = 0
@@ -4052,9 +4061,11 @@ pumpbars_pic_init mx %00
 		lda #{VRAM_PUMPBAR_MAP-VRAM}
 		sta >TL2_START_ADDY_L
 		
-		lda #256
+		;lda #256
+		lda #408-PUMPBARS_X
 		sta >TL2_WINDOW_X_POS_L
-		lda #16
+		;lda #16
+		lda #535-PUMPBARS_Y
 		sta >TL2_WINDOW_Y_POS_L
 
 		; catalog data
