@@ -574,7 +574,7 @@ PatternRender mx %00
 		jsr fastLOCATE
 		clc
 		lda <:pBlockAddress
-		adc #{4*4}			; add rowsize
+		adc <mod_row_size			; add rowsize
 		sta <:pBlockAddress
 		bne :cntu
 		inc <:pBlockAddress+2
@@ -1374,7 +1374,7 @@ ModPlayerTick mx %00
 
 		iny
 		iny
-		cpy #4*4
+		cpy <mod_row_size ; 4*4 or 8*4
 		bccl ]lp
 
 ; check for break
@@ -1384,12 +1384,12 @@ ModPlayerTick mx %00
 ; next row, and so on
 		lda <mod_current_row
 		inc
-		cmp #64
+		cmp #64 ; number of rows in the pattern
 		bcs :next_pattern
 		sta <mod_current_row
 		;c=0
 		lda <mod_p_current_pattern
-		adc #4*4
+		adc <mod_row_size ;#4*4 or #8*4
 		sta <mod_p_current_pattern
 		bcc :no_carry
 		inc <mod_p_current_pattern+2
@@ -1507,8 +1507,13 @@ ModInit mx %00
 	lda #4
 	sta <mod_num_tracks
 
+	lda #1024   		   ; most common
+	sta <mod_pattern_size
 
-	stz <SongIsPlaying
+	lda #4*4   		   ; most common
+	sta <mod_row_size
+
+	stz <SongIsPlaying  ; no ticking
 
 	lda :pModInput,s
 	sta <:pMod
@@ -1923,6 +1928,10 @@ ModInit mx %00
 	; First poke in the size of patterns
 	stz <:pSamples+2
 
+; pointer to the samples
+
+	ldx <mod_num_tracks
+
 	lda <:num_patterns
 	xba  ; x 256
 	asl  ; x 512
@@ -1930,7 +1939,16 @@ ModInit mx %00
 	asl  ; x 1024
 	;sta <:pSamples
 	rol <:pSamples+2
-
+	php
+	cpx #4
+	beq :track_continue  ;4 tracks
+	plp
+	; 8 tracks
+	asl ; x 2048
+	rol <:pSamples+2
+	php
+:track_continue
+	plp
 	; c=0
 	adc <:pPatterns
 	sta <:pSamples
@@ -2270,7 +2288,7 @@ ModInit mx %00
 
 ; -----------------------------------------------------------------------------
 ; init the mod_patterns table
-:pCurPattern = 44
+:pCurPattern = lzsa_nibble
 
 	lda <:pPatterns
 	sta <:pCurPattern
@@ -2284,7 +2302,7 @@ ModInit mx %00
 ]lp
 	lda <:pCurPattern
 	sta |mod_patterns,y
-	adc #1024  ; 64*4*4
+	adc <mod_pattern_size  ; 64*4*4
 	sta <:pCurPattern
 
 	lda <:pCurPattern+2
@@ -2315,7 +2333,7 @@ ModInit mx %00
 	jsr myPRINTCR
 	clc
 	lda <:pBlockAddress
-	adc #{4*4}			; add rowsize
+	adc <mod_row_size			; add rowsize
 	sta <:pBlockAddress
 	bne :cntu
 	inc <:pBlockAddress+2
@@ -2615,15 +2633,41 @@ IsSupportedMod mx %00
 		ldy #31					; most common MOD
 		sty <mod_num_instruments
 
+		ldy #4 					; most common
+		sty <mod_num_tracks
+
+		ldy #1024   		   ; most common
+		sty <mod_pattern_size
+
+		ldy #4*4   		   ; most common
+		sty <mod_row_size
+
 		stz <mod_type
 
-		cmp |:supported
+		cmp |:mk
 		bne :no
-		cpx |:supported+2
+		cpx |:mk+2
 		bne :no
 		clc
 		rts
 :no
+		cmp |:8chn
+		bne :not_8chn
+		cpx |:8chn+2
+		bne :not_8chn
+
+		ldy #8  				; 8 tracks
+		sty <mod_num_tracks
+
+		ldy #2048               ; 8 tracks 
+		sty <mod_pattern_size
+
+		ldy #4*8   		        ; 8 tracks 
+		sty <mod_row_size
+
+		clc
+		rts
+:not_8chn
 		sep #$30
 
 		lda <mod_type_code
@@ -2663,13 +2707,13 @@ IsSupportedMod mx %00
 ; if there are no letters here, then it's a 16 instrument mod
 ; like the BETWEEN.MOD I have
 ;
-:supported asc 'M.K.'
+:mk asc 'M.K.'
 
 ; TBD - I feel like I should be able to support all these
 		asc 'M!K!'
 		asc '4CHN'
 		asc '6CHN'
-		asc '8CHN'
+:8chn	asc '8CHN'
 		asc 'FLT4'
 		asc 'FLT8'
 
