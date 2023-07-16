@@ -79,13 +79,16 @@ VRAM = $B00000
 VRAM_TILE_CAT = $C80000
 VRAM_LOGO_MAP = $B80000
 
-;VRAM_PUMPBAR_MAP = $B82000  ; LOGO map is like 5K
-VRAM_PUMPBAR_MAP  = $B90000  ; LOGO map is like 5K, but looks like MAP needs to be 64k aligned to work
-VRAM_PUMPBAR_CAT  = $C90000  ; until we have catalog packing, this is easier
+VRAM_PUMPBAR_MAP = $B82000  ; LOGO map is like 5K
+VRAM_PUMPBAR_CAT  = $C88000  ; until we have catalog packing, this is easier
 VRAM_SPEAKERS_MAP = $BA0000
 VRAM_SPEAKERS_ANIM_MAP = $BA8000  ; for the uncompressed 224x2816 ,map data
-VRAM_SPEAKERS_CAT = $CA0000  ; until we have cat packing, uses 3 banks
-; next available is $CD0000
+VRAM_SPEAKERS_CAT = $C90000  ; until we have cat packing, uses 3 banks
+
+VRAM_BACKGROUND_MAP = $B88000 ; background map data
+VRAM_BACKGROUND_CAT = $CC0000 ; 256K of tiles
+
+; next available is $CC0000
 
 VRAM_OSC_SPRITES  = $C70000 ; OSC visualizer Sprites, 16 sprites, 1K each (32x32)
 VRAM_TILE_SPRITES = $C60000 ; 64 pre-made sprites, in the sprites.256 file
@@ -3796,7 +3799,7 @@ speakers_pic_init mx %00
 		ldx #{28*176*2}-2
 		clc
 ]lp		lda >WORKRAM,x
-		adc #512+{3*$800}  ; start with tile 512, and add bits for LUT3
+		adc #256+{3*$800}  ; start with tile 512, and add bits for LUT3
 		sta >VRAM_SPEAKERS_ANIM_MAP,x
 		dex
 		dex
@@ -3808,7 +3811,7 @@ speakers_pic_init mx %00
 ;  why not just make it 64x64, so math is easy (8KB), 1024 pixels
 
 		ldx #{64*64*2}-2
-		lda #512+{3*$800}  ; zero tile
+		lda #256+{3*$800}  ; zero tile
 ]lp		sta >VRAM_SPEAKERS_MAP,x
 		dex
 		dex
@@ -4041,7 +4044,7 @@ pumpbars_pic_init mx %00
 		ldx #{100*75*2}-2
 		clc
 ]lp		lda >WORKRAM,x
-		adc #256+{2*$800}  ; add 256 to start a tile 256, and add bits to enable LUT2
+		adc #128+{2*$800}  ; add 256 to start a tile 256, and add bits to enable LUT2
 		sta >VRAM_PUMPBAR_MAP,x
 		dex
 		dex
