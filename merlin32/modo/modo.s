@@ -263,6 +263,7 @@ start   ent             ; make sure start is visible outside the file
 
 		jsr background_pic_init ; load the dance floor
 
+		jsr dancer_sprites_init ; 4x216 (map data), 54 frames
 
 ;------------------------------------------------------------------------------
 
@@ -341,6 +342,7 @@ start   ent             ; make sure start is visible outside the file
 		jsr WaitVBL
 
 		jsr SpeakerRender
+		jsr DancerRender
 
 		jsr PumpBarRender
 		jsr PeakMeterRender
@@ -354,7 +356,7 @@ start   ent             ; make sure start is visible outside the file
 		jsr UpdateOSC3Sprite
 		jsr UpdateOSC3SpriteR
 
-		jsr PatternRender
+;		jsr PatternRender
 
 		jsr ReadKeyboard
 
@@ -363,6 +365,70 @@ start   ent             ; make sure start is visible outside the file
 		jsr OnKeyDown
 
 		bra ]main_loop
+
+;------------------------------------------------------------------------------
+DancerRender mx %00
+
+:xpos = temp0
+:ypos = temp1
+
+		ldy #0
+
+		lda <dpJiffy
+		and #1
+		bne :go
+
+		lda |:frame_num
+		inc
+		cmp #{216}/4
+		bcc :aok
+		lda #0
+:aok
+		sta |:frame_num
+:go
+		lda |:frame_num
+		xba
+		lsr
+		lsr
+		lsr
+		tay
+
+		lda #400
+		sta <:xpos
+
+		lda #288-128
+		sta <:ypos
+
+		clc
+
+]spnum = 0
+		lup 16
+]xpos = {]spnum&3}*32
+]ypos = {]spnum/4}*32
+
+		lda #SPRITE_Enable+SPRITE_LUT5
+		sta >SP32_CONTROL_REG+{]spnum*8}
+
+		;lda #0
+		;sta >SP32_ADDY_PTR_L+{]spnum*8}
+
+		lda |dancer_map+{]spnum*2},y
+		asl
+		asl
+		sta >SP32_ADDY_PTR_M+{]spnum*8}
+
+		lda <:xpos
+		adc #]xpos
+		sta >SP32_X_POS_L+{]spnum*8}
+
+		lda <:ypos
+		adc #]ypos
+		sta >SP32_Y_POS_L+{]spnum*8}
+]spnum = ]spnum+1
+		--^
+
+		rts
+:frame_num dw 0
 
 ;------------------------------------------------------------------------------
 SpeakerRender mx %00
@@ -3851,6 +3917,35 @@ speakers_pic_init mx %00
 
 
 ;------------------------------------------------------------------------------
+dancer_sprites_init mx %00
+
+		pea ^dancer_sprites
+		pea dancer_sprites
+
+		pea ^GRPH_LUT5_PTR
+		pea GRPH_LUT5_PTR
+
+		jsl decompress_clut
+
+		pea ^dancer_sprites
+		pea dancer_sprites
+
+		pea ^VRAM_DANCER_SPRITES
+		pea VRAM_DANCER_SPRITES
+
+		jsl decompress_pixels
+
+		pea ^dancer_sprites
+		pea dancer_sprites
+
+		pea ^dancer_map
+		pea dancer_map
+
+		jsl decompress_map
+
+		rts 
+
+;------------------------------------------------------------------------------
 background_pic_init mx %00
 
 ; This is going to replace the logo pic, re-use TL3, maybe I'll
@@ -4400,6 +4495,8 @@ pump_bar_peak_timer ds 2*8 ; peak gets cleared to 0, when timer hits 0
 
 speaker_tick  ds 2
 speaker_frame ds 2
+
+dancer_map ds 2*4*216 ; 1728 bytes
 
 uninitialized_end ds 0
 	dend
