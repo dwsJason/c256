@@ -407,26 +407,26 @@ DancerRender mx %00
 ]ypos = {]spnum/4}*32
 
 		lda #SPRITE_Enable+SPRITE_LUT5
-		sta >SP32_CONTROL_REG+{]spnum*8}
+		sta >SP24_CONTROL_REG+{]spnum*8}
 
 		;lda #0
-		;sta >SP32_ADDY_PTR_L+{]spnum*8}
+		;sta >SP24_ADDY_PTR_L+{]spnum*8}
 
 		lda |dancer_map+{]spnum*2},y
 		asl
 		asl
-		sta >SP32_ADDY_PTR_M+{]spnum*8}
+		sta >SP24_ADDY_PTR_M+{]spnum*8}
 
 		lda <:xpos
 		adc #]xpos
-		sta >SP32_X_POS_L+{]spnum*8}
+		sta >SP24_X_POS_L+{]spnum*8}
 
 		lda <:ypos
 		adc #]ypos
-		sta >SP32_Y_POS_L+{]spnum*8}
+		sta >SP24_Y_POS_L+{]spnum*8}
 ]spnum = ]spnum+1
 		--^
-
+							; next free sprite is SP40
 		rts
 :frame_num dw 0
 
@@ -539,7 +539,7 @@ PeakMeterRender mx %00
 ]XPOS = PUMPBARS_X+39
 
 
-]sprite_no = 16  ; starting sprite index
+]sprite_no = 8  ; starting sprite index
 ]count = 0
 
 		lup 16
@@ -3295,7 +3295,7 @@ InitOscSprites mx %00
 
 ; Clear those sprites to transparent
 		lda #0
-		ldx #32*32*16
+		ldx #32*32*8
 ]clear
 		sta >VRAM_OSC_SPRITES,x
 		dex
@@ -3351,7 +3351,7 @@ InitOscSprites mx %00
 		txa
 		adc #8  ; next sprite tile
 		tax
-		cmp #8*16 ; 16 tiles, because we have 8 channels x 2, for stereo
+		cmp #8*8 ; 8 tiles, because we have 8 channels
 		bcc ]lp
 
 		do 0
