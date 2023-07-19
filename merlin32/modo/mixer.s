@@ -239,6 +239,14 @@ Mstartup mx %00
 
 		rep #$30
 
+]sync_load
+		stz |$AF1908  	; FIFO STORE
+		lda |$AF1904    ; Load some data in the FIFO
+		and #$FFF
+		cmp #256
+		bcc ]sync_load
+
+
         ; Information
         ; The FIFO is 4096 Byte Deep
         ; With a DMA (That is not supported yet) (1 Read, 1 Write) - Fastest Time to fill the FiFo is 572us 
