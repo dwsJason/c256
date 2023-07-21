@@ -89,6 +89,13 @@
         lna     modo.s16      	; Load Name ('dma.s16') 
         sna     data4           ; Segment Name ('data1')
 
+        asm     data5.s         ; sourcefile
+        ds      0               ; extra 0's to add to the segment
+        knd     $0001           ; Type and Attr ($00=Static,$01=Data)
+        ali     none            ; Boundary Alignment
+        lna     modo.s16      	; Load Name ('dma.s16') 
+        sna     data5           ; Segment Name ('data1')
+
 
 		asm		magic.s
 		ds		0

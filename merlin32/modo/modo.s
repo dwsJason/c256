@@ -37,6 +37,7 @@
 		ext sprites_pic
 		ext speakers_pic
 		ext dancer_sprites
+		ext sonic_sprites
 		ext background_pic
 
 		ext decompress_lzsa
@@ -80,15 +81,18 @@ VICKY_WORK_BUFFER     = $180000
 ; Kernel method
 VRAM = $B00000
 
-VRAM_DANCER_SPRITES = $B00000
+VRAM_DANCER_SPRITES = $B00000 ; 512k
 
 VRAM_TILE_CAT = $C80000
 VRAM_LOGO_MAP = $B80000
-
 VRAM_PUMPBAR_MAP = $B82000  ; LOGO map is like 5K
+
 VRAM_PUMPBAR_CAT  = $C88000  ; until we have catalog packing, this is easier
-VRAM_SPEAKERS_MAP = $BA0000
-VRAM_SPEAKERS_ANIM_MAP = $BA8000  ; for the uncompressed 224x2816 ,map data
+VRAM_SPEAKERS_MAP = $B90000
+VRAM_SPEAKERS_ANIM_MAP = $B98000  ; for the uncompressed 224x2816 ,map data
+
+VRAM_SONIC_SPRITES = $BC0000 ; 256k
+
 VRAM_SPEAKERS_CAT = $C90000  ; until we have cat packing, uses 3 banks
 
 VRAM_BACKGROUND_MAP = $B88000 ; background map data
@@ -264,6 +268,7 @@ start   ent             ; make sure start is visible outside the file
 		jsr background_pic_init ; load the dance floor
 
 		jsr dancer_sprites_init ; 4x216 (map data), 54 frames
+		jsr sonic_sprites_init  ; 2x126 (map data), 63 frames
 
 ;------------------------------------------------------------------------------
 
@@ -343,6 +348,7 @@ start   ent             ; make sure start is visible outside the file
 
 		jsr SpeakerRender
 		jsr DancerRender
+		jsr SonicRender
 
 		jsr PumpBarRender
 		jsr PeakMeterRender
@@ -429,6 +435,72 @@ DancerRender mx %00
 							; next free sprite is SP40
 		rts
 :frame_num dw 0
+
+
+;------------------------------------------------------------------------------
+; 2x2 sprites
+; 63 frames
+; 
+SonicRender mx %00
+
+:xpos = temp0
+:ypos = temp1
+
+		ldy #0
+
+		lda <dpJiffy
+		and #3
+		bne :go
+
+		lda |:frame_num
+		inc
+		cmp #{126}/2
+		bcc :aok
+		lda #0
+:aok
+		sta |:frame_num
+:go
+		lda |:frame_num
+		asl
+		asl
+		asl
+		tay
+
+		lda #300
+		sta <:xpos
+
+		lda #288-64
+		sta <:ypos
+
+		clc
+
+]spnum = 0
+		lup 4
+]xpos = {]spnum&1}*32
+]ypos = {]spnum/2}*32
+
+		lda #SPRITE_Enable+SPRITE_LUT6
+		sta >SP40_CONTROL_REG+{]spnum*8}
+
+		lda |sonic_map+{]spnum*2},y
+		asl
+		asl
+		adc #>{VRAM_SONIC_SPRITES-VRAM}
+		sta >SP40_ADDY_PTR_M+{]spnum*8}
+
+		lda <:xpos
+		adc #]xpos
+		sta >SP40_X_POS_L+{]spnum*8}
+
+		lda <:ypos
+		adc #]ypos
+		sta >SP40_Y_POS_L+{]spnum*8}
+]spnum = ]spnum+1
+		--^
+							; next free sprite is SP44
+		rts
+:frame_num dw 0
+
 
 ;------------------------------------------------------------------------------
 SpeakerRender mx %00
@@ -3946,6 +4018,36 @@ dancer_sprites_init mx %00
 		rts 
 
 ;------------------------------------------------------------------------------
+sonic_sprites_init mx %00
+
+		pea ^sonic_sprites
+		pea sonic_sprites
+
+		pea ^GRPH_LUT6_PTR
+		pea GRPH_LUT6_PTR
+
+		jsl decompress_clut
+
+		pea ^sonic_sprites
+		pea sonic_sprites
+
+		pea ^VRAM_SONIC_SPRITES
+		pea VRAM_SONIC_SPRITES
+
+		jsl decompress_pixels
+
+		pea ^sonic_sprites
+		pea sonic_sprites
+
+		pea ^sonic_map
+		pea sonic_map
+
+		jsl decompress_map
+
+		rts 
+
+
+;------------------------------------------------------------------------------
 background_pic_init mx %00
 
 ; This is going to replace the logo pic, re-use TL3, maybe I'll
@@ -4497,6 +4599,7 @@ speaker_tick  ds 2
 speaker_frame ds 2
 
 dancer_map ds 2*4*216 ; 1728 bytes
+sonic_map  ds 2*2*126  ;  504 bytes
 
 uninitialized_end ds 0
 	dend
