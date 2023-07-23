@@ -52,6 +52,7 @@
 
 ; toggle the original dump code back on, to examine the source info directly from the MOD
 OLD_DUMP equ 0
+LOOP_FIX equ 1
 
 PUMPBARS_X = 208
 PUMPBARS_Y = 336
@@ -116,8 +117,8 @@ MySTACK = STACK_END ;$FEFF Defined in the page_00_inc.asm
 XRES = 800
 YRES = 600
 
-;VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
-VIDEO_MODE = $017E  ; -- all the things enabled, 800x600
+VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
+;VIDEO_MODE = $017E  ; -- all the things enabled, 800x600
 
 
 ;------------------------------------------------------------------------------
@@ -346,23 +347,23 @@ start   ent             ; make sure start is visible outside the file
 ]main_loop
 		jsr WaitVBL
 
-		jsr SpeakerRender
-		jsr DancerRender
-		jsr SonicRender
+;		jsr SpeakerRender
+;		jsr DancerRender
+;		jsr SonicRender
 
-		jsr PumpBarRender
-		jsr PeakMeterRender
+;		jsr PumpBarRender
+;		jsr PeakMeterRender
 
-		jsr UpdateOSC0Sprite
-		jsr UpdateOSC0SpriteR
-		jsr UpdateOSC1Sprite
-		jsr UpdateOSC1SpriteR
-		jsr UpdateOSC2Sprite
-		jsr UpdateOSC2SpriteR
-		jsr UpdateOSC3Sprite
-		jsr UpdateOSC3SpriteR
+;		jsr UpdateOSC0Sprite
+;		jsr UpdateOSC0SpriteR
+;		jsr UpdateOSC1Sprite
+;		jsr UpdateOSC1SpriteR
+;		jsr UpdateOSC2Sprite
+;		jsr UpdateOSC2SpriteR
+;		jsr UpdateOSC3Sprite
+;		jsr UpdateOSC3SpriteR
 
-;		jsr PatternRender
+		jsr PatternRender
 
 		jsr ReadKeyboard
 
@@ -1956,13 +1957,21 @@ ModInit mx %00
 
 	inc |i_loop,x  ; mark it as looping
 
+	do LOOP_FIX
+
+	;dec
+	;dec
+	;dec
+
+	asl
+	rol |i_sample_loop_end+2,x
+	asl
+	rol |i_sample_loop_end+2,x
+	sta |i_sample_loop_end,x  	; this is just the loop length at this point, temporary
+	fin
+
 :no_loop
 
-	;asl
-	;rol |i_sample_loop_end+2,x
-	;asl
-	;rol |i_sample_loop_end+2,x
-	;sta |i_sample_loop_end,x  	; this is just the loop length at this point, temporary
 
 	iny
 	iny
@@ -2355,6 +2364,7 @@ ModInit mx %00
 	ldy #sample_loop_start
 	lda [:pInst],y
 	xba
+	ora #0
 	bne :itloops
 
 	; maybe it loops
@@ -2367,25 +2377,19 @@ ModInit mx %00
 :itloops
 ; A is 1/2 the offset to the loop (there's not enough bits to ASL)
 
-	pha
+	asl
+	rol <:pLoop+2
+	asl
+	rol <:pLoop+2
 
 	; Add it once
-	lda <:pVRAM
-	adc 1,s
+	; c=0
+	adc <:pVRAM
 	sta <:pLoop
+
 	lda <:pVRAM+2
-	adc #0
+	adc <:pLoop+2
 	sta <:pLoop+2
-
-	clc
-	pla
-	; Add it again
-	adc <:pLoop
-	sta <:pLoop
-	lda <:pLoop+2
-	adc #0
-	sta <:pLoop+2
-
 
 :noloops
 
@@ -2445,7 +2449,41 @@ ModInit mx %00
 	; we need a pointer back to the loop point, and need to perform circular
 	; copy to fill in the padding, to make the looping work with my mixer
 
-; -- $$ I just realized this is all broken
+; Adjust :pVRAM, so that it's the loop point + loop length
+; instead of the end of the wave, because many sample don't loop on the end
+; but all samples should loop at loop-point + length
+
+	do LOOP_FIX
+
+	lda <:pLoop
+	ora <:pLoop+2
+	beq :not_looping
+
+	stz |:wr+1  ; math
+
+	ldy #sample_loop_length
+	lda [:pInst],y
+	xba
+
+	;dec
+	;dec
+	;dec
+
+	asl 	  			; this needs to support len * 4, not * 2
+	rol |:wr+1
+	asl
+	rol |:wr+1
+
+	; c=0
+	adc <:pLoop
+	sta <:pVRAM
+
+	lda <:pLoop+2
+:wr	adc #0
+	sta <:pVRAM+2
+
+:not_looping
+	fin
 
 	ldx #1024 ; we need 1024 more samples
 
@@ -2659,8 +2697,6 @@ ModInit mx %00
 ;	sbc #0
 ;	sta <i_sample_loop_start+2,x
 
-
-
 :doesloop
 	clc
 	lda <i_sample_start_addr,x
@@ -2670,6 +2706,23 @@ ModInit mx %00
 	adc <i_sample_loop_start+2,x
 	sta <i_sample_loop_start+2,x
 
+	do LOOP_FIX
+
+	lda <i_loop,x
+	beq :no_loop_again
+
+	clc
+	lda <i_sample_loop_start,x
+	adc <i_sample_loop_end,x	 	; loop end is the loop size
+	sta <i_sample_loop_end,x		; becomes the the end address
+	lda <i_sample_loop_start+2,x
+	adc <i_sample_loop_end+2,x
+	sta <i_sample_loop_end+2,x
+	bra :doesloop2
+
+	fin
+
+:no_loop_again
 	clc
 	lda <i_sample_start_addr,x
 	adc <i_sample_length,x
@@ -2678,6 +2731,7 @@ ModInit mx %00
 	adc <i_sample_length+2,x
 	sta <i_sample_loop_end+2,x
 
+:doesloop2
 	clc
 	lda <i_sample_loop_end,x
 	adc #1024*2 ; make 4.0 play rate
