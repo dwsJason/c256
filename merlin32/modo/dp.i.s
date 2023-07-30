@@ -66,6 +66,8 @@ mod_temp0			ds 4
 mod_temp1           ds 4
 mod_temp2			ds 4
 mod_temp3			ds 4
+mod_temp4			ds 4
+mod_temp5			ds 4
 
 
 

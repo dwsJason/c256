@@ -117,8 +117,8 @@ MySTACK = STACK_END ;$FEFF Defined in the page_00_inc.asm
 XRES = 800
 YRES = 600
 
-VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
-;VIDEO_MODE = $017E  ; -- all the things enabled, 800x600
+;VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
+VIDEO_MODE = $017E  ; -- all the things enabled, 800x600
 
 
 ;------------------------------------------------------------------------------
@@ -347,23 +347,23 @@ start   ent             ; make sure start is visible outside the file
 ]main_loop
 		jsr WaitVBL
 
-;		jsr SpeakerRender
-;		jsr DancerRender
-;		jsr SonicRender
+		jsr SpeakerRender
+		jsr DancerRender
+		jsr SonicRender
 
-;		jsr PumpBarRender
-;		jsr PeakMeterRender
+		jsr PumpBarRender
+		jsr PeakMeterRender
 
-;		jsr UpdateOSC0Sprite
-;		jsr UpdateOSC0SpriteR
-;		jsr UpdateOSC1Sprite
-;		jsr UpdateOSC1SpriteR
-;		jsr UpdateOSC2Sprite
-;		jsr UpdateOSC2SpriteR
-;		jsr UpdateOSC3Sprite
-;		jsr UpdateOSC3SpriteR
+		jsr UpdateOSC0Sprite
+		jsr UpdateOSC0SpriteR
+		jsr UpdateOSC1Sprite
+		jsr UpdateOSC1SpriteR
+		jsr UpdateOSC2Sprite
+		jsr UpdateOSC2SpriteR
+		jsr UpdateOSC3Sprite
+		jsr UpdateOSC3SpriteR
 
-		jsr PatternRender
+;		jsr PatternRender
 
 		jsr ReadKeyboard
 
@@ -1379,8 +1379,11 @@ ModPlayerTick mx %00
 :break_row = mod_temp2+2
 :osc_x = mod_temp3
 :vol   = mod_temp3+2
+:jump = mod_temp4
+:jump_order = mod_temp4+2
 
 		stz <:break
+		stz <:jump
 
 		;lda #$2020 ; $$JGA TODO, adjust the volume over in the volume table construction, instead of here
 		;sta <:vol
@@ -1513,8 +1516,13 @@ ModPlayerTick mx %00
 		bra :after_effect
 :sample_offset
 :vol_slide
-:jump_to_pattern
 		bra :after_effect
+:jump_to_pattern
+		inc <:jump
+		stz <:break_row    ; we always use this as the row
+		lda <:effect_parm
+		sta <:jump_order
+		bra :after_effect  ; if a break is encountered after this in the row, it change the the jump_row, which is the same as the break row
 :set_volume
 		pei <:vol
 
@@ -1650,6 +1658,10 @@ ModPlayerTick mx %00
 		cpy <mod_row_size ; 4*4 or 8*4
 		bccl ]lp
 
+; check for jump
+		lda <:jump
+		bne :perform_jump  ; if we jump, we don't break
+
 ; check for break
 		lda <:break
 		bne :perform_break
@@ -1684,23 +1696,23 @@ ModPlayerTick mx %00
 		stz <SongIsPlaying
 		rts
 
-:perform_break
-		jsr :next_pattern
+:perform_jump
+		; the next pattern is <:jump_order
+		lda <:jump_order
+		sta <mod_pattern_index
 
-		lda <:break_row  ; 16 bytes in a row, for now
+		lda <:break_row
 		sta <mod_current_row
 
-		asl
-		asl
-		asl
-		asl
-		adc <mod_p_current_pattern
-		sta <mod_p_current_pattern
-		lda <mod_p_current_pattern+2
-		adc #0
-		sta <mod_p_current_pattern+2
+		bra ModSetPatternPtr
 
-		rts
+:perform_break
+		inc <mod_current_row
+
+		lda <:break_row
+		sta <mod_current_row
+
+		bra ModSetPatternPtr
 
 ;------------------------------------------------------------------------------
 ; ModPlay (play the current Mod)
