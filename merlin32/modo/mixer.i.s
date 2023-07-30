@@ -16,6 +16,10 @@
 ; Reserve 64k, mixer work ram, first 8k is the volume tables
 MIXER_WORKRAM = $010000
 
+; If this is defined to 1, then we support waves that cross bank boundaries
+; it's a little more expensive, but, it's also really cool
+SUPPORT_LARGE_WAVES equ 1
+
 
 VOICES   equ 8
 DAC_RATE equ 24000

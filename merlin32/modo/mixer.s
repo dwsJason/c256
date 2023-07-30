@@ -21,7 +21,6 @@
 		; kernel things
 		put ..\phx\kernel_inc.asm
 
-
 		mx %00
 
 ; Dispatch
@@ -112,7 +111,11 @@ Mstartup mx %00
 		ldx #7
 		lda #$0100  ; 1.0
 ]lp
+		do SUPPORT_LARGE_WAVES
+		jsl SetChannelFreqSpanBank  ; silence is at location $A000 or some shit
+		else
 		jsl SetChannelFreq
+		fin
 		dex
 		bpl ]lp
 
@@ -138,8 +141,13 @@ Mstartup mx %00
 		stz <osc_loop_size,x
 		stz <osc_loop_size+2,x
 
-		lda #$0100 ; 1.0 - going 9 bits frequency resolution (frequency accrurate to 46.875hz)
+		lda #$0100 ; 1.0 - $$TODO -> I want to be going 9 bits frequency resolution (frequency accrurate to 46.875hz), 
 		sta <osc_frequency,x
+
+;		do SUPPORT_LARGE_WAVES
+;		ora #$8000  			; silence at $A000
+;		fin
+
 		sta <osc_set_freq,x
 		asl
 		sta <osc_frame_size+1,x
@@ -748,11 +756,10 @@ ResampleOSC7 mx %00
 
 		
 ;------------------------------------------------------------------------------
-; lda #Freq   ; 7.9 fixed point
+; lda #Freq   ; 8.8 fixed point
 ; ldx #OSC Number
 ; 
 SetChannelFreq mx %00
-SetFrequency mx %00
 
 	pha
 	phx
@@ -816,6 +823,90 @@ SetFrequency mx %00
 	da ResampleOSC5		
 	da ResampleOSC6		
 	da ResampleOSC7
+
+
+	do SUPPORT_LARGE_WAVES
+;------------------------------------------------------------------------------
+; lda #Freq   ; 8.8 fixed point
+; ldx #OSC Number
+;
+; This starts the absolute index at $8000, so we can index 64k of RAM
+; for example $02/8000 -> $03/7FFF.. allowing our data to span banks
+; without impacting the resampling speed.
+;
+; This runs 3 clocks per sample slower than the non-span version, where
+; the index starts at $0000 (768 clocks in a run, if that happend on 8 tracks
+; at once it would cost 6144 cycles),  that would be rare, but we could
+; actually run out of time.  In practice in the MOD player, this should not
+; happen.
+;
+SetChannelFreqSpanBank mx %00
+
+	pha
+	phx
+	phy
+
+	phb
+	phk
+	plb
+
+	phd
+	pea $100
+	pld
+
+	; A = Freq in 8.8 fixed point format (24000/256) = 93.75hz
+	;
+	; I think it's possible to squeeze 4 more bits out of here, but it will
+	; slow this function down, since I would be able to read raw bytes
+	;
+	; Here's what we theoretically would get, just by fixing this function:
+	; 7.9 fixed point format (24000/512) = 46.875 hz
+	; 6.10 would give us (24000/1024)  = 23.437 hz
+	; 5.11 would give us (24000/2048)  = 11.71  hz
+	; 4.12 would give us (24000/4096)  =  5.85  hz
+	; 3.13 would give us (24000/8192)  =  2.93  hz
+	; 2.14 would give us (24000/16384) =  1.46  hz
+	asl
+	sta <UNSIGNED_MULT_A_LO
+
+	txa
+	asl
+	tax
+	lda |:osc_table,x
+	tax
+
+	ldy #$FFFF
+	
+; loop 256 times
+]offset = 0
+	lup 256
+	iny 						; 2
+	sty <UNSIGNED_MULT_B_LO 	; 4
+	lda <UNSIGNED_MULT_AL_HI	; 4
+	and #$FFFE  				; 3
+	ora #$8000				    ; 3
+	sta |]offset+1,x  			; 5   ; 21 * 256 = 5376
+]offset = ]offset+17
+	--^
+	pld
+	plb
+
+	ply
+	plx
+	pla
+	rtl
+		
+:osc_table
+	da ResampleOSC0		
+	da ResampleOSC1		
+	da ResampleOSC2		
+	da ResampleOSC3		
+	da ResampleOSC4		
+	da ResampleOSC5		
+	da ResampleOSC6		
+	da ResampleOSC7
+
+	fin
 			
 ;------------------------------------------------------------------------------
 ; 4096 - bytes   - for the 24Khz mixer, we push 2048 bytes at a time (for 48khz mixer, we push 1024)
@@ -840,6 +931,40 @@ sizeof_resampler = ResampleOSC1-ResampleOSC0
 
 	lup 8
 
+	do SUPPORT_LARGE_WAVES
+
+	lda <osc_pWave+1+]offset
+	and #$8000
+	ora <osc_frequency+]offset
+	cmp <osc_set_freq+]offset
+	beq freq_ok
+
+	sta <osc_set_freq+]offset  ; so we know it's good
+
+	asl  ; part of the freq resolution upgrade
+	sta <osc_frame_size+1+]offset
+	ldx #]osc
+	bcc wave_is_low
+	; wave is high
+
+	lsr 
+	jsl SetChannelFreqSpanBank ; the resampler adds $8000 to each address, definitely not enough time to do 8 of these at once
+
+	lda #$7FFE  ; take that high bit out of the wave pointer address
+	sta >ma+1
+	bra freq_ok
+
+wave_is_low
+
+	lsr
+	jsl SetChannelFreq   ; is there time to do 8 of these at once?  Doubt it.
+
+	lda #$FFFE
+	sta >ma+1
+
+	else
+
+	; Original Non Bank span stuff
 	lda <osc_frequency+]offset
 	cmp <osc_set_freq+]offset
 	beq freq_ok
@@ -852,12 +977,14 @@ sizeof_resampler = ResampleOSC1-ResampleOSC0
 	ldx #]osc
 	jsl SetChannelFreq   ; is there time to do 8 of these at once?  Doubt it.
 
+	fin
+
 freq_ok
 	pei osc_pWave+2+]offset
 	plb
 	plb
 	lda <osc_pWave+1+]offset 
-	and #$FFFE
+ma	and #$FFFE
 	tay
 	jsl ResampleOSC0+{]osc*sizeof_resampler}
 
