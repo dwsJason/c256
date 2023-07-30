@@ -1683,7 +1683,7 @@ ModPlayerTick mx %00
 
 :next_pattern
 		stz <mod_current_row
-
+:nxtp_leave_row
 		lda <mod_pattern_index
 		inc
 		cmp <mod_song_length
@@ -1707,12 +1707,11 @@ ModPlayerTick mx %00
 		bra ModSetPatternPtr
 
 :perform_break
-		inc <mod_current_row
 
 		lda <:break_row
 		sta <mod_current_row
 
-		bra ModSetPatternPtr
+		bra :nxtp_leave_row
 
 ;------------------------------------------------------------------------------
 ; ModPlay (play the current Mod)
