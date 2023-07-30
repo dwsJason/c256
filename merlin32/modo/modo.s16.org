@@ -7,5 +7,9 @@
 
 RESET org $FFFC
 Main  org $2100
+data2 org $100000     ; work around bug with parsing this file
+data3 org $60000     ; work around bug with parsing this file
+data4 org $80000     ; work around bug with parsing this file
+data5 org $B0000     ; work around bug with parsing this file
 data1 org $280000    ; put the mod file here
 

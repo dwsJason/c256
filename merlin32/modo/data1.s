@@ -13,6 +13,11 @@ toms_diner ent
 	putbin data\mods\CD2PART1.MOD
 ;	putbin data\mods\cd2part2.MOD
 
+;	putbin ..\..\mods\MOD.majortom
+;	putbin ..\..\mods\MOD.depeche-mode1
+;	putbin ..\..\mods\MOD.Depeche Mode Megamix
+;	putbin ..\..\mods\MOD.BLT (New Order)
+
 ;	putbin ..\..\mods\MOBY\MOD.(Abracadabra)babayaga
 ;	putbin ..\..\mods\MOBY\MOD.(Cougar Force)cougar2
 ;	putbin ..\..\mods\MOBY\MOD.(Fascination)sea of love
@@ -24,10 +29,8 @@ toms_diner ent
 ;	putbin ..\..\mods\MOBY\MOD.skyflan
 ;	putbin ..\..\mods\MOBY\MOD.skymaaaan2
 
-
-
 ;	putbin data\mods\between.mod
-	putbin data\mods\tomsdine.mod
+;	putbin data\mods\tomsdine.mod
 ;	putbin data\mods\dru.mod
 ;	putbin ..\..\mods\world of spirits.mod
 ;   putbin data\mods\mobyle.mod
@@ -58,57 +61,59 @@ toms_diner ent
 ;   putbin ..\..\mods\nearly_there_.mod
 ;   putbin ..\..\mods\neger.mod
 
-;   putbin ..\..\mods\amegas.mod
+;   putbin ..\..\mods\amegas.mod 	; good, clean
 
-;   putbin ..\..\mods\OCC-SAN.MOD
+;   putbin ..\..\mods\OCC-SAN.MOD ; good, clean
 ;   putbin ..\..\mods\purple_motion_-_sundance.mod
-;	putbin ..\..\mods\10_-_the_riddler.mod
+;	putbin ..\..\mods\10_-_the_riddler.mod ; good, clean
 ;   putbin ..\..\mods\TECH31.MOD
-;   putbin ..\..\mods\TEDBEAR.MOD
+;   putbin ..\..\mods\TEDBEAR.MOD ; very clean
 
-
-
-;NEED JUMP SUPPORT
-;	putbin data\mods\savage.mod
-;NEEDS BANK SPAN SUPPORT
-;	putbin ..\..\mods\MOBY\MOD.88, funky avenue
-;	putbin ..\..\mods\MOBY\MOD.2good2b true
-;   putbin ..\..\mods\street_j.mod
-;	putbin ..\..\mods\stardstm.mod
-;   putbin ..\..\mods\SHADOWRU.MOD
-;   putbin ..\..\mods\aftertouch.mod
-;   putbin ..\..\mods\95-ravers-megamix.mod
-;	putbin ..\..\mods\fountain.mod
-;	putbin ..\..\mods\bm1992.mod		 ; blue monday could be really good
-;NO   putbin ..\..\mods\Tecon - Immaterial.mod
-;NO   putbin ..\..\mods\skogen11.mod
-;NO	putbin ..\..\mods\_dark_.mod
-;	putbin data\mods\seaoflov.mod
-;   putbin data\mods\space_debris.mod
-;	putbin data\mods\2good2be.mod
-;   putbin data\mods\GSLINGER.MOD
-;   putbin data\mods\axel_f_-_dj_metune.mod
-; NEEDS MORE THAN JUST SPAN
-;NO	putbin ..\..\mods\class09.mod
-;NO	putbin ..\..\mods\chubb1-1.mod
-;NO   putbin data\mods\1990chip.mod
-;NO   putbin data\mods\knulla-kuk.mod
-;NO   putbin data\mods\Module11.mod
-;NONO	putbin ..\..\mods\back_again.mod
-;NO	putbin ..\..\mods\dope.mod
-;NO    putbin ..\..\mods\random_voice_-_monday.mod
-; fix the loop point problem
-;	putbin ..\..\mods\desert2.mod
 ;   putbin ..\..\mods\THEDREAM.MOD
 ;	putbin ..\..\mods\scrambld.mod
 ;   putbin ..\..\mods\projectx.mod
 ;   putbin ..\..\mods\playingw.mod
-;   putbin ..\..\mods\physical_presence.mod
 ;   putbin ..\..\mods\oh yeah.mod
 ;   putbin ..\..\mods\addicti.mod
 ;   putbin ..\..\mods\munk-jam.mod
 ;   putbin ..\..\mods\klisje.mod
 ;	putbin ..\..\mods\cream_of_the_earth.mod
 ;	putbin ..\..\mods\desert2.mod
-;   putbin ..\..\mods\hymn_to_aurora.mod	
+;   putbin ..\..\mods\hymn_to_aurora.mod   ; great
+;   putbin data\mods\knulla-kuk.mod		   ; good
+
+;NEED FINETUNE SUPPORT, otherwise sounding good
+;	putbin ..\..\mods\what_is_love.mod  ; needs fine tune
+
+;NEED JUMP SUPPORT + BANK SPAN
+;	putbin data\mods\savage.mod
+;NEEDS BANK SPAN SUPPORT
+;   putbin ..\..\mods\physical_presence.mod  ; needs fine tune
+;	putbin ..\..\mods\MOBY\MOD.88, funky avenue ; sample loops don't sound right
+;	putbin ..\..\mods\MOBY\MOD.2good2b true ; some loops don't sound right
+;   putbin ..\..\mods\street_j.mod
+;	putbin ..\..\mods\stardstm.mod
+;   putbin ..\..\mods\SHADOWRU.MOD
+;   putbin ..\..\mods\aftertouch.mod
+;   putbin ..\..\mods\95-ravers-megamix.mod ; LOOONG, and good
+;	putbin ..\..\mods\fountain.mod
+;	putbin ..\..\mods\bm1992.mod		 ; blue monday could be really good, still not perfect
+;   putbin ..\..\mods\Tecon - Immaterial.mod
+;   putbin ..\..\mods\skogen11.mod
+;	putbin ..\..\mods\_dark_.mod
+;	putbin data\mods\seaoflov.mod
+;   putbin data\mods\space_debris.mod
+;	putbin data\mods\2good2be.mod
+;   putbin data\mods\GSLINGER.MOD  ; some loops seem bad
+;   putbin data\mods\axel_f_-_dj_metune.mod
+; NEEDS MORE THAN JUST SPAN
+;NO	putbin ..\..\mods\class09.mod
+;	putbin ..\..\mods\chubb1-1.mod
+;NO  putbin data\mods\1990chip.mod
+;	putbin ..\..\mods\back_again.mod
+;    putbin ..\..\mods\random_voice_-_monday.mod
+; fix the loop point problem
+; bank span
+;NO 28CH   putbin ..\..\mods\dope.mod
+;NO 14CH   putbin data\mods\Module11.mod ; 14CH
 
