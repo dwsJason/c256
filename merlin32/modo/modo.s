@@ -2582,8 +2582,11 @@ ModInit mx %00
 ;$$JGA Temp hack, to keep samples from spanning banks
 ;$$JGA TODO, REMOVE THIS CODE WHEN BANK SPANNER IS WORKING
 
-	inc <:pVRAM+2
+	do SUPPORT_LARGE_WAVES
+	else
+	inc <:pVRAM+2   	  	; conditional compile
 	stz <:pVRAM
+	fin
 
 
 :skip_empty
