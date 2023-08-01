@@ -117,8 +117,8 @@ MySTACK = STACK_END ;$FEFF Defined in the page_00_inc.asm
 XRES = 800
 YRES = 600
 
-;VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
-VIDEO_MODE = $017E  ; -- all the things enabled, 800x600
+VIDEO_MODE = $017F  ; -- all the things enabled, 800x600
+;VIDEO_MODE = $017E  ; -- all the things enabled, 800x600
 
 
 ;------------------------------------------------------------------------------
@@ -347,23 +347,23 @@ start   ent             ; make sure start is visible outside the file
 ]main_loop
 		jsr WaitVBL
 
-		jsr SpeakerRender
-		jsr DancerRender
-		jsr SonicRender
+;		jsr SpeakerRender
+;		jsr DancerRender
+;		jsr SonicRender
 
-		jsr PumpBarRender
-		jsr PeakMeterRender
+;		jsr PumpBarRender
+;		jsr PeakMeterRender
 
-		jsr UpdateOSC0Sprite
-		jsr UpdateOSC0SpriteR
-		jsr UpdateOSC1Sprite
-		jsr UpdateOSC1SpriteR
-		jsr UpdateOSC2Sprite
-		jsr UpdateOSC2SpriteR
-		jsr UpdateOSC3Sprite
-		jsr UpdateOSC3SpriteR
+;		jsr UpdateOSC0Sprite
+;		jsr UpdateOSC0SpriteR
+;		jsr UpdateOSC1Sprite
+;		jsr UpdateOSC1SpriteR
+;		jsr UpdateOSC2Sprite
+;		jsr UpdateOSC2SpriteR
+;		jsr UpdateOSC3Sprite
+;		jsr UpdateOSC3SpriteR
 
-;		jsr PatternRender
+		jsr PatternRender
 
 		jsr ReadKeyboard
 
@@ -968,6 +968,14 @@ PlayInstrument mx %00
 		sta <osc_pWaveEnd+1,x
 		lda |i_sample_loop_end+1,y
 		sta <osc_pWaveEnd+2,x
+
+		sec
+		lda <osc_pWaveEnd+2,x
+		sbc <osc_pWaveLoop+2,x
+		sta <osc_loop_size+2,x
+		lda <osc_pWaveEnd,x
+		sbc <osc_pWaveLoop,x
+		sta <osc_loop_size,x
 
 		plp
 
@@ -1639,6 +1647,15 @@ ModPlayerTick mx %00
 		sta <osc_pWaveEnd+1,x
 		lda |i_sample_loop_end+1,y
 		sta <osc_pWaveEnd+2,x
+
+		; need proper loop size, for the loop logic $$TODO, consider removing this field
+		sec
+		lda <osc_pWaveEnd+2,x
+		sbc <osc_pWaveLoop+2,x
+		sta <osc_loop_size+2,x
+		lda <osc_pWaveEnd,x
+		sbc <osc_pWaveLoop,x
+		sta <osc_loop_size,x
 
 :no_sample
 		ply ; restore y
@@ -3992,6 +4009,14 @@ speakers_pic_init mx %00
 		pea GRPH_LUT3_PTR
 
 		jsl decompress_clut
+
+;		nop
+;		nop
+;		nop
+;]wait   bra ]wait
+;		nop
+;		nop
+;		nop
 
 		pea ^speakers_pic
 		pea speakers_pic
