@@ -66,6 +66,7 @@ sizeof_osc ds 0  	; needs to be less than 32 (31 or under)
 
 		dum {sizeof_osc*8}
 osc_delta ds 4
+osc_log ds 2
 		dend
 
 

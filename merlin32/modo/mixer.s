@@ -925,6 +925,22 @@ SetChannelFreqSpanBank mx %00
 ;
 osc_update mx %00
 
+	do 0
+LOGDATA = $70000
+	ldx <osc_log
+	lda <osc_pWave+1
+	xba
+	sta >LOGDATA+2,x
+	lda <osc_pWave+3
+	xba
+	sta >LOGDATA+0,x
+
+	clc
+	txa
+	adc #4
+	sta <osc_log
+	fin
+
 sizeof_resampler = ResampleOSC1-ResampleOSC0
 ]offset = 0
 ]osc    = 0
@@ -1039,6 +1055,15 @@ mod
 	sta >UNSIGNED_DIV_NUM_LO
 	lda >UNSIGNED_DIV_REM_LO
 	sta <osc_delta+1
+
+	; c=1   						; slow, but should work
+	;lda <osc_delta
+	;sbc <osc_loop_size+]offset
+	;sta <osc_delta
+	;lda <osc_delta+2
+	;sbc <osc_loop_size+2+]offset
+	;sta <osc_delta+2
+	;bra do_mod
 
 
 mod_done
