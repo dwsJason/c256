@@ -53,6 +53,7 @@
 ; toggle the original dump code back on, to examine the source info directly from the MOD
 OLD_DUMP equ 0
 LOOP_FIX equ 1
+LOOP_PAD equ 1024 ; num samples to loop on end, 4.0 max rate
 
 PUMPBARS_X = 208
 PUMPBARS_Y = 336
@@ -1788,6 +1789,7 @@ ModInit mx %00
 :num_patterns = temp5+2
 
 :pInst = temp6   ; used for the extraction over to the mod_instruments, block
+;:tempLen = temp7
 
 	; default table for volume pan, for fake stereo
 
@@ -1931,6 +1933,9 @@ ModInit mx %00
 	ldx <:pInst
 	lda [:pMod],y
 	xba 			  	; endian
+
+;	sta <:tempLen   ; short life span temp
+
 	asl 				; length * 4, because our samples are 2x the size of the samples in the mod, and the length in the file is half the size, to save space
 	rol |i_sample_length+2,x
 	asl
@@ -2253,7 +2258,7 @@ ModInit mx %00
 
 	clc
 	lda <:pMod
-	adc #1080-{16*30}   	 	; old school mod
+	adc #1080-{16*30}  	 	; old school mod
 	bra :oldmod
 :mkmod
 	; Calculate pPatterns
@@ -2302,6 +2307,13 @@ ModInit mx %00
 	adc <:pSamples+2
 	sta <:pSamples+2
 
+	;sec
+	;lda <:pSamples
+	;sbc #4
+	;sta <:pSamples
+	;lda <:pSamples+2
+	;sbc #0
+	;sta <:pSamples+2
 
 	; print out the pPatterns
 	ldx #:txt_pPatterns
@@ -2550,7 +2562,7 @@ ModInit mx %00
 :not_looping
 	fin
 
-	ldx #1024 ; we need 1024 more samples
+	ldx #LOOP_PAD ; we need 1024 more samples
 
 	; pEnd points at the last sample
 	sec
@@ -2786,6 +2798,17 @@ ModInit mx %00
 	lda <i_sample_loop_start+2,x
 	adc <i_sample_loop_end+2,x
 	sta <i_sample_loop_end+2,x
+
+	lda <mod_num_instruments
+	cmp #15
+	bne :doesloop2
+
+	; chop the pre-amble off the sample if it's an OG MOD
+	lda <i_sample_loop_start,x
+	sta <i_sample_start_addr,x
+	lda <i_sample_loop_start+2,x
+	sta <i_sample_start_addr+2,x
+
 	bra :doesloop2
 
 	fin
@@ -2802,7 +2825,7 @@ ModInit mx %00
 :doesloop2
 	clc
 	lda <i_sample_loop_end,x
-	adc #1024*2 ; make 4.0 play rate
+	adc #LOOP_PAD*2 ; make 4.0 play rate
 	sta <:pEnd
 	lda <i_sample_loop_end+2,x
 	adc #0
