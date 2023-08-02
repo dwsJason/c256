@@ -1964,13 +1964,39 @@ ModInit mx %00
 	sta |i_volume,x
 
 	iny ; now y is pointing at the loop start offset
+
+; if it's a 15 track mod, then looped samples are handled different
+; the offset to the loop point is in bytes, and the first part of the
+; wave is entirely ignored (we just have a loop)
+
+	lda #15
+	cmp <mod_num_instruments
+	bne :skip_special
+
 	lda [:pMod],y
 	xba           ; adjust for endian
+
+	bra :is_bytes
+
+:skip_special
+
+	lda [:pMod],y
+	xba           ; adjust for endian
+
+; adjust the loop start here, if it's invalid
+; $$JGA DO THE LOOP POINT CHECK / CORRECT HERE
+;	cmp <:tempLen		; SHORT TERM TEMP, DON'T USE LATER
+;	bcc :loop_start_seems_ok
+;	lda #0
+;	sta [:pMod],y
+
+:loop_start_seems_ok
 	; just like the length above, we need to multiply by 2 (because in amiga
 	; mod file, this value is half what it should be), we need to multiply by 2
 	; 1 more time, because our wave data takes 16 bits
 	asl
 	rol |i_sample_loop_start+2,x
+:is_bytes
 	asl
 	rol |i_sample_loop_start+2,x
 	sta |i_sample_loop_start,x     	; this just contains the loop start, as an offset for now
@@ -1996,6 +2022,17 @@ ModInit mx %00
 	asl
 	rol |i_sample_loop_end+2,x
 	sta |i_sample_loop_end,x  	; this is just the loop length at this point, temporary
+
+	lda #15
+	cmp <mod_num_instruments
+	bne :skip_byte_loop_end
+								; 15 sample mod, this is in bytes, not words
+	lsr |i_sample_loop_end+2,x
+	ror |i_sample_loop_end,x
+
+:skip_byte_loop_end
+
+
 	fin
 
 :no_loop
