@@ -2715,7 +2715,7 @@ ModInit mx %00
 ]lp
 	lda <:pCurPattern
 	sta |mod_patterns,y
-	adc <mod_pattern_size  ; 64*4*4
+	adc <mod_pattern_size  ; 64*4*4, 64*4*6, or 64*4*8
 	sta <:pCurPattern
 
 	lda <:pCurPattern+2
@@ -3094,8 +3094,13 @@ IsSupportedMod mx %00
 		cmp |:8chn
 		bne :not_8chn
 		cpx |:8chn+2
-		bne :not_8chn
-
+		beq :is8chn
+:not_8chn
+		cmp |:cd81
+		bne :nocd81
+		cpx |:cd81+2
+		bne :nocd81
+:is8chn
 		ldy #8  				; 8 tracks
 		sty <mod_num_tracks
 
@@ -3107,8 +3112,7 @@ IsSupportedMod mx %00
 
 		clc
 		rts
-:not_8chn
-
+:nocd81
 		cmp |:6chn
 		bne :not_6chn
 		cpx |:6chn+2
@@ -3174,6 +3178,7 @@ IsSupportedMod mx %00
 		asc '4CHN'
 :6chn	asc '6CHN'
 :8chn	asc '8CHN'
+:cd81   asc 'CD81'
 		asc 'FLT4'
 		asc 'FLT8'
 
