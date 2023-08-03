@@ -352,8 +352,8 @@ start   ent             ; make sure start is visible outside the file
 ;		jsr DancerRender
 ;		jsr SonicRender
 
-;		jsr PumpBarRender
-;		jsr PeakMeterRender
+		jsr PumpBarRender
+		jsr PeakMeterRender
 
 ;		jsr UpdateOSC0Sprite
 ;		jsr UpdateOSC0SpriteR
@@ -2287,20 +2287,43 @@ ModInit mx %00
 	xba  ; x 256
 	asl  ; x 512
 	rol <:pSamples+2
+
+	cpx #6
+	bne :maybe4_tracks
+
+	pei <:pSamples+2	; x512
+	pha
+
 	asl  ; x 1024
-	;sta <:pSamples
 	rol <:pSamples+2
-	php
+
+	adc 1,s
+	sta <:pSamples
+	lda <:pSamples+2
+	adc 3,s
+	sta <:pSamples+2
+
+	pla
+	pla
+	lda <:pSamples  		; 6 track, x1536
+	bra :track_continue
+
+
+:maybe4_tracks
+	asl  ; x 1024
+	rol <:pSamples+2
+
 	cpx #4
 	beq :track_continue  ;4 tracks
-	plp
+:t8 ; 8 tracks
+
 	; 8 tracks
 	asl ; x 2048
 	rol <:pSamples+2
-	php
+
 :track_continue
-	plp
-	; c=0
+	; c=?
+	clc
 	adc <:pPatterns
 	sta <:pSamples
 	lda <:pPatterns+2
@@ -3085,6 +3108,26 @@ IsSupportedMod mx %00
 		clc
 		rts
 :not_8chn
+
+		cmp |:6chn
+		bne :not_6chn
+		cpx |:6chn+2
+		bne :not_6chn
+		; 6 track mod
+		ldy #6
+		sty <mod_num_tracks
+
+		ldy #1536
+		sty <mod_pattern_size
+
+		ldy #4*6
+		sty <mod_row_size
+
+		clc
+		rts
+
+:not_6chn
+
 		sep #$30
 
 		lda <mod_type_code
@@ -3129,7 +3172,7 @@ IsSupportedMod mx %00
 ; TBD - I feel like I should be able to support all these
 		asc 'M!K!'
 		asc '4CHN'
-		asc '6CHN'
+:6chn	asc '6CHN'
 :8chn	asc '8CHN'
 		asc 'FLT4'
 		asc 'FLT8'
@@ -3189,7 +3232,7 @@ PrintPatternRow mx %00
 	ldy <mod_num_tracks
 	cpy #4
 	beq :done
-	lda #'| '
+	lda #'| '		; do 6
 	fastPUTC
 ;	inc <pFastPut
 ]offset = 0
