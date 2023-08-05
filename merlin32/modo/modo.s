@@ -1582,6 +1582,16 @@ ModPlayerTick mx %00
 
 :BPM
 		; needs to alter timer, skip for now
+		phx
+		asl
+		asl
+		tax
+		lda |bpm_tick_table,x    	; changing from 50hz to, who knows what
+		sta |TIMER0_CMP_L
+		lda |bpm_tick_table+1,x
+		sta |TIMER0_CMP_M
+		plx
+
 :after_effect
 
 ;NSTC:  (7159090.5  / (:note_period * 2))/24000 into 8.8 fixed result
@@ -4843,6 +4853,20 @@ pump_empty_colors
 		adrl $FF202020
 		adrl $FF202020
 
+;------------------------------------------------------------------------------
+; tick rate table
+CPU_CLOCK_RATE equ 14318180
+bpm_tick_table
+]bpm = 0
+		lup 256
+]hz = {{2*]bpm}/5}
+		do ]hz
+		adrl {CPU_CLOCK_RATE/]hz}
+		else
+		adrl 0
+		fin
+]bpm = ]bpm+1
+		--^
 
 ;------------------------------------------------------------------------------
 
