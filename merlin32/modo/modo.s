@@ -2280,16 +2280,52 @@ ModInit mx %00
 	stz <:pSamples+2
 
 ; pointer to the samples
+; we need num_patterns * mod_num_tracks * 256
 
-	ldx <mod_num_tracks
+	lda <mod_num_tracks
+	dec
+	and #$7
+	asl
+	tax
 
 	lda <:num_patterns
-	xba  ; x 256
+	xba  ; x 256		   	; x1
+
+	jmp (:multable,x)
+
+:multable
+
+	da :x1   	; pattern count x256
+	da :x2		; pattern count x512
+	da :x3		; pattern count x768
+	da :x4      ; pattern count x1024
+	da :x5      ; pattern count x1280
+	da :x6  	; pattern count x1536
+	da :x7  	; pattern count x1792
+	da :x8  	; pattern count x2048
+
+:x3
+	sta <:pSamples   ; x256
+:x5c
 	asl  ; x 512
 	rol <:pSamples+2
-
-	cpx #6
-	bne :maybe4_tracks
+	adc <:pSamples   ; x768
+	sta <:pSamples
+	bcc :track_continue
+	inc <:pSamples+2
+	bra :track_continue
+:x4
+	asl  ; x 512
+	rol <:pSamples+2
+	bra :x2			; which will go to 1024
+:x5
+	sta <:pSamples
+	asl  ; x 512
+	rol <:pSamples+2
+	bra :x5c
+:x6
+	asl  ; x 512
+	rol <:pSamples+2
 
 	pei <:pSamples+2	; x512
 	pha
@@ -2307,20 +2343,51 @@ ModInit mx %00
 	pla
 	lda <:pSamples  		; 6 track, x1536
 	bra :track_continue
+:x7
+	sta <:pSamples    ; x256
 
+	asl  ; x 512
+	rol <:pSamples+2
 
-:maybe4_tracks
+	pei <:pSamples+2	; x512
+	pha
+
 	asl  ; x 1024
 	rol <:pSamples+2
 
-	cpx #4
-	beq :track_continue  ;4 tracks
-:t8 ; 8 tracks
+	adc 1,s
+	sta 1,s
+	lda <:pSamples+2
+	adc 3,s
+	sta 3,s
 
+	clc
+	lda <:pSamples
+	adc 1,s
+	sta <:pSamples
+	lda 3,s
+	adc #0
+	sta <:pSamples+2
+
+	pla
+	pla
+	lda <:pSamples
+
+
+	bra :track_continue
+:x8
+	asl  ; x 512
+	rol <:pSamples+2
+	asl  ; x 1024
+	rol <:pSamples+2
+
+:t8 ; 8 tracks
+:x2
 	; 8 tracks
 	asl ; x 2048
 	rol <:pSamples+2
 
+:x1
 :track_continue
 	; c=?
 	clc
@@ -3066,6 +3133,7 @@ ModInit mx %00
 
 ;------------------------------------------------------------------------------
 ; AX = the mod code
+; $$JGA TODO - clean this up
 IsSupportedMod mx %00
 		sta <mod_type_code
 		stx <mod_type_code+2
@@ -3131,6 +3199,26 @@ IsSupportedMod mx %00
 		rts
 
 :not_6chn
+		cmp |:7chn
+		bne :not_7chn
+		cpx |:7chn+2
+		bne :not_7chn
+
+		; 7 track mod, WTF?  I have 1 - saga_musix_-_jetpack_2_-_jetfunk.mod 
+		ldy #7
+		sty <mod_num_tracks
+
+		ldy #7*256
+		sty <mod_pattern_size
+
+		ldy #4*7
+		sty <mod_row_size
+
+		clc
+		rts
+
+
+:not_7chn
 
 		sep #$30
 
@@ -3177,6 +3265,7 @@ IsSupportedMod mx %00
 		asc 'M!K!'
 		asc '4CHN'
 :6chn	asc '6CHN'
+:7chn   asc '7CHN'
 :8chn	asc '8CHN'
 :cd81   asc 'CD81'
 		asc 'FLT4'
