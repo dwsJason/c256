@@ -52,7 +52,7 @@ mod_num_instruments   ds 2
 mod_num_tracks        ds 2     ; default to 4
 mod_pattern_size      ds 2     ; default to 1024
 mod_row_size          ds 2     ; default 16
-
+mod_bpm				  ds 2	   ; default 125 (125*2/5=50Hz)
 mod_speed             ds 2     ; default speed is 6
 mod_song_length       ds 2     ; length in patterns
 mod_p_current_pattern ds 4     ; pointer to the current pattern

@@ -1583,6 +1583,7 @@ ModPlayerTick mx %00
 :BPM
 		; needs to alter timer, skip for now
 		phx
+		sta <mod_bpm  			    ; for the visualizer
 		asl
 		asl
 		tax
@@ -1637,6 +1638,9 @@ ModPlayerTick mx %00
 		ora |i_sample_length+2,y
 		beq :no_sample
 
+		lda |i_fine_tune,y
+		lda |i_volume,y
+
 
 		; wave pointer 24.8
 		stz <osc_pWave,x
@@ -1683,7 +1687,7 @@ ModPlayerTick mx %00
 
 		iny
 		iny
-		cpy <mod_row_size ; 4*4 or 8*4
+		cpy <mod_row_size ; 4*4 or 8*4 or 6*4 or 7*4
 		bccl ]lp
 
 ; check for jump
@@ -1825,6 +1829,9 @@ ModInit mx %00
 
 	lda #4*4   		   ; most common
 	sta <mod_row_size
+
+	lda #125
+	sta <mod_bpm
 
 	stz <SongIsPlaying  ; no ticking
 
@@ -1968,14 +1975,25 @@ ModInit mx %00
 	iny
 	iny ; now y is pointing at the fine tune
 
+;
 	lda [:pMod],y
-	and #$FF
+	and #$0F
+;	asl					; pre multiply?  Is this going to wreck me?
+
+;	cmp #8				; positive fine tune
+;	bcc :ft_range_ok
+;	sbc #16				; handle negative
+;:ft_range_ok
 	sta |i_fine_tune,x
 
 	iny ; now y is pointing at the volume
 
 	lda [:pMod],y
 	and #$FF
+	cmp #64
+	bcc :vol_ok
+	lda #64			; clamp at 64
+:vol_ok
 	sta |i_volume,x
 
 	iny ; now y is pointing at the loop start offset
@@ -4867,6 +4885,67 @@ bpm_tick_table
 		fin
 ]bpm = ]bpm+1
 		--^
+
+;-----------------------------------------------------------------------------
+;#include <stdio.h>
+;#include <math.h>
+;
+;int main()
+;{
+;    printf("fine tune multiplier table\n");
+;    double twelth_step = pow(2.0, 1.0/12.0);
+;    printf("%f\n", twelth_step);
+;    
+;    for (double sub_step = -8.0; sub_step < 8.0; sub_step+=1.0)
+;    {
+;        double sub_step_result =  pow(twelth_step, sub_step/8.0);
+;        int fixedp_result = (int)(65536.0 * sub_step_result);
+;        printf("substep %d = %f = %08x\n", (int)sub_step,sub_step_result, fixedp_result);
+;    }
+;
+;    return 0;
+;}
+;-----------------------------------------------------------------------------
+;fine tune multiplier table
+;1.059463
+;substep -8 = 0.943874 = 0000f1a1  ; 16.16 fixed point result
+;substep -7 = 0.950714 = 0000f361
+;substep -6 = 0.957603 = 0000f525
+;substep -5 = 0.964542 = 0000f6ec
+;substep -4 = 0.971532 = 0000f8b6
+;substep -3 = 0.978572 = 0000fa83
+;substep -2 = 0.985663 = 0000fc54
+;substep -1 = 0.992806 = 0000fe28
+;substep 0 = 1.000000 = 00010000
+;substep 1 = 1.007246 = 000101da
+;substep 2 = 1.014545 = 000103b9
+;substep 3 = 1.021897 = 0001059b
+;substep 4 = 1.029302 = 00010780
+;substep 5 = 1.036761 = 00010969
+;substep 6 = 1.044274 = 00010b55
+;substep 7 = 1.051841 = 00010d45
+
+; 1/12th step of 1 octave - 2^(1/12)
+; 1/8th step of 1 note - (2^(1/12))^(1/8th) 1.0072464122237038980903435690978
+
+fine_tune_table
+	da $10000 	  ; 0
+	da $101da     ; 1
+    da $103b9     ; 2
+	da $1059b     ; 3
+	da $10780     ; 4
+	da $10969     ; 5
+	da $10b55     ; 6
+	da $10d45     ; 7
+
+	da $0f1a1 	  ;-8
+	da $0f361     ;-7
+	da $0f525     ;-6
+	da $0f6ec     ;-5
+	da $0f8b6     ;-4
+	da $0fa83     ;-3
+	da $0fc54     ;-2
+	da $0fe28     ;-1
 
 ;------------------------------------------------------------------------------
 
